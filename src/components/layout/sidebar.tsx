@@ -1,0 +1,129 @@
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+import {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  Plane,
+  FileText,
+  Building2,
+  Car,
+  Settings,
+  LogOut,
+  Menu,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { useUser } from '@/hooks/use-user'
+import { usePermissions } from '@/hooks/use-permissions'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
+const icons = {
+  LayoutDashboard,
+  Calendar,
+  Users,
+  Plane,
+  FileText,
+  Building2,
+  Car,
+  Settings,
+}
+
+const navItems = [
+  { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
+  { label: 'Eventos', href: '/events', icon: 'Calendar', area: 'events' },
+  { label: 'People', href: '/people', icon: 'Users', area: 'people' },
+  { label: 'Aéreo', href: '/flights', icon: 'Plane', area: 'flights' },
+  { label: 'Vistos', href: '/visas', icon: 'FileText', area: 'visas' },
+  { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
+  { label: 'Transporte', href: '/transport', icon: 'Car', area: 'transport' },
+  { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },
+]
+
+export function Sidebar() {
+  const pathname = usePathname()
+  const { user } = useUser()
+  const { canView, isAdmin } = usePermissions()
+  const router = useRouter()
+  const supabase = createClient()
+  const [collapsed, setCollapsed] = useState(false)
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const filteredItems = navItems.filter(item => {
+    if (!item.area) return true
+    if (isAdmin) return true
+    return canView(item.area)
+  })
+
+  return (
+    <aside
+      className={cn(
+        'flex flex-col h-screen bg-card border-r transition-all duration-300',
+        collapsed ? 'w-16' : 'w-64'
+      )}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b">
+        {!collapsed && (
+          <span className="font-bold text-lg text-primary">MMA System</span>
+        )}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setCollapsed(!collapsed)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+        {filteredItems.map(item => {
+          const Icon = icons[item.icon as keyof typeof icons]
+          const isActive = pathname.startsWith(item.href)
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-muted'
+              )}
+            >
+              <Icon className="h-5 w-5 shrink-0" />
+              {!collapsed && <span>{item.label}</span>}
+            </Link>
+          )
+        })}
+      </nav>
+
+      {/* User */}
+      <div className="p-4 border-t">
+        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+          {!collapsed && (
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{user?.name}</p>
+              <p className="text-xs text-muted-foreground truncate">
+                {user?.user_type}
+              </p>
+            </div>
+          )}
+          <Button variant="ghost" size="icon" onClick={handleLogout}>
+            <LogOut className="h-5 w-5" />
+          </Button>
+        </div>
+      </div>
+    </aside>
+  )
+}
