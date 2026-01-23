@@ -6,7 +6,7 @@ export type DivergenceType = 'pre_booking' | 'early_checkin' | 'late_checkout';
 
 export interface Hotel {
   id: string;
-  enrolled_id: string;
+  enrollment_id: string; // Renamed from enrolled_id
   event_id: string;
   hotel_name: string;
   room_type: string | null;
@@ -52,7 +52,7 @@ export interface Hotel {
 }
 
 export interface HotelFormData {
-  enrolled_id: string;
+  enrollment_id: string;
   hotel_name: string;
   room_type?: string;
   actual_checkin: string;

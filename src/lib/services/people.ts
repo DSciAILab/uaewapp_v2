@@ -113,6 +113,15 @@ export async function deletePerson(id: string): Promise<void> {
   if (error) throw error
 }
 
+export async function bulkDeletePeople(ids: string[]): Promise<void> {
+  const { error } = await supabase
+    .from('mma_people')
+    .delete()
+    .in('id', ids)
+
+  if (error) throw error
+}
+
 export async function getNationalities(): Promise<string[]> {
   const { data, error } = await supabase
     .from('mma_people')
@@ -126,28 +135,134 @@ export async function getNationalities(): Promise<string[]> {
   return unique as string[]
 }
 
-export async function importPeopleFromCSV(rows: PersonFormData[]): Promise<{ success: number; errors: string[] }> {
+export async function importPeopleFromCSV(
+  rows: PersonFormData[], 
+  onProgress?: (current: number, total: number, message?: string) => void,
+  checkDuplicates: boolean = true
+): Promise<{ success: number; errors: string[]; duplicates: string[] }> {
+  console.log('CSV Import: Iniciando processamento de', rows.length, 'linhas. Verificar duplicados:', checkDuplicates)
   const errors: string[] = []
+  const duplicates: string[] = []
   let success = 0
+  const total = rows.length
 
-  for (let i = 0; i < rows.length; i++) {
-    try {
-      const row = rows[i]
+  const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0))
+
+  try {
+    const existingSet = new Set<string>()
+
+    // 1. Fetch existing names (limit to 10k for safety, enough for most use cases)
+    // Only if checkDuplicates is true
+    if (checkDuplicates) {
+      if (onProgress) onProgress(0, total, 'Verificando duplicados no banco...')
+      console.log('CSV Import: Buscando registros existentes...')
       
-      // Validação mínima
+      const { data: existingData, error: fetchError } = await supabase
+        .from('mma_people')
+        .select('name, surname')
+        .limit(10000)
+      
+      if (fetchError) {
+        console.error('CSV Import: Erro ao buscar duplicados:', fetchError)
+        throw fetchError
+      }
+
+      (existingData || []).forEach(p => {
+        existingSet.add(`${normalizeName(p.name)}|${normalizeName(p.surname)}`)
+      })
+      console.log('CSV Import: Encontrados', existingSet.size, 'registros no banco')
+    } else {
+      console.log('CSV Import: Verificação de duplicados DESATIVADA pelo usuário')
+    }
+
+    // 2. Normalization
+    if (onProgress) onProgress(0, total, 'Preparando registros...')
+    
+    const toInsert: any[] = []
+    const localSeen = new Set<string>()
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i]
       if (!row.name || !row.surname) {
         errors.push(`Linha ${i + 1}: Nome e sobrenome são obrigatórios`)
         continue
       }
 
-      await createPerson(row)
-      success++
-    } catch (error: any) {
-      errors.push(`Linha ${i + 1}: ${error.message}`)
+      const key = `${normalizeName(row.name)}|${normalizeName(row.surname)}`
+      
+      if (existingSet.has(key) || localSeen.has(key)) {
+        duplicates.push(`${row.name} ${row.surname} (Linha ${i + 1})`)
+        continue
+      }
+
+      localSeen.add(key)
+      
+      const cleanRow: any = { ...row }
+      const numFields = ['fighter_id', 'height', 'reach']
+      numFields.forEach(f => {
+        if (cleanRow[f]) {
+          const val = Number(cleanRow[f])
+          cleanRow[f] = isNaN(val) ? null : val
+        }
+      })
+
+      // Ensure mandatory fields are present and strings are trimmed
+      toInsert.push({
+        ...cleanRow,
+        name: normalizeName(row.name),
+        surname: normalizeName(row.surname),
+        event_name: row.event_name ? normalizeName(row.event_name) : null,
+      })
+
+      if (i % 500 === 0 && i > 0) {
+        if (onProgress) onProgress(0, total, `Processando planilha (${i} de ${total})...`)
+        await yieldToUI()
+      }
     }
+
+    console.log('CSV Import: Pronto para inserir', toInsert.length, 'novos registros')
+
+    if (toInsert.length === 0) {
+      return { success: 0, errors, duplicates }
+    }
+
+    // 3. Batch insert
+    const BATCH_SIZE = 100
+    for (let i = 0; i < toInsert.length; i += BATCH_SIZE) {
+      const batch = toInsert.slice(i, i + BATCH_SIZE)
+      const currentBatchTotal = Math.min(i + BATCH_SIZE, toInsert.length)
+      
+      if (onProgress) {
+        const globalProgress = Math.floor((i / toInsert.length) * total)
+        onProgress(
+          globalProgress,
+          total,
+          `Enviando ao banco (${currentBatchTotal} de ${toInsert.length})`
+        )
+      }
+
+      console.log(`CSV Import: Enviando lote ${Math.floor(i/BATCH_SIZE) + 1}...`)
+      const { error: insertError } = await supabase
+        .from('mma_people')
+        .insert(batch)
+
+      if (insertError) {
+        console.error('CSV Import: Erro no lote:', insertError)
+        errors.push(`Erro no lote ${Math.floor(i / BATCH_SIZE) + 1}: ${insertError.message}`)
+      } else {
+        success += batch.length
+      }
+      
+      await yieldToUI()
+    }
+
+  } catch (err: any) {
+    console.error('CSV Import: Erro crítico:', err)
+    errors.push(`Erro crítico: ${err.message || 'Falha desconhecida'}`)
   }
 
-  return { success, errors }
+  console.log('CSV Import: Finalizado. Sucesso:', success, 'Erros:', errors.length)
+  return { success, errors, duplicates }
 }
 
 export async function checkDuplicatePerson(name: string, surname: string, excludeId?: string): Promise<boolean> {

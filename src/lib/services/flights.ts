@@ -93,6 +93,25 @@ export async function getFlightsByEvent(eventId: string, filters: FlightFilters 
   return results
 }
 
+export async function getFlightByEventCode(eventId: string, code: string): Promise<Flight | null> {
+  const { data, error } = await supabase
+    .from('mma_flights')
+    .select(`
+      *,
+      enrollment:mma_enrollments!inner(
+        id,
+        event_id,
+        event_code
+      )
+    `)
+    .eq('enrollment.event_id', eventId)
+    .ilike('enrollment.event_code', code)
+    .maybeSingle()
+
+  if (error) throw error
+  return data
+}
+
 export async function getFlightByEnrollment(enrollmentId: string): Promise<Flight | null> {
   const { data, error } = await supabase
     .from('mma_flights')

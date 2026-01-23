@@ -114,6 +114,15 @@ export function FlightForm({
     if (enrollment?.needs_flight) {
       setValue('type', enrollment.needs_flight as FlightType)
     }
+
+    // Auto-fill ticket links from person's document folder if available
+    if (enrollment?.person?.document_folder) {
+      const docLink = enrollment.person.document_folder
+      // Only fill if empty to avoid overwriting user input? 
+      // User request implies "bring it together", so filling it is good.
+      setValue('arrival_ticket_link', docLink)
+      setValue('departure_ticket_link', docLink)
+    }
   }
 
   return (
@@ -203,6 +212,71 @@ export function FlightForm({
         )}
       </div>
 
+      {/* Importar Detalhes */}
+      {!flight && (
+        <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
+          <Label>Importar de outro membro</Label>
+          <div className="flex gap-2">
+            <Input 
+              placeholder="Código (ex: C.000)" 
+              className="max-w-[150px] font-mono uppercase"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.length >= 3) {
+                   // Logic handled by button to avoid spamming
+                }
+              }}
+              id="import-code"
+            />
+            <Button 
+              type="button" 
+              variant="secondary"
+              onClick={async () => {
+                const code = (document.getElementById('import-code') as HTMLInputElement).value
+                if (!code) return
+                try {
+                  const { getFlightByEventCode } = await import('@/lib/services/flights')
+                  const sourceFlight = await getFlightByEventCode(eventId, code)
+                  if (sourceFlight) {
+                    setValue('type', sourceFlight.type as FlightType)
+                    
+                    if (sourceFlight.arrival_flight_number) {
+                      setValue('arrival_flight_number', sourceFlight.arrival_flight_number)
+                      setValue('arrival_date', sourceFlight.arrival_date)
+                      setValue('arrival_time', sourceFlight.arrival_time)
+                      setValue('arrival_airport', sourceFlight.arrival_airport)
+                      setValue('arrival_reservation', sourceFlight.arrival_reservation)
+                      setValue('arrival_ticket_link', sourceFlight.arrival_ticket_link)
+                    }
+                    
+                    if (sourceFlight.departure_flight_number) {
+                       setValue('departure_flight_number', sourceFlight.departure_flight_number)
+                       setValue('departure_date', sourceFlight.departure_date)
+                       setValue('departure_time', sourceFlight.departure_time)
+                       setValue('departure_airport', sourceFlight.departure_airport)
+                       setValue('departure_reservation', sourceFlight.departure_reservation)
+                       setValue('departure_ticket_link', sourceFlight.departure_ticket_link)
+                    }
+                    
+                    // Unified fields logic (if we are using unified fields on UI, we set underlying specific ones above,
+                    // but we should also update the UI inputs if we change them below)
+                  } else {
+                    alert('Voo não encontrado para este código')
+                  }
+                } catch (err) {
+                  console.error(err)
+                }
+              }}
+            >
+              Copiar Detalhes
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Digite o ID do evento (ex: F.001) para copiar os dados de voo daquela pessoa.
+          </p>
+        </div>
+      )}
+
       {/* Tipo de Voo */}
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
@@ -235,25 +309,62 @@ export function FlightForm({
         </div>
       </div>
 
+      {/* Dados Principais do Ticket (Compartilhado) */}
+      <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 border rounded-lg">
+        <h3 className="font-semibold text-sm text-foreground flex items-center gap-2">
+          <Plane className="h-4 w-4" />
+          Dados do Ticket (Único)
+        </h3>
+        
+        <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="shared_reservation">Nº Ticket / PNR</Label>
+              <Input
+                id="shared_reservation"
+                placeholder="ABC123456"
+                defaultValue={watch('arrival_reservation') || watch('departure_reservation') || ''}
+                onChange={(e) => {
+                   const val = e.target.value
+                   // Sync to both
+                   setValue('arrival_reservation', val)
+                   setValue('departure_reservation', val)
+                }}
+              />
+              <p className="text-[10px] text-muted-foreground">Será aplicado para Ida e Volta</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="shared_ticket_link">Link do Ticket (Drive)</Label>
+               <Input
+                  id="shared_ticket_link"
+                  placeholder="https://drive.google.com/..."
+                  defaultValue={watch('arrival_ticket_link') || watch('departure_ticket_link') || ''}
+                  onChange={(e) => {
+                     const val = e.target.value
+                     setValue('arrival_ticket_link', val)
+                     setValue('departure_ticket_link', val)
+                  }}
+               />
+            </div>
+        </div>
+      </div>
+
       {/* Chegada */}
       {showArrival && (
-        <div className="space-y-4">
+        <div className="space-y-4 border-l-2 border-green-500 pl-4">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <PlaneLanding className="h-4 w-4" />
+            <PlaneLanding className="h-4 w-4 text-green-600" />
             Chegada
           </h3>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="arrival_reservation">Nº Reserva</Label>
-              <Input
-                id="arrival_reservation"
-                {...register('arrival_reservation')}
-                placeholder="ABC123"
-              />
-            </div>
+             {/* Reservation Field Hidden - Managed by Shared Field */}
+             <div className="hidden">
+              <Input {...register('arrival_reservation')} />
+              <Input {...register('arrival_ticket_link')} />
+             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 md:col-span-1">
               <Label htmlFor="arrival_flight_number">Nº Voo *</Label>
               <Input
                 id="arrival_flight_number"
@@ -264,9 +375,19 @@ export function FlightForm({
                 <p className="text-sm text-red-500">{errors.arrival_flight_number.message}</p>
               )}
             </div>
+            
+            <div className="space-y-2 col-span-2 md:col-span-1">
+               <Label htmlFor="arrival_airport">Aeroporto</Label>
+                <Input
+                  id="arrival_airport"
+                  {...register('arrival_airport')}
+                  placeholder="GRU"
+                  maxLength={10}
+                />
+            </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="arrival_date">Data *</Label>
               <Input
@@ -287,48 +408,26 @@ export function FlightForm({
                 {...register('arrival_time')}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="arrival_airport">Aeroporto</Label>
-              <Input
-                id="arrival_airport"
-                {...register('arrival_airport')}
-                placeholder="GRU"
-                maxLength={10}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="arrival_ticket_link">Link do Ticket (Google Drive)</Label>
-            <Input
-              id="arrival_ticket_link"
-              {...register('arrival_ticket_link')}
-              placeholder="https://drive.google.com/..."
-            />
           </div>
         </div>
       )}
 
       {/* Partida */}
       {showDeparture && (
-        <div className="space-y-4">
+        <div className="space-y-4 border-l-2 border-orange-500 pl-4">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
-            <PlaneTakeoff className="h-4 w-4" />
+            <PlaneTakeoff className="h-4 w-4 text-orange-600" />
             Partida
           </h3>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="departure_reservation">Nº Reserva</Label>
-              <Input
-                id="departure_reservation"
-                {...register('departure_reservation')}
-                placeholder="XYZ789"
-              />
-            </div>
+             {/* Reservation Field Hidden - Managed by Shared Field */}
+             <div className="hidden">
+              <Input {...register('departure_reservation')} />
+              <Input {...register('departure_ticket_link')} />
+             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 md:col-span-1">
               <Label htmlFor="departure_flight_number">Nº Voo *</Label>
               <Input
                 id="departure_flight_number"
@@ -339,9 +438,19 @@ export function FlightForm({
                 <p className="text-sm text-red-500">{errors.departure_flight_number.message}</p>
               )}
             </div>
+
+            <div className="space-y-2 col-span-2 md:col-span-1">
+              <Label htmlFor="departure_airport">Aeroporto</Label>
+              <Input
+                id="departure_airport"
+                {...register('departure_airport')}
+                placeholder="GRU"
+                maxLength={10}
+              />
+            </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="departure_date">Data *</Label>
               <Input
@@ -362,25 +471,6 @@ export function FlightForm({
                 {...register('departure_time')}
               />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="departure_airport">Aeroporto</Label>
-              <Input
-                id="departure_airport"
-                {...register('departure_airport')}
-                placeholder="GRU"
-                maxLength={10}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="departure_ticket_link">Link do Ticket (Google Drive)</Label>
-            <Input
-              id="departure_ticket_link"
-              {...register('departure_ticket_link')}
-              placeholder="https://drive.google.com/..."
-            />
           </div>
         </div>
       )}

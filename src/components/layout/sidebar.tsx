@@ -13,6 +13,11 @@ import {
   Settings,
   LogOut,
   Menu,
+  Music,
+  Activity,
+  BarChart3,
+  ShieldCheck,
+  Layers,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -31,6 +36,11 @@ const icons = {
   Building2,
   Car,
   Settings,
+  Music,
+  Activity,
+  BarChart3,
+  ShieldCheck,
+  Layers,
 }
 
 const navItems = [
@@ -41,6 +51,12 @@ const navItems = [
   { label: 'Vistos', href: '/visas', icon: 'FileText', area: 'visas' },
   { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
   { label: 'Transporte', href: '/transport', icon: 'Car', area: 'transport' },
+  { label: 'Fighter Stats', href: '/stats', icon: 'BarChart3', area: 'operations' },
+  { label: 'Entrance Music', href: '/music', icon: 'Music', area: 'operations' },
+  { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
+  { label: 'Pre-Event', href: '/pre-event', icon: 'ShieldCheck', area: 'pre_event' },
+  { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
+  { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
   { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },
 ]
 
@@ -61,9 +77,10 @@ export function Sidebar() {
   }
 
   const filteredItems = navItems.map(item => {
-    // Se estivermos dentro de um evento e o item for Hotel ou Transporte,
+    // Se estivermos dentro de um evento e o item for contextualizado,
     // atualizamos o link para ser contextual ao evento.
-    if (eventId && (item.area === 'hotels' || item.area === 'transport')) {
+    const eventScopedAreas = ['hotels', 'transport', 'operations', 'pre_event']
+    if (eventId && eventScopedAreas.includes(item.area || '')) {
       const subPath = item.href.startsWith('/') ? item.href : `/${item.href}`
       return {
         ...item,
@@ -72,8 +89,17 @@ export function Sidebar() {
     }
     return item
   }).filter(item => {
+    // Sempre mostrar dashboard
     if (!item.area) return true
-    if (permissionsLoading) return false // Oculta durante o loading para evitar flash
+    
+    // Se ainda está carregando, mas temos usuário, podemos mostrar baseado no tipo (optimistic)
+    if (permissionsLoading) {
+       if (user?.user_type === 'admin') return true
+       // Se não é admin, espera carregar ou mostra padrão (melhor esconder se for restrito)
+       // Mas para evitar "empty sidebar", vamos mostrar itens básicos se user existir
+       return user ? true : false 
+    }
+
     if (isAdmin) return true
     return canView(item.area)
   })
@@ -100,8 +126,9 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
+      {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {permissionsLoading ? (
+        {permissionsLoading && filteredItems.length <= 1 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-50">
             <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
             {!collapsed && <span className="text-[10px] uppercase font-bold tracking-widest">Carregando...</span>}

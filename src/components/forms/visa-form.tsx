@@ -106,6 +106,10 @@ export function VisaForm({
     if (enrollment?.person) {
       setValue('passport_name', enrollment.person.compiled_name || '')
       setValue('nationality', enrollment.person.nationality || '')
+      // Auto-fill docs link if available
+      if (enrollment.person.document_folder) {
+        setValue('document_link', enrollment.person.document_folder)
+      }
     }
   }
 

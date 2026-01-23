@@ -1,248 +1,259 @@
-'use client'
+'use client';
 
-import { useState, useEffect, use } from 'react'
-import { useRouter } from 'next/navigation'
-import { Header } from '@/components/layout/header'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import { EventForm } from '@/components/forms/event-form'
-import { EnrollmentForm } from '@/components/forms/enrollment-form'
-import { EnrollmentsTable } from '@/components/tables/enrollments-table'
-import { Settings, Plus, Users, Plane, FileText, Hotel, Car, ArrowLeft } from 'lucide-react'
-import { toast } from 'sonner'
-import { usePermissions } from '@/hooks/use-permissions'
-import { getEventById, updateEvent } from '@/lib/services/events'
-import {
-  getEnrollmentsByEvent,
-  createEnrollment,
-  updateEnrollment,
+import { useState, useEffect, use } from 'react';
+import { useRouter } from 'next/navigation';
+import { Header } from '@/components/layout/header';
+import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
+
+import { MetricsGrid } from '@/components/dashboard/metrics-grid';
+import { StatusCard } from '@/components/dashboard/status-card';
+import { UpcomingDeadlines } from '@/components/dashboard/upcoming-deadlines';
+import { QuickActions } from '@/components/dashboard/quick-actions';
+import { EnrollmentsTable } from '@/components/tables/enrollments-table';
+import { EnrollmentForm } from '@/components/forms/enrollment-form';
+import { EventForm } from '@/components/forms/event-form';
+
+import { Settings, Plus, LayoutDashboard, Users, Activity } from 'lucide-react';
+import { toast } from 'sonner';
+import { usePermissions } from '@/hooks/use-permissions';
+import { useDashboard } from '@/hooks/use-dashboard';
+import { useRealtimeContext, RealtimeProvider } from '@/lib/realtime/realtime-provider';
+
+import { getEventById, updateEvent } from '@/lib/services/events';
+import { 
+  getEnrollmentsByEvent, 
+  createEnrollment, 
+  updateEnrollment, 
   cancelEnrollment,
-  getEnrollmentStats,
-  type EnrollmentWithDetails,
-} from '@/lib/services/enrollments'
-import { formatDate } from '@/lib/utils'
-import type { Event } from '@/types/database'
-import type { EventSchema, EnrollmentSchema } from '@/lib/validations/event'
+  type EnrollmentWithDetails 
+} from '@/lib/services/enrollments';
 
-export default function EventDetailPage({ params }: { params: Promise<{ eventId: string }> }) {
-  const { eventId } = use(params)
-  const router = useRouter()
-  const [event, setEvent] = useState<Event | null>(null)
-  const [enrollments, setEnrollments] = useState<EnrollmentWithDetails[]>([])
-  const [stats, setStats] = useState<any>({})
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+import { formatDate } from '@/lib/utils';
+import { EventSchema, EnrollmentSchema } from '@/lib/validations/event';
 
-  const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false)
-  const [isEnrollmentDrawerOpen, setIsEnrollmentDrawerOpen] = useState(false)
-  const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentWithDetails | null>(null)
-  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
-  const [enrollmentToCancel, setEnrollmentToCancel] = useState<EnrollmentWithDetails | null>(null)
+function EventDashboardContent({ eventId }: { eventId: string }) {
+  const router = useRouter();
+  
+  // High-performance cached data fetching via SWR hook
+  const { dashboardData, loading: dashLoading, refresh: refreshDash } = useDashboard(eventId);
+  
+  const [loading, setLoading] = useState(true);
+  const [enrollments, setEnrollments] = useState<EnrollmentWithDetails[]>([]);
+  const [event, setEvent] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
 
-  const { canEdit } = usePermissions()
-  const canEditEvents = canEdit('events')
+  // Modals state
+  const [isEventDrawerOpen, setIsEventDrawerOpen] = useState(false);
+  const [isEnrollmentDrawerOpen, setIsEnrollmentDrawerOpen] = useState(false);
+  const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentWithDetails | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [enrollmentToCancel, setEnrollmentToCancel] = useState<EnrollmentWithDetails | null>(null);
 
-  const fetchData = async () => {
-    setLoading(true)
+  const { canEdit } = usePermissions();
+  const { isConnected } = useRealtimeContext();
+  const canEditEvents = canEdit('events');
+
+  const fetchRoster = async () => {
     try {
-      const [eventData, enrollmentsData, statsData] = await Promise.all([
+      const [eventData, enrollData] = await Promise.all([
         getEventById(eventId),
         getEnrollmentsByEvent(eventId),
-        getEnrollmentStats(eventId),
-      ])
-      setEvent(eventData)
-      setEnrollments(enrollmentsData)
-      setStats(statsData)
+      ]);
+      setEvent(eventData);
+      setEnrollments(enrollData);
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao carregar evento')
+      toast.error('Failed to load roster data');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
-  useEffect(() => { fetchData() }, [eventId])
-
-  const fighters = enrollments.filter(e => e.role?.code === 'F')
-  const corners = enrollments.filter(e => e.role?.code === 'C')
-  const staff = enrollments.filter(e => e.role?.code === 'ST')
-  const guests = enrollments.filter(e => e.role?.code === 'G')
+  useEffect(() => {
+    fetchRoster();
+  }, [eventId]);
 
   const handleUpdateEvent = async (data: EventSchema) => {
-    setSaving(true)
+    setSaving(true);
     try {
-      await updateEvent(eventId, data)
-      toast.success('Evento atualizado')
-      setIsEventDrawerOpen(false)
-      fetchData()
+      await updateEvent(eventId, data);
+      toast.success('Event updated');
+      setIsEventDrawerOpen(false);
+      refreshDash();
+      fetchRoster();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao atualizar evento')
+      toast.error('Failed to update event');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
-
-  const handleAddEnrollment = () => {
-    setEditingEnrollment(null)
-    setIsEnrollmentDrawerOpen(true)
-  }
+  };
 
   const handleEditEnrollment = (enrollment: EnrollmentWithDetails) => {
-    setEditingEnrollment(enrollment)
-    setIsEnrollmentDrawerOpen(true)
-  }
+    setEditingEnrollment(enrollment);
+    setIsEnrollmentDrawerOpen(true);
+  };
 
   const handleSubmitEnrollment = async (data: EnrollmentSchema) => {
-    setSaving(true)
+    setSaving(true);
     try {
       if (editingEnrollment) {
-        await updateEnrollment(editingEnrollment.id, data)
-        toast.success('Inscrição atualizada')
+        await updateEnrollment(editingEnrollment.id, data);
+        toast.success('Enrollment updated');
       } else {
-        await createEnrollment(data)
-        toast.success('Pessoa adicionada ao evento')
+        await createEnrollment(data);
+        toast.success('Person added to event');
       }
-      setIsEnrollmentDrawerOpen(false)
-      fetchData()
+      setIsEnrollmentDrawerOpen(false);
+      refreshDash();
+      fetchRoster();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar inscrição')
+      toast.error('Failed to save enrollment');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
-
-  const handleCancelClick = (enrollment: EnrollmentWithDetails) => {
-    setEnrollmentToCancel(enrollment)
-    setCancelDialogOpen(true)
-  }
+  };
 
   const handleCancelConfirm = async () => {
-    if (!enrollmentToCancel) return
-    setSaving(true)
+    if (!enrollmentToCancel) return;
+    setSaving(true);
     try {
-      await cancelEnrollment(enrollmentToCancel.id)
-      toast.success('Inscrição cancelada')
-      setCancelDialogOpen(false)
-      fetchData()
+      await cancelEnrollment(enrollmentToCancel.id);
+      toast.success('Enrollment cancelled');
+      setCancelDialogOpen(false);
+      refreshDash();
+      fetchRoster();
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao cancelar inscrição')
+      toast.error('Failed to cancel enrollment');
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
+  };
+
+  if (loading || dashLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
+          <p className="text-sm font-medium animate-pulse">Synchronizing Tactical Data...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
-      </div>
-    )
-  }
+  if (!event || !dashboardData) return null;
 
-  if (!event) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full gap-4">
-        <p className="text-muted-foreground">Evento não encontrado</p>
-        <Button onClick={() => router.push('/events')}>Voltar</Button>
-      </div>
-    )
-  }
+  const fighters = enrollments.filter(e => e.role?.code === 'F');
+  const staff = enrollments.filter(e => e.role?.code === 'ST');
+  const corners = enrollments.filter(e => e.role?.code === 'C');
+  const guests = enrollments.filter(e => e.role?.code === 'G');
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
       <Header
         title={event.name}
         description={`${formatDate(event.event_date)}${event.city ? ` • ${event.city}` : ''}`}
-      />
-
-      <div className="flex-1 p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <Button variant="ghost" onClick={() => router.push('/events')}>
-            <ArrowLeft className="mr-2 h-4 w-4" />Voltar
+      >
+        <div className="flex items-center gap-2">
+          {isConnected && (
+            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-200 gap-1.5 py-1 px-3">
+              <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+              Satellite Active
+            </Badge>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setIsEventDrawerOpen(true)}>
+            <Settings className="h-4 w-4 mr-2" />
+            Config
           </Button>
-          <div className="flex gap-2">
-            {canEditEvents && (
-              <>
-                <Button variant="outline" onClick={() => setIsEventDrawerOpen(true)}>
-                  <Settings className="mr-2 h-4 w-4" />Configurações
+          <Button size="sm" onClick={() => router.push(`/events/${eventId}/war-room`)} className="bg-slate-900 dark:bg-slate-50">
+            <Activity className="h-4 w-4 mr-2" />
+            War Room
+          </Button>
+        </div>
+      </Header>
+
+      <main className="flex-1 p-6 space-y-8 max-w-[1600px] mx-auto w-full">
+        <section>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <LayoutDashboard className="h-5 w-5 text-primary" />
+              Event Snapshot
+            </h3>
+          </div>
+          <MetricsGrid 
+            metrics={dashboardData.metrics} 
+            onMetricClick={(type) => {
+              if (type === 'people') return;
+              router.push(`/events/${eventId}/${type}`);
+            }} 
+          />
+        </section>
+
+        <div className="grid gap-8 lg:grid-cols-3">
+          <div className="lg:col-span-2 space-y-8">
+            <section>
+              <h3 className="text-lg font-bold mb-4">Module Health</h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                {dashboardData.modules.map((module) => (
+                  <StatusCard key={module.module} status={module} />
+                ))}
+              </div>
+            </section>
+
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" />
+                  Roster Management
+                </h3>
+                <Button size="sm" onClick={() => setIsEnrollmentDrawerOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Member
                 </Button>
-                <Button onClick={handleAddEnrollment}>
-                  <Plus className="mr-2 h-4 w-4" />Adicionar Pessoa
-                </Button>
-              </>
-            )}
+              </div>
+              <Tabs defaultValue="all" className="bg-card border rounded-xl shadow-sm overflow-hidden">
+                <div className="px-4 pt-4 border-b">
+                  <TabsList className="bg-muted/50 p-1 mb-2">
+                    <TabsTrigger value="all">All ({enrollments.length})</TabsTrigger>
+                    <TabsTrigger value="fighters">Fighters ({fighters.length})</TabsTrigger>
+                    <TabsTrigger value="corners">Corners ({corners.length})</TabsTrigger>
+                    <TabsTrigger value="staff">Staff ({staff.length})</TabsTrigger>
+                    <TabsTrigger value="guests">Guests ({guests.length})</TabsTrigger>
+                  </TabsList>
+                </div>
+                <div className="p-0">
+                  <TabsContent value="all" className="m-0 focus-visible:ring-0">
+                    <EnrollmentsTable enrollments={enrollments} onEdit={handleEditEnrollment} onCancel={setEnrollmentToCancel} canEdit={canEditEvents} />
+                  </TabsContent>
+                  <TabsContent value="fighters" className="m-0 focus-visible:ring-0">
+                    <EnrollmentsTable enrollments={fighters} onEdit={handleEditEnrollment} onCancel={setEnrollmentToCancel} canEdit={canEditEvents} />
+                  </TabsContent>
+                  <TabsContent value="corners" className="m-0 focus-visible:ring-0">
+                    <EnrollmentsTable enrollments={corners} onEdit={handleEditEnrollment} onCancel={setEnrollmentToCancel} canEdit={canEditEvents} />
+                  </TabsContent>
+                  <TabsContent value="staff" className="m-0 focus-visible:ring-0">
+                    <EnrollmentsTable enrollments={staff} onEdit={handleEditEnrollment} onCancel={setEnrollmentToCancel} canEdit={canEditEvents} />
+                  </TabsContent>
+                  <TabsContent value="guests" className="m-0 focus-visible:ring-0">
+                    <EnrollmentsTable enrollments={guests} onEdit={handleEditEnrollment} onCancel={setEnrollmentToCancel} canEdit={canEditEvents} />
+                  </TabsContent>
+                </div>
+              </Tabs>
+            </section>
+          </div>
+
+          <div className="space-y-8">
+            <QuickActions eventId={eventId} />
+            <UpcomingDeadlines deadlines={dashboardData.deadlines} />
           </div>
         </div>
-
-        <div className="grid gap-4 md:grid-cols-5">
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/events/${eventId}`)}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle></CardHeader>
-            <CardContent><div className="flex items-center gap-2"><Users className="h-5 w-5" /><span className="text-2xl font-bold">{stats.total || 0}</span></div></CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/flights`)}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Aéreo</CardTitle></CardHeader>
-            <CardContent><div className="flex items-center gap-2"><Plane className="h-5 w-5" /><span className="text-2xl font-bold">{stats.needsFlight || 0}</span></div></CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/visas`)}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Visto</CardTitle></CardHeader>
-            <CardContent><div className="flex items-center gap-2"><FileText className="h-5 w-5" /><span className="text-2xl font-bold">{stats.needsVisa || 0}</span></div></CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/events/${eventId}/hotels`)}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Hotel</CardTitle></CardHeader>
-            <CardContent><div className="flex items-center gap-2"><Hotel className="h-5 w-5 text-blue-600" /><span className="text-2xl font-bold">{stats.needsHotel || 0}</span></div></CardContent>
-          </Card>
-          <Card className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => router.push(`/events/${eventId}/transport`)}>
-            <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Transporte</CardTitle></CardHeader>
-            <CardContent><div className="flex items-center gap-2"><Car className="h-5 w-5 text-orange-600" /><span className="text-2xl font-bold">Logística</span></div></CardContent>
-          </Card>
-        </div>
-
-        <Card>
-          <Tabs defaultValue="fighters">
-            <CardHeader className="pb-0">
-              <TabsList>
-                <TabsTrigger value="fighters">Fighters ({fighters.length})</TabsTrigger>
-                <TabsTrigger value="corners">Corners ({corners.length})</TabsTrigger>
-                <TabsTrigger value="staff">Staff ({staff.length})</TabsTrigger>
-                <TabsTrigger value="guests">Guests ({guests.length})</TabsTrigger>
-              </TabsList>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <TabsContent value="fighters" className="m-0">
-                <EnrollmentsTable enrollments={fighters} onEdit={handleEditEnrollment} onCancel={handleCancelClick} canEdit={canEditEvents} />
-              </TabsContent>
-              <TabsContent value="corners" className="m-0">
-                <EnrollmentsTable enrollments={corners} onEdit={handleEditEnrollment} onCancel={handleCancelClick} canEdit={canEditEvents} />
-              </TabsContent>
-              <TabsContent value="staff" className="m-0">
-                <EnrollmentsTable enrollments={staff} onEdit={handleEditEnrollment} onCancel={handleCancelClick} canEdit={canEditEvents} />
-              </TabsContent>
-              <TabsContent value="guests" className="m-0">
-                <EnrollmentsTable enrollments={guests} onEdit={handleEditEnrollment} onCancel={handleCancelClick} canEdit={canEditEvents} />
-              </TabsContent>
-            </CardContent>
-          </Tabs>
-        </Card>
-      </div>
+      </main>
 
       <Sheet open={isEventDrawerOpen} onOpenChange={setIsEventDrawerOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader><SheetTitle>Configurações do Evento</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>Event Configuration</SheetTitle></SheetHeader>
           <div className="mt-6">
             <EventForm event={event} onSubmit={handleUpdateEvent} onCancel={() => setIsEventDrawerOpen(false)} loading={saving} />
           </div>
@@ -251,25 +262,35 @@ export default function EventDetailPage({ params }: { params: Promise<{ eventId:
 
       <Sheet open={isEnrollmentDrawerOpen} onOpenChange={setIsEnrollmentDrawerOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-          <SheetHeader><SheetTitle>{editingEnrollment ? 'Editar Inscrição' : 'Adicionar Pessoa'}</SheetTitle></SheetHeader>
+          <SheetHeader><SheetTitle>{editingEnrollment ? 'Edit Enrollment' : 'Add Person'}</SheetTitle></SheetHeader>
           <div className="mt-6">
             <EnrollmentForm eventId={eventId} enrollment={editingEnrollment} onSubmit={handleSubmitEnrollment} onCancel={() => setIsEnrollmentDrawerOpen(false)} loading={saving} />
           </div>
         </SheetContent>
       </Sheet>
 
-      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <Dialog open={!!enrollmentToCancel} onOpenChange={() => setEnrollmentToCancel(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Cancelar Inscrição</DialogTitle>
-            <DialogDescription>Tem certeza que deseja cancelar a inscrição de {enrollmentToCancel?.person?.compiled_name}?</DialogDescription>
+            <DialogTitle>Cancel Enrollment</DialogTitle>
+            <DialogDescription>Are you sure you want to cancel the enrollment for {enrollmentToCancel?.person?.compiled_name}?</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>Não</Button>
-            <Button variant="destructive" onClick={handleCancelConfirm} disabled={saving}>Sim, Cancelar</Button>
+            <Button variant="outline" onClick={() => setEnrollmentToCancel(null)}>No, Keep</Button>
+            <Button variant="destructive" onClick={handleCancelConfirm} disabled={saving}>Yes, Cancel</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
+}
+
+export default function EventDashboardPage({ params }: { params: Promise<{ eventId: string }> }) {
+  const { eventId } = use(params);
+  
+  return (
+    <RealtimeProvider eventId={eventId}>
+      <EventDashboardContent eventId={eventId} />
+    </RealtimeProvider>
+  );
 }

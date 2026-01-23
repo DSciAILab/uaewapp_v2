@@ -67,14 +67,23 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                 </span>
               </TableCell>
               <TableCell>
-                <Avatar className="h-8 w-8">
-                  {enrollment.person?.fighter_id ? (
-                    <AvatarImage src={getFighterPhotoUrl(enrollment.person.fighter_id)} alt={enrollment.person.compiled_name} />
-                  ) : null}
-                  <AvatarFallback className="text-xs">
-                    {enrollment.person?.name?.[0]}{enrollment.person?.surname?.[0]}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="h-9 w-9 border-2 border-slate-100 dark:border-slate-800">
+                    {enrollment.person?.fighter_id ? (
+                       <AvatarImage 
+                         src={getFighterPhotoUrl(Number(enrollment.person.fighter_id))} 
+                         alt={enrollment.person.compiled_name} 
+                         className="object-cover"
+                       />
+                    ) : null}
+                    <AvatarFallback className="text-xs bg-slate-200 dark:bg-slate-700">
+                      {enrollment.person?.name?.[0]}{enrollment.person?.surname?.[0]}
+                    </AvatarFallback>
+                  </Avatar>
+                  {enrollment.role?.code === 'F' && (
+                     <div className="absolute -bottom-1 -right-1 h-3 w-3 bg-red-500 rounded-full border-2 border-white dark:border-slate-950" title="Fighter" />
+                  )}
+                </div>
               </TableCell>
               <TableCell className="font-medium">{enrollment.person?.compiled_name}</TableCell>
               <TableCell>

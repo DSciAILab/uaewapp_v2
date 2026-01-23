@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   Select,
   SelectContent,
@@ -19,12 +20,14 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Upload, AlertCircle, CheckCircle2 } from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Upload, AlertCircle, CheckCircle2, Loader2, Copy } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import type { CSVMapping, PersonFormData } from '@/types/database'
 
 interface CSVImportProps {
-  onImport: (data: PersonFormData[]) => Promise<{ success: number; errors: string[] }>
+  onImport: (data: PersonFormData[], onProgress: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean) => Promise<{ success: number; errors: string[]; duplicates: string[] }>
   onCancel: () => void
 }
 
@@ -52,20 +55,81 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
   const [headers, setHeaders] = useState<string[]>([])
   const [mappings, setMappings] = useState<CSVMapping[]>([])
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<{ success: number; errors: string[] } | null>(null)
+  const [progress, setProgress] = useState({ current: 0, total: 0, message: '' })
+  const [result, setResult] = useState<{ success: number; errors: string[]; duplicates: string[] } | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+  const [checkDuplicates, setCheckDuplicates] = useState(true)
 
   const parseCSV = (text: string): { headers: string[]; rows: Record<string, string>[] } => {
-    const lines = text.split('\n').filter(l => l.trim())
-    if (lines.length === 0) return { headers: [], rows: [] }
+    const cleanedText = text.replace(/^\uFEFF/, '').replace(/\0/g, '')
+    const rawLines = cleanedText.split(/\r?\n/).filter(l => l.trim().length > 0)
+    if (rawLines.length === 0) return { headers: [], rows: [] }
+
+    // Enhanced Delimiter Detection
+    const candidates = [',', ';', '\t', '|']
+    let delimiter = ','
+    let maxFields = 0
     
-    const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''))
-    const rows = lines.slice(1).map(line => {
-      const values = line.split(',').map(v => v.trim().replace(/^"|"$/g, ''))
+    // Check first 5 lines for consistency
+    candidates.forEach(cand => {
+      const lineFields = rawLines[0].split(cand).length
+      if (lineFields > maxFields) {
+        maxFields = lineFields
+        delimiter = cand
+      }
+    })
+
+    // Regex for CSV parsing (handles quotes and escaped quotes)
+    const getFields = (line: string, delim: string) => {
+      const fields: string[] = []
+      let currentField = ''
+      let inQuotes = false
+      
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i]
+        const nextChar = line[i+1]
+        
+        if (char === '"' && inQuotes && nextChar === '"') {
+          currentField += '"'
+          i++
+        } else if (char === '"') {
+          inQuotes = !inQuotes
+        } else if (char === delim && !inQuotes) {
+          fields.push(currentField.trim())
+          currentField = ''
+        } else {
+          currentField += char
+        }
+      }
+      fields.push(currentField.trim())
+      return fields
+    }
+
+    const rawHeaders = getFields(rawLines[0], delimiter)
+    const uniqueHeaders: string[] = []
+    const headerCounts: Record<string, number> = {}
+
+    rawHeaders.forEach((h, i) => {
+      let name = h.trim() || `Coluna_${i + 1}`
+      if (headerCounts[name]) {
+        headerCounts[name]++
+        name = `${name}_${headerCounts[name]}`
+      } else {
+        headerCounts[name] = 1
+      }
+      uniqueHeaders.push(name)
+    })
+
+    const rows = rawLines.slice(1).map(line => {
+      const fields = getFields(line, delimiter)
       const row: Record<string, string> = {}
-      headers.forEach((h, i) => { row[h] = values[i] || '' })
+      uniqueHeaders.forEach((header, i) => {
+        row[header] = fields[i] || ''
+      })
       return row
     })
-    return { headers, rows }
+
+    return { headers: uniqueHeaders, rows }
   }
 
   const handleFileUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -75,7 +139,7 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
     const reader = new FileReader()
     reader.onload = (event) => {
       const text = event.target?.result as string
-      const { headers: h, rows } = parseCSV(text)
+      const { headers: h, rows = [] } = parseCSV(text)
       setHeaders(h)
       setCsvData(rows)
       setMappings(h.map(col => ({ csvColumn: col, dbField: 'skip' })))
@@ -84,8 +148,35 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
     reader.readAsText(file)
   }, [])
 
-  const updateMapping = (csvColumn: string, dbField: keyof PersonFormData | 'skip') => {
-    setMappings(prev => prev.map(m => m.csvColumn === csvColumn ? { ...m, dbField } : m))
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const file = e.dataTransfer.files?.[0]
+    if (file && file.name.endsWith('.csv')) {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const text = event.target?.result as string
+        const { headers: h, rows = [] } = parseCSV(text)
+        setHeaders(h)
+        setCsvData(rows)
+        setMappings(h.map(col => ({ csvColumn: col, dbField: 'skip' })))
+        setStep('mapping')
+      }
+      reader.readAsText(file)
+    }
+  }, [])
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+  }, [])
+
+  const updateMapping = (index: number, dbField: keyof PersonFormData | 'skip') => {
+    setMappings(prev => {
+      const newMappings = [...prev]
+      newMappings[index] = { ...newMappings[index], dbField }
+      return newMappings
+    })
   }
 
   const transformData = (): PersonFormData[] => {
@@ -93,11 +184,35 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
       const transformed: Partial<PersonFormData> = {}
       mappings.forEach(m => {
         if (m.dbField !== 'skip') {
-          const value = row[m.csvColumn]
+          let value = row[m.csvColumn]?.trim()
+          
+          if (!value) {
+             (transformed as any)[m.dbField] = null
+             return
+          }
+
           if (m.dbField === 'fighter_id' || m.dbField === 'height' || m.dbField === 'reach') {
-            (transformed as any)[m.dbField] = value ? Number(value) : undefined
+            // Remove non-numeric chars except dot/comma
+            const numericValue = value.replace(/[^\d.,-]/g, '').replace(',', '.')
+            if (numericValue) {
+               (transformed as any)[m.dbField] = Number(numericValue)
+            } else {
+               (transformed as any)[m.dbField] = null
+            }
+          } else if (m.dbField === 'dob' || m.dbField === 'passport_expiry') {
+            // Date Parsing Logic
+            // Try to handle DD/MM/YYYY or DD-MM-YYYY
+            if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(value)) {
+              const [day, month, year] = value.split(/[\/\-]/).map(Number)
+              // Create date object and format as YYYY-MM-DD
+              const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+              ;(transformed as any)[m.dbField] = formattedDate
+            } else {
+              // Assume it might be YYYY-MM-DD or attempt basic parsing
+               (transformed as any)[m.dbField] = value
+            }
           } else {
-            (transformed as any)[m.dbField] = value || undefined
+            (transformed as any)[m.dbField] = value
           }
         }
       })
@@ -109,7 +224,9 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
     setLoading(true)
     try {
       const data = transformData()
-      const res = await onImport(data)
+      const res = await onImport(data, (current, total, message) => {
+        setProgress({ current, total, message: message || '' })
+      }, checkDuplicates)
       setResult(res)
       setStep('result')
     } finally {
@@ -119,17 +236,29 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
 
   if (step === 'upload') {
     return (
-      <Card>
-        <CardHeader><CardTitle>Importar CSV</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <div className="border-2 border-dashed rounded-lg p-8 text-center">
+      <Card className="border-none shadow-none">
+        <CardHeader className="px-0 pt-0"><CardTitle>Importar CSV</CardTitle></CardHeader>
+        <CardContent className="space-y-4 px-0 pb-0">
+          <Label
+            htmlFor="csv-file"
+            className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+          >
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-            <Label htmlFor="csv-file" className="cursor-pointer">
-              <p className="mt-2 text-sm">Clique para selecionar ou arraste o arquivo CSV</p>
-            </Label>
-            <Input id="csv-file" type="file" accept=".csv" className="hidden" onChange={handleFileUpload} />
+            <p className="mt-4 text-sm font-medium">Clique para selecionar ou arraste o arquivo CSV</p>
+            <p className="text-xs text-muted-foreground mt-1">Formato suportado: .csv (codificação UTF-8)</p>
+            <Input
+              id="csv-file"
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={handleFileUpload}
+            />
+          </Label>
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={onCancel}>Cancelar</Button>
           </div>
-          <Button variant="outline" onClick={onCancel}>Cancelar</Button>
         </CardContent>
       </Card>
     )
@@ -137,26 +266,99 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
 
   if (step === 'mapping') {
     return (
-      <Card>
-        <CardHeader><CardTitle>Mapear Colunas</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">Mapeie cada coluna do CSV para um campo do sistema.</p>
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {mappings.map(m => (
-              <div key={m.csvColumn} className="flex items-center gap-4">
-                <span className="w-40 text-sm font-medium truncate">{m.csvColumn}</span>
-                <Select value={m.dbField} onValueChange={(v) => updateMapping(m.csvColumn, v as any)}>
-                  <SelectTrigger className="w-48"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {DB_FIELDS.map(f => (<SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
+      <Card className="border-none shadow-none flex flex-col h-full bg-transparent">
+        <CardHeader className="px-6 pt-6 flex flex-row items-center justify-between space-y-0 pb-6 border-b bg-background/50 rounded-t-xl">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="text-xl font-bold tracking-tight">Mapear Colunas do CSV</CardTitle>
+            <CardDescription className="text-sm">
+              Relacione as colunas encontradas no seu arquivo com os campos do banco de dados.
+            </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="hidden md:flex items-center gap-2 text-muted-foreground hover:text-primary"
+          >
+            {isFullscreen ? (
+              <><Upload className="h-4 w-4 rotate-180" /> Reduzir</>
+            ) : (
+              <><Upload className="h-4 w-4" /> Maximizar</>
+            )}
+          </Button>
+        </CardHeader>
+        <CardContent className="space-y-6 p-6 flex-1 flex flex-col min-h-0">
+          <div className="flex items-center justify-between px-4 py-3 bg-muted/80 rounded-t-lg border font-bold text-[10px] uppercase tracking-widest text-muted-foreground shadow-sm">
+            <span className="flex-1">Coluna no Arquivo & Amostra</span>
+            <span className="w-64 text-right pr-6">Campo no Sistema</span>
+          </div>
+
+          <div 
+            className="border rounded-lg divide-y overflow-y-auto scrollbar-thin bg-background/50 flex-1" 
+            style={{ maxHeight: isFullscreen ? 'calc(100vh - 250px)' : 'min(500px, 60vh)' }}
+          >
+            {mappings.map((m, idx) => {
+              const sampleValue = csvData[0]?.[m.csvColumn] || ''
+              const usedFields = mappings.map(map => map.dbField).filter(f => f !== 'skip')
+              
+              return (
+                <div key={`${m.csvColumn}-${idx}`} className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors group">
+                  <div className="flex-1 min-w-0 flex items-center gap-3">
+                    <div className="flex flex-col min-w-0 max-w-[200px]">
+                      <span className="text-sm font-bold truncate text-foreground leading-tight" title={m.csvColumn}>
+                        {m.csvColumn}
+                      </span>
+                      {m.csvColumn.startsWith('Coluna_') && (
+                        <span className="text-[9px] text-amber-600 font-medium">Sem cabeçalho</span>
+                      )}
+                    </div>
+                    
+                    <span className="text-muted-foreground/30 shrink-0">→</span>
+                    
+                    <div className="flex-1 min-w-0">
+                      {sampleValue ? (
+                        <div className="text-[11px] text-muted-foreground truncate italic bg-muted/30 px-2 py-1 rounded border border-dashed border-muted-foreground/20 group-hover:border-muted-foreground/40 transition-colors">
+                          <span className="opacity-50 mr-1">Ex:</span>
+                          <span className="text-foreground/70">{sampleValue.length > 40 ? sampleValue.substring(0, 40) + '...' : sampleValue}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[10px] text-muted-foreground/40 italic pl-2">(vazio)</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="w-56 shrink-0">
+                    <Select value={m.dbField} onValueChange={(v) => updateMapping(idx, v as any)}>
+                      <SelectTrigger className="w-full bg-background border-muted-foreground/20 hover:border-primary/50 transition-colors h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {DB_FIELDS.map(f => {
+                          const isAlreadyMapped = f.value !== 'skip' && 
+                            (usedFields as string[]).includes(f.value) && 
+                            f.value !== m.dbField
+                          
+                          if (isAlreadyMapped) return null
+                          
+                          return (
+                            <SelectItem key={f.value} value={f.value} className="text-xs">
+                              {f.label}
+                            </SelectItem>
+                          )
+                        })}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="flex gap-3 justify-end pt-4">
             <Button variant="outline" onClick={() => setStep('upload')}>Voltar</Button>
-            <Button onClick={() => setStep('preview')}>Próximo</Button>
+            <Button className="min-w-[120px]" onClick={() => setStep('preview')}>
+              Revisar Dados
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -164,58 +366,172 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
   }
 
   if (step === 'preview') {
-    const preview = transformData().slice(0, 5)
+    const preview = transformData().slice(0, 10)
+    const activeMappings = mappings.filter(m => m.dbField !== 'skip')
+    const progressValue = progress.total > 0 ? (progress.current / progress.total) * 100 : 0
+
     return (
-      <Card>
-        <CardHeader><CardTitle>Pré-visualização ({csvData.length} registros)</CardTitle></CardHeader>
-        <CardContent className="space-y-4">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Sobrenome</TableHead>
-                <TableHead>Nacionalidade</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {preview.map((row, i) => (
-                <TableRow key={i}>
-                  <TableCell>{row.name || '-'}</TableCell>
-                  <TableCell>{row.surname || '-'}</TableCell>
-                  <TableCell>{row.nationality || '-'}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep('mapping')}>Voltar</Button>
-            <Button onClick={handleImport} disabled={loading}>{loading ? 'Importando...' : 'Importar'}</Button>
+      <Card className="border-none shadow-none flex flex-col h-full bg-transparent">
+        <CardHeader className="px-6 pt-6 flex flex-row items-center justify-between space-y-0 pb-6 border-b bg-background/50 rounded-t-xl">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="flex items-center justify-between text-xl font-bold tracking-tight">
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Processando...</span>
+                </div>
+              ) : 'Pré-visualização dos Dados'}
+              <Badge variant="outline" className="font-mono bg-primary/10 border-primary/20 text-primary">
+                {csvData.length} registros
+              </Badge>
+            </CardTitle>
+            <CardDescription className="text-sm">
+              {loading 
+                ? 'Aguarde enquanto autenticamos e salvamos os dados no servidor.'
+                : 'Verifique se os dados abaixo estão corretos antes de iniciar a importação.'}
+            </CardDescription>
           </div>
+        </CardHeader>
+        
+        <CardContent className="space-y-6 p-6 flex-1 flex flex-col min-h-0">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-12 space-y-8 bg-muted/20 rounded-xl border border-dashed text-center">
+              <div className="relative">
+                <Loader2 className="h-16 w-16 animate-spin text-primary" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-[10px] font-bold">{Math.round(progressValue)}%</span>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold tracking-tight">
+                  {progress.message || 'Importando Dados...'}
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  Isso pode levar alguns minutos. Não feche esta janela.
+                </p>
+              </div>
+
+              <div className="w-full max-w-sm space-y-3">
+                <div className="flex justify-between text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  <span>{progress.current} de {progress.total}</span>
+                  <span className="text-primary">{Math.round(progressValue)}%</span>
+                </div>
+                <Progress value={progressValue} className="h-3 shadow-sm" />
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="rounded-md border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/50">
+                    <TableRow>
+                      {activeMappings.map((m, i) => (
+                        <TableHead key={i} className="font-bold text-[10px] uppercase">
+                          {DB_FIELDS.find(f => f.value === m.dbField)?.label}
+                        </TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {preview.map((row, i) => (
+                      <TableRow key={i}>
+                        {activeMappings.map((m, j) => (
+                          <TableCell key={j} className="py-2 text-xs truncate max-w-[150px]">
+                            {(row as any)[m.dbField] || '-'}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="flex justify-between items-center bg-muted/30 border border-dashed p-4 rounded-xl mt-auto">
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3 text-muted-foreground">
+                    <AlertCircle className="h-5 w-5 shrink-0 text-amber-500" />
+                    <p className="text-xs">
+                      {csvData.length} registros serão processados.
+                    </p>
+                  </div>
+                  <div className="flex items-center space-x-2 pl-8">
+                    <Switch id="dup-check" checked={checkDuplicates} onCheckedChange={setCheckDuplicates} disabled={loading} />
+                    <Label htmlFor="dup-check" className="text-xs font-medium cursor-pointer">
+                      Verificar nomes duplicados no banco
+                    </Label>
+                  </div>
+                </div>
+                <div className="flex gap-3 items-center">
+                  <Button variant="outline" size="sm" onClick={() => setStep('mapping')} disabled={loading}>
+                    Editar Mapeamento
+                  </Button>
+                  <Button size="sm" onClick={handleImport} disabled={loading} className="px-6 shadow-md">
+                    Iniciar Importação
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     )
   }
 
   return (
-    <Card>
-      <CardHeader><CardTitle>Resultado da Importação</CardTitle></CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex items-center gap-2 text-green-600">
-          <CheckCircle2 className="h-5 w-5" />
-          <span>{result?.success} registros importados com sucesso</span>
+    <Card className="border-none shadow-none">
+      <CardHeader className="px-0 pt-0"><CardTitle>Resultado da Importação</CardTitle></CardHeader>
+      <CardContent className="space-y-6 px-0 pb-0">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-center space-y-1">
+            <CheckCircle2 className="mx-auto h-6 w-6 text-green-600" />
+            <p className="text-2xl font-bold text-green-700">{result?.success}</p>
+            <p className="text-xs font-medium text-green-600/80 uppercase tracking-wider">Sucesso</p>
+          </div>
+          
+          <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1">
+            <Copy className="mx-auto h-6 w-6 text-amber-600" />
+            <p className="text-2xl font-bold text-amber-700">{result?.duplicates.length}</p>
+            <p className="text-xs font-medium text-amber-600/80 uppercase tracking-wider">Duplicados</p>
+          </div>
+
+          <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center space-y-1">
+            <AlertCircle className="mx-auto h-6 w-6 text-red-600" />
+            <p className="text-2xl font-bold text-red-700">{result?.errors.length}</p>
+            <p className="text-xs font-medium text-red-600/80 uppercase tracking-wider">Erros</p>
+          </div>
         </div>
-        {result?.errors && result.errors.length > 0 && (
+
+        {(result?.duplicates.length || 0) > 0 && (
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-red-500">
-              <AlertCircle className="h-5 w-5" />
-              <span>{result.errors.length} erros encontrados</span>
+            <p className="text-sm font-bold flex items-center gap-2">
+              <Copy className="h-4 w-4 text-amber-600" />
+              Registros Ignorados (Já existem no banco)
+            </p>
+            <div className="bg-muted/30 rounded-lg p-3 max-h-32 overflow-y-auto border border-dashed text-xs">
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                {result?.duplicates.map((d, i) => <li key={i}>{d}</li>)}
+              </ul>
             </div>
-            <ul className="text-sm text-red-500 max-h-40 overflow-y-auto">
-              {result.errors.map((e, i) => <li key={i}>{e}</li>)}
-            </ul>
           </div>
         )}
-        <Button onClick={onCancel}>Fechar</Button>
+
+        {(result?.errors.length || 0) > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-bold flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-4 w-4" />
+              Detalhes dos Erros
+            </p>
+            <div className="bg-red-500/5 rounded-lg p-3 max-h-32 overflow-y-auto border border-red-500/10 text-xs">
+              <ul className="list-disc list-inside space-y-1 text-red-600/80">
+                {result?.errors.map((e, i) => <li key={i}>{e}</li>)}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        <div className="pt-4 border-t">
+          <Button className="w-full" onClick={onCancel}>Concluir e Voltar</Button>
+        </div>
       </CardContent>
     </Card>
   )

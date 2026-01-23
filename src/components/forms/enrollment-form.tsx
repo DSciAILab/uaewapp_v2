@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Combobox } from '@/components/ui/combobox'
 import { enrollmentSchema, type EnrollmentSchema } from '@/lib/validations/event'
 import { getAvailablePeopleForEvent, getRoles } from '@/lib/services/enrollments'
 import { getFighterPhotoUrl } from '@/lib/utils'
@@ -71,6 +72,12 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
         ])
         setPeople(peopleData)
         setRoles(rolesData)
+        
+        // If editing, find the selected person
+        if (enrollment?.person_id) {
+          const person = peopleData.find(p => p.id === enrollment.person_id)
+          if (person) setSelectedPerson(person)
+        }
       } catch (error) {
         console.error('Error loading data:', error)
       } finally {
@@ -78,7 +85,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       }
     }
     loadData()
-  }, [eventId])
+  }, [eventId, enrollment])
 
   const handlePersonChange = (personId: string) => {
     setValue('person_id', personId)
@@ -94,28 +101,35 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
     return <div className="py-8 text-center text-muted-foreground">Carregando...</div>
   }
 
+  const personOptions = people.map((person) => ({
+    value: person.id,
+    label: person.compiled_name || `${person.name} ${person.surname}`,
+    render: (
+      <div className="flex items-center gap-2">
+        <Avatar className="h-6 w-6">
+          {person.fighter_id && <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />}
+          <AvatarFallback className="text-xs">{person.name[0]}{person.surname[0]}</AvatarFallback>
+        </Avatar>
+        <span>{person.compiled_name || `${person.name} ${person.surname}`}</span>
+      </div>
+    ),
+  }))
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Pessoa</h3>
         <div className="space-y-2">
           <Label>Selecionar Pessoa *</Label>
-          <Select value={personId} onValueChange={handlePersonChange} disabled={!!enrollment}>
-            <SelectTrigger><SelectValue placeholder="Selecione uma pessoa" /></SelectTrigger>
-            <SelectContent>
-              {people.map((person) => (
-                <SelectItem key={person.id} value={person.id}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-6 w-6">
-                      {person.fighter_id && <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />}
-                      <AvatarFallback className="text-xs">{person.name[0]}{person.surname[0]}</AvatarFallback>
-                    </Avatar>
-                    <span>{person.compiled_name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Combobox
+            options={personOptions}
+            value={personId}
+            onValueChange={handlePersonChange}
+            placeholder="Selecione uma pessoa"
+            searchPlaceholder="Pesquisar pessoa..."
+            emptyText="Nenhuma pessoa encontrada."
+            disabled={!!enrollment}
+          />
         </div>
 
         {selectedPerson?.fighter_id && (

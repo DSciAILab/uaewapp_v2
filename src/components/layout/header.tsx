@@ -8,9 +8,10 @@ interface HeaderProps {
   title: string
   description?: string
   actions?: React.ReactNode
+  children?: React.ReactNode
 }
 
-export function Header({ title, description, actions }: HeaderProps) {
+export function Header({ title, description, actions, children }: HeaderProps) {
   const { theme, setTheme } = useTheme()
 
   return (
@@ -22,6 +23,7 @@ export function Header({ title, description, actions }: HeaderProps) {
         )}
       </div>
       <div className="flex items-center gap-4">
+        {children}
         {actions}
         <Button
           variant="ghost"

@@ -15,7 +15,7 @@ import { createHotel, updateHotel, getEnrolledWithoutHotel } from '@/lib/service
 import { toast } from 'sonner';
 
 const hotelSchema = z.object({
-  enrolled_id: z.string().min(1, 'Please select a person'),
+  enrollment_id: z.string().min(1, 'Please select a person'),
   hotel_name: z.string().min(1, 'Hotel name is required'),
   room_type: z.string().optional(),
   actual_checkin: z.string().min(1, 'Check-in date is required'),
@@ -42,12 +42,14 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
     person: { id: string; compiled_name: string; role: string };
   }>>([]);
 
-  const isEditing = !!hotel;
+  // Treated as editing if hotel exists AND it's not a temporary/missing record
+  const isEditing = !!hotel && !hotel.id.startsWith('missing-');
+  const isPreFilled = !!hotel && hotel.id.startsWith('missing-');
 
   const form = useForm<HotelFormData>({
     resolver: zodResolver(hotelSchema),
     defaultValues: {
-      enrolled_id: '',
+      enrollment_id: '',
       hotel_name: '',
       room_type: '',
       actual_checkin: '',
@@ -60,27 +62,35 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
   });
 
   useEffect(() => {
-    if (open && !isEditing) {
-      getEnrolledWithoutHotel(eventId).then((data: any) => setAvailableEnrolled(data)).catch(console.error);
+    // Determine available people
+    // If Creating (fresh) -> Fetch all without hotel
+    // If PreFilled -> We have the person in the 'hotel' object already, we should use it or fetch all to include it.
+    // Ideally, for PreFilled, we assume the person IS available (logic in page ensures they don't have hotel).
+    
+    if (open) {
+      getEnrolledWithoutHotel(eventId).then((data: any) => {
+          // If pre-filled, ensure the pre-filled person is in the list (it should be, since they don't have hotel)
+          setAvailableEnrolled(data);
+      }).catch(console.error);
     }
-  }, [open, eventId, isEditing]);
+  }, [open, eventId]);
 
   useEffect(() => {
     if (hotel) {
       form.reset({
-        enrolled_id: hotel.enrolled_id,
-        hotel_name: hotel.hotel_name,
+        enrollment_id: hotel.enrollment_id,
+        hotel_name: isPreFilled ? '' : hotel.hotel_name,
         room_type: hotel.room_type || '',
-        actual_checkin: hotel.actual_checkin.split('T')[0],
-        actual_checkout: hotel.actual_checkout.split('T')[0],
+        actual_checkin: hotel.actual_checkin ? hotel.actual_checkin.split('T')[0] : '',
+        actual_checkout: hotel.actual_checkout ? hotel.actual_checkout.split('T')[0] : '',
         confirmation_number: hotel.confirmation_number || '',
-        status: hotel.status,
+        status: hotel.status as HotelStatus,
         notes: hotel.notes || '',
         divergence_reason: hotel.divergence_reason || '',
       });
     } else {
       form.reset({
-        enrolled_id: '',
+        enrollment_id: '',
         hotel_name: '',
         room_type: '',
         actual_checkin: '',
@@ -91,12 +101,12 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
         divergence_reason: '',
       });
     }
-  }, [hotel, form]);
+  }, [hotel, form, isPreFilled]);
 
   const onSubmit = async (data: HotelFormData) => {
     setIsLoading(true);
     try {
-      if (isEditing) {
+      if (isEditing && hotel) {
         await updateHotel(hotel.id, data, eventDates);
         toast.success('Hotel reservation updated');
       } else {
@@ -106,6 +116,7 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
       onSuccess();
       onOpenChange(false);
     } catch (error) {
+            console.error(error);
       toast.error(isEditing ? 'Failed to update reservation' : 'Failed to create reservation');
     } finally {
       setIsLoading(false);
@@ -130,7 +141,7 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
             {!isEditing && (
               <FormField
                 control={form.control}
-                name="enrolled_id"
+                name="enrollment_id"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Person *</FormLabel>

@@ -101,13 +101,21 @@ export function HotelTable({ hotels, onEdit, onRefresh }: HotelTableProps) {
                     </TableCell>
                     <TableCell>
                       <div className="text-sm">
-                        <p><span className="text-muted-foreground mr-1">In:</span> {format(new Date(hotel.actual_checkin), 'MMM dd, yyyy')}</p>
-                        <p><span className="text-muted-foreground mr-1">Out:</span> {format(new Date(hotel.actual_checkout), 'MMM dd, yyyy')}</p>
+                        {hotel.actual_checkin ? (
+                           <p><span className="text-muted-foreground mr-1">In:</span> {format(new Date(hotel.actual_checkin), 'MMM dd, yyyy')}</p>
+                        ) : <span className="text-xs text-muted-foreground italic">Check-in TBD</span>}
+                        {hotel.actual_checkout ? (
+                           <p><span className="text-muted-foreground mr-1">Out:</span> {format(new Date(hotel.actual_checkout), 'MMM dd, yyyy')}</p>
+                        ) : <span className="text-xs text-muted-foreground italic">Check-out TBD</span>}
                       </div>
                     </TableCell>
                     <TableCell>{nights}</TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={statusInfo.className}>{statusInfo.label}</Badge>
+                      <Badge variant="outline" className={statusConfig[hotel.status]?.className || 'bg-gray-100'}>
+                         {hotel.status === 'pending' && (hotel.hotel_name === 'Pending Booking' || hotel.hotel_name === 'TBD') 
+                            ? 'Action Needed' 
+                            : statusConfig[hotel.status]?.label || hotel.status}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       {hotel.has_divergence && hotel.divergence_type ? (

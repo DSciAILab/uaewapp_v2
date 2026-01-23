@@ -9,7 +9,7 @@ import { HotelTable } from '@/components/hotels/hotel-table';
 import { HotelForm } from '@/components/hotels/hotel-form';
 import { HotelFilters } from '@/components/hotels/hotel-filters';
 import { Hotel as HotelType, HotelFilters as HotelFiltersType } from '@/types/hotel';
-import { getEventHotels, getHotelStats } from '@/lib/services/hotel-service';
+import { getEventHotels, getHotelStats, getEnrolledWithoutHotel } from '@/lib/services/hotel-service';
 import { getEventById } from '@/lib/services/events';
 
 export default function HotelsPage() {
@@ -27,13 +27,49 @@ export default function HotelsPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [hotelsData, statsData, event] = await Promise.all([
+      const [hotelsData, statsData, event, missingData] = await Promise.all([
         getEventHotels(eventId, filters),
         getHotelStats(eventId),
         getEventById(eventId),
+        getEnrolledWithoutHotel(eventId)
       ]);
-      setHotels(hotelsData);
-      setStats(statsData);
+
+      // Convert missing enrollments to mock Hotel objects
+      const missingHotels: HotelType[] = missingData.map(m => ({
+        id: `missing-${m.id}`,
+        event_id: eventId,
+        enrollment_id: m.id,
+        hotel_name: 'Pending Booking',
+        status: 'pending', // Special status for UI
+        has_divergence: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        calculated_checkin: '',
+        calculated_checkout: '',
+        actual_checkin: '',
+        actual_checkout: '',
+        enrolled: {
+          id: m.id,
+          person: {
+            ...m.person,
+            full_name: m.person.compiled_name
+          },
+          arrival_flight: m.flights?.[0] ? {
+             arrival_datetime: m.flights[0].arrival_date ? `${m.flights[0].arrival_date}T${m.flights[0].arrival_time || '00:00'}` : undefined
+          } : undefined,
+          departure_flight: m.flights?.[0] ? {
+             departure_datetime: m.flights[0].departure_date ? `${m.flights[0].departure_date}T${m.flights[0].departure_time || '00:00'}` : undefined
+          } : undefined
+        }
+      } as unknown as HotelType));
+
+      setHotels([...missingHotels, ...hotelsData]);
+      setStats({
+         ...statsData,
+         pending: statsData.pending + missingHotels.length, // Add to pending count (visual only)
+         total: statsData.total + missingHotels.length
+      });
+      
       if (event) {
         setEventDates({ 
           event_date: event.event_date, 
@@ -52,7 +88,11 @@ export default function HotelsPage() {
   }, [loadData]);
 
   const handleEdit = (hotel: HotelType) => {
-    setEditingHotel(hotel);
+    if (hotel.id.startsWith('missing-')) {
+       setEditingHotel(null); // Ensure creation mode
+    } else {
+       setEditingHotel(hotel);
+    }
     setIsFormOpen(true);
   };
 
@@ -65,7 +105,7 @@ export default function HotelsPage() {
     <div className="space-y-6 container py-10">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Hotel Reservations</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Hotel Logistics</h1>
           <p className="text-muted-foreground mt-1">Manage and approve hotel accommodations for event participants</p>
         </div>
         <Button onClick={() => setIsFormOpen(true)} className="w-fit">

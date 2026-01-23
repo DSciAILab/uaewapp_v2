@@ -94,5 +94,6 @@ export function formatDivergenceLabel(type: DivergenceType): string {
 }
 
 export function calculateNights(checkin: string, checkout: string): number {
+  if (!checkin || !checkout) return 0;
   return differenceInDays(parseISO(checkout), parseISO(checkin));
 }

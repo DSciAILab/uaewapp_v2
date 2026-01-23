@@ -50,19 +50,33 @@ export async function getEnrollmentById(id: string): Promise<EnrollmentWithDetai
 }
 
 export async function createEnrollment(formData: EnrollmentFormData): Promise<Enrollment> {
+  // Use upsert to handle both new and re-activating enrollments atomically
+  // We specify onConflict columns to ensure we target the unique constraint
   const { data, error } = await supabase
     .from('mma_enrollments')
-    .insert({
+    .upsert({
       ...formData,
+      status: 'active',
+      cancelled_at: null,
+      cancellation_reason: null,
       needs_flight: formData.needs_flight || 'none',
       needs_visa: formData.needs_visa || false,
       needs_hotel: formData.needs_hotel || false,
       needs_transport: formData.needs_transport || 'none',
+    }, {
+      onConflict: 'event_id, person_id',
+      ignoreDuplicates: false
     })
     .select()
     .single()
 
   if (error) throw error
+
+  // Sincronizar módulos relacionados e aguardar para garantir consistência antes do reload da UI
+  if (data) {
+     await syncRelatedModules(data)
+  }
+
   return data
 }
 
@@ -75,7 +89,112 @@ export async function updateEnrollment(id: string, formData: Partial<EnrollmentF
     .single()
 
   if (error) throw error
+
+  // Sincronizar módulos relacionados e aguardar para garantir consistência
+  await syncRelatedModules(data)
+
   return data
+}
+
+/**
+ * Sincroniza registros nos módulos de Vistos e Hotéis baseados nas flags de necessidade
+ */
+/**
+ * Sincroniza registros nos módulos variados (Voo, Visto, Hotel) baseados nas flags de necessidade.
+ * Cria registros placeholder se não existirem.
+ */
+async function syncRelatedModules(enrollment: Enrollment) {
+  const { event_id, id: enrolled_id, needs_visa, needs_hotel, needs_flight } = enrollment
+
+  console.log('Syncing related modules for enrollment:', { enrolled_id, needs_visa, needs_hotel, needs_flight })
+
+  // 1. Sincronizar Visto
+  if (needs_visa) {
+    const { data: existingVisa } = await supabase
+      .from('mma_visas')
+      .select('id')
+      .eq('enrollment_id', enrolled_id) // Column is 'enrollment_id' in DB schema, check mapping
+      .single()
+
+    // Note: DB schema check says 'enrollment_id' for mma_visas.
+    // Existing code used 'enrolled_id'. I will check database.ts Mapping.
+    // database.ts says: Enrollment -> id. Visa -> enrollment_id.
+    // The previous code used 'enrolled_id' which matches the variable name but maybe not column?
+    // SQL Schema output: "column_name":"enrollment_id".
+    // SO I MUST USE 'enrollment_id'.
+
+    if (!existingVisa) {
+      const { error: visaError } = await supabase.from('mma_visas').insert({
+        // event_id, // Removed: mma_visas table does not have event_id column
+        enrollment_id: enrolled_id,
+        status: 2, // Required/Pendente
+        is_done: false
+      })
+      if (visaError) console.error('Error auto-creating visa:', visaError)
+      else console.log('Auto-created visa for enrollment', enrolled_id)
+    }
+  }
+
+  // 2. Sincronizar Voo (NEW)
+  if (needs_flight && needs_flight !== 'none') {
+    const { data: existingFlight } = await supabase
+      .from('mma_flights')
+      .select('id')
+      .eq('enrollment_id', enrolled_id)
+      .single()
+
+    if (!existingFlight) {
+        const { error: flightError } = await supabase.from('mma_flights').insert({
+            enrollment_id: enrolled_id,
+            type: needs_flight,
+            status: 'pending'
+        })
+        if (flightError) console.error('Error auto-creating flight:', flightError)
+        else console.log('Auto-created flight for enrollment', enrolled_id)
+    }
+  }
+
+  // 3. Sincronizar Hotel
+  if (needs_hotel) {
+    const { data: existingHotel } = await supabase
+      .from('mma_hotels')
+      .select('id')
+      .eq('enrollment_id', enrolled_id)
+      .single()
+
+    if (!existingHotel) {
+      // Buscar dados do evento para datas padrão
+      const { data: event } = await supabase
+        .from('mma_events')
+        .select('event_date, event_end_date')
+        .eq('id', event_id)
+        .single()
+
+      if (event && event.event_date) {
+        const checkin = new Date(event.event_date)
+        checkin.setDate(checkin.getDate() - 1)
+        
+        const checkout = new Date(event.event_end_date || event.event_date)
+        checkout.setDate(checkout.getDate() + 1)
+
+        const { error: hotelError } = await supabase.from('mma_hotels').insert({
+          event_id,
+          enrollment_id: enrolled_id,
+          hotel_name: 'TBD',
+          status: 'pending',
+          calculated_checkin: checkin.toISOString(),
+          calculated_checkout: checkout.toISOString(),
+          actual_checkin: checkin.toISOString().split('T')[0],
+          actual_checkout: checkout.toISOString().split('T')[0],
+          has_divergence: false
+        })
+        if (hotelError) console.error('Error auto-creating hotel:', hotelError)
+        else console.log('Auto-created hotel for enrollment', enrolled_id)
+      } else {
+        console.warn('Cannot auto-create hotel: Event dates missing for event', event_id)
+      }
+    }
+  }
 }
 
 export async function cancelEnrollment(id: string, reason?: string): Promise<void> {

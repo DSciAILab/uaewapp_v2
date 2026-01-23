@@ -5,7 +5,7 @@ import { calculateHotelDates, detectDivergences, getPrimaryDivergence } from '@/
 const supabase = createClient();
 
 export async function getEventHotels(
-  eventId: string,
+  eventId?: string,
   filters?: HotelFilters
 ): Promise<Hotel[]> {
   let query = supabase
@@ -14,13 +14,16 @@ export async function getEventHotels(
       *,
       enrolled:mma_enrollments!inner(
         id,
+        event_id,
         person:mma_people!inner(id, compiled_name, role),
-        arrival_flight:mma_flights!mma_enrollments_arrival_flight_id_fkey(id, flight_number, arrival_datetime),
-        departure_flight:mma_flights!mma_enrollments_departure_flight_id_fkey(id, flight_number, departure_datetime)
+        mma_flights(*)
       )
     `)
-    .eq('event_id', eventId)
     .order('created_at', { ascending: false });
+
+  if (eventId) {
+    query = query.eq('event_id', eventId);
+  }
 
   if (filters?.status) {
     query = query.eq('status', filters.status);
@@ -38,16 +41,34 @@ export async function getEventHotels(
   const { data, error } = await query;
   if (error) throw new Error('Failed to fetch hotel reservations: ' + error.message);
 
-  let results = (data || []).map((d: any) => ({
-    ...d,
-    enrolled: {
-      ...d.enrolled,
-      person: {
-        ...d.enrolled.person,
-        full_name: d.enrolled.person.compiled_name // Mapping for type compatibility
+  let results = (data || []).map((d: any) => {
+    // Process flights to find arrival and departure info
+    const flights = d.enrolled.mma_flights || [];
+    // Assuming the most recent flight record or valid one is relevant
+    // If there are multiple, we might need logic, but usually it's one active flight plan
+    const flight = flights[0]; 
+
+    const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
+      ? `${flight.arrival_date}T${flight.arrival_time}` 
+      : null;
+      
+    const departure_datetime = flight?.departure_date && flight?.departure_time
+      ? `${flight.departure_date}T${flight.departure_time}`
+      : null;
+
+    return {
+      ...d,
+      enrolled: {
+        ...d.enrolled,
+        person: {
+          ...d.enrolled.person,
+          full_name: d.enrolled.person.compiled_name // Mapping for type compatibility
+        },
+        arrival_flight: { arrival_datetime },
+        departure_flight: { departure_datetime }
       }
-    }
-  })) as Hotel[];
+    };
+  }) as Hotel[];
   
   if (filters?.search) {
     const searchLower = filters.search.toLowerCase();
@@ -69,8 +90,7 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       enrolled:mma_enrollments!inner(
         id,
         person:mma_people!inner(id, compiled_name, role),
-        arrival_flight:mma_flights!mma_enrollments_arrival_flight_id_fkey(arrival_datetime),
-        departure_flight:mma_flights!mma_enrollments_departure_flight_id_fkey(departure_datetime)
+        flights:mma_flights(*)
       )
     `)
     .eq('id', hotelId)
@@ -81,6 +101,17 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
     throw new Error('Failed to fetch hotel reservation: ' + error.message);
   }
 
+  const flights = data.enrolled.flights || [];
+  const flight = flights[0];
+
+  const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
+    ? `${flight.arrival_date}T${flight.arrival_time}` 
+    : null;
+    
+  const departure_datetime = flight?.departure_date && flight?.departure_time
+    ? `${flight.departure_date}T${flight.departure_time}`
+    : null;
+
   return {
     ...data,
     enrolled: {
@@ -88,7 +119,9 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       person: {
         ...data.enrolled.person,
         full_name: data.enrolled.person.compiled_name
-      }
+      },
+      arrival_flight: { arrival_datetime },
+      departure_flight: { departure_datetime }
     }
   } as Hotel;
 }
@@ -102,18 +135,28 @@ export async function createHotel(
     .from('mma_enrollments')
     .select(`
       id,
-      arrival_flight:mma_flights!mma_enrollments_arrival_flight_id_fkey(arrival_datetime),
-      departure_flight:mma_flights!mma_enrollments_departure_flight_id_fkey(departure_datetime)
+      flights:mma_flights(*)
     `)
     .eq('id', formData.enrolled_id)
     .single();
 
   if (enrolledError) throw new Error('Failed to fetch enrollment data: ' + enrolledError.message);
 
+  const flights = (enrolled as any).flights || [];
+  const flight = flights[0];
+
+  const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
+    ? `${flight.arrival_date}T${flight.arrival_time}` 
+    : null;
+    
+  const departure_datetime = flight?.departure_date && flight?.departure_time
+    ? `${flight.departure_date}T${flight.departure_time}`
+    : null;
+
   const calculated = calculateHotelDates(
     {
-      arrival_datetime: (enrolled as any).arrival_flight?.arrival_datetime || null,
-      departure_datetime: (enrolled as any).departure_flight?.departure_datetime || null
+      arrival_datetime,
+      departure_datetime
     },
     eventDates.event_date,
     eventDates.event_end_date || eventDates.event_date
@@ -131,7 +174,7 @@ export async function createHotel(
 
   const insertData = {
     event_id: eventId,
-    enrolled_id: formData.enrolled_id,
+    enrollment_id: formData.enrollment_id,
     hotel_name: formData.hotel_name,
     room_type: formData.room_type || null,
     calculated_checkin: calculated.checkin.toISOString(),
@@ -261,26 +304,33 @@ export async function updateHotelStatus(hotelId: string, status: HotelStatus): P
 export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
   id: string;
   person: { id: string; compiled_name: string; role: string };
+  flights?: any[];
 }>> {
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
-    .select(`id, person:mma_people!inner(id, compiled_name, role)`)
-    .eq('event_id', eventId);
+    .select(`
+      id, 
+      person:mma_people!inner(id, compiled_name, role),
+      flights:mma_flights(*)
+    `)
+    .eq('event_id', eventId)
+    .eq('needs_hotel', true);
 
   if (enrolledError) throw enrolledError;
 
   const { data: hotels, error: hotelsError } = await supabase
     .from('mma_hotels')
-    .select('enrolled_id')
+    .select('enrollment_id')
     .eq('event_id', eventId);
 
   if (hotelsError) throw hotelsError;
 
-  const hotelEnrolledIds = new Set(hotels?.map(h => h.enrolled_id) || []);
+  const hotelEnrolledIds = new Set(hotels?.map(h => h.enrollment_id) || []);
 
   return (enrolled || []).map((e: any) => ({
     id: e.id,
-    person: Array.isArray(e.person) ? e.person[0] : e.person
+    person: Array.isArray(e.person) ? e.person[0] : e.person,
+    flights: e.flights
   })).filter(e => !hotelEnrolledIds.has(e.id));
 }
 

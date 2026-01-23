@@ -414,10 +414,11 @@ export async function getUnassignedPassengersForEvent(
     .select(`
       id, 
       ${flightColumn},
+      needs_transport,
       person:mma_people!inner(id, compiled_name, role)
     `)
     .eq('event_id', eventId)
-    .not(flightColumn, 'is', null);
+    .or(`${flightColumn}.not.is.null,needs_transport.eq.${transportType},needs_transport.eq.both`);
 
   if (error) throw error;
 

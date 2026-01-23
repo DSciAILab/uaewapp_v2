@@ -30,7 +30,9 @@ import { PeopleTable } from '@/components/tables/people-table'
 import { PersonForm } from '@/components/forms/person-form'
 import { CSVImport } from '@/components/forms/csv-import'
 import { Plus, Upload, Search, X } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-permissions'
 import type { Person, PeopleFilters } from '@/types/database'
 import type { PersonSchema } from '@/lib/validations/person'
@@ -39,6 +41,7 @@ import {
   createPerson,
   updatePerson,
   deletePerson,
+  bulkDeletePeople,
   getNationalities,
   importPeopleFromCSV,
 } from '@/lib/services/people'
@@ -48,11 +51,15 @@ export default function PeoplePage() {
   const [nationalities, setNationalities] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [formLoading, setFormLoading] = useState(false)
-  const [filters, setFilters] = useState<PeopleFilters>({ page: 1, pageSize: 20 })
+  const [filters, setFilters] = useState<PeopleFilters>({ page: 1, pageSize: 50 })
   const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false)
+  const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
 
@@ -65,10 +72,12 @@ export default function PeoplePage() {
       const response = await getPeople(filters)
       setPeople(response.data)
       setTotalPages(response.totalPages)
+      setTotalCount(response.count)
     } catch (error: any) {
       toast.error(error.message || 'Erro ao carregar pessoas')
     } finally {
       setLoading(false)
+      setSelectedIds(new Set())
     }
   }
 
@@ -125,6 +134,11 @@ export default function PeoplePage() {
       await deletePerson(selectedPerson.id)
       toast.success('Pessoa excluída com sucesso')
       setDeleteDialogOpen(false)
+      setSelectedIds(prev => {
+        const next = new Set(prev)
+        next.delete(selectedPerson.id)
+        return next
+      })
       fetchPeople()
     } catch (error: any) {
       toast.error(error.message || 'Erro ao excluir pessoa')
@@ -133,8 +147,24 @@ export default function PeoplePage() {
     }
   }
 
-  const handleCSVImport = async (data: any[]) => {
-    return await importPeopleFromCSV(data)
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return
+    setIsBulkDeleting(true)
+    try {
+      await bulkDeletePeople(Array.from(selectedIds))
+      toast.success(`${selectedIds.size} pessoas excluídas com sucesso`)
+      setBulkDeleteDialogOpen(false)
+      setSelectedIds(new Set())
+      fetchPeople()
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao excluir pessoas')
+    } finally {
+      setIsBulkDeleting(false)
+    }
+  }
+
+  const handleCSVImport = async (data: any[], onProgress?: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean) => {
+    return await importPeopleFromCSV(data, onProgress, checkDuplicates)
   }
 
   const handleCSVComplete = () => {
@@ -145,7 +175,10 @@ export default function PeoplePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="People Database" description="Gerenciamento de pessoas" />
+      <Header 
+        title="People Database" 
+        description={loading ? "Carregando registros..." : `Gerenciamento de ${totalCount} pessoas cadastradas`} 
+      />
       
       <div className="flex-1 p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-4 justify-between">
@@ -191,6 +224,56 @@ export default function PeoplePage() {
           </div>
         </div>
 
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <p className="text-sm text-muted-foreground">
+              Mostrando {people.length} de {totalCount} registros
+            </p>
+            {selectedIds.size > 0 && isAdmin && (
+              <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
+                <Badge variant="secondary" className="h-6">{selectedIds.size} selecionados</Badge>
+                <Button 
+                  variant="destructive" 
+                  size="sm" 
+                  className="h-8"
+                  onClick={() => setBulkDeleteDialogOpen(true)}
+                >
+                  <X className="mr-2 h-4 w-4" />Excluir Selecionados
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-8"
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Limpar
+                </Button>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Registros por página:</span>
+            <Select
+              value={filters.pageSize === 10000 ? 'all' : filters.pageSize?.toString() || '50'}
+              onValueChange={(v) => {
+                const newSize = v === 'all' ? 10000 : parseInt(v);
+                setFilters({ ...filters, pageSize: newSize, page: 1 });
+              }}
+            >
+              <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+                <SelectItem value="250">250</SelectItem>
+                <SelectItem value="500">500</SelectItem>
+                <SelectItem value="1000">1000</SelectItem>
+                <SelectItem value="1500">1500</SelectItem>
+                <SelectItem value="all">Tudo</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
         <Card>
           <CardContent className="p-0">
             {loading ? (
@@ -200,6 +283,8 @@ export default function PeoplePage() {
             ) : (
               <PeopleTable
                 people={people}
+                selectedIds={selectedIds}
+                onSelectionChange={setSelectedIds}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 canEdit={canEditPeople}
@@ -210,21 +295,31 @@ export default function PeoplePage() {
         </Card>
 
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2">
+          <div className="flex items-center justify-center gap-4 py-4 border-t bg-muted/5 rounded-lg">
             <Button
               variant="outline"
+              size="sm"
               disabled={filters.page === 1}
               onClick={() => setFilters({ ...filters, page: (filters.page || 1) - 1 })}
+              className="px-6"
             >
               Anterior
             </Button>
-            <span className="flex items-center px-4 text-sm">
-              Página {filters.page} de {totalPages}
-            </span>
+            
+            <div className="flex items-center gap-1">
+              <span className="text-sm font-medium">Página</span>
+              <Badge variant="secondary" className="px-2 py-0 h-6 flex items-center justify-center min-w-8">
+                {filters.page}
+              </Badge>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">de {totalPages}</span>
+            </div>
+
             <Button
               variant="outline"
+              size="sm"
               disabled={filters.page === totalPages}
               onClick={() => setFilters({ ...filters, page: (filters.page || 1) + 1 })}
+              className="px-6"
             >
               Próxima
             </Button>
@@ -249,11 +344,19 @@ export default function PeoplePage() {
       </Sheet>
 
       <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
-        <DialogContent className="max-w-2xl">
-          <CSVImport
-            onImport={handleCSVImport}
-            onCancel={handleCSVComplete}
-          />
+        <DialogContent className={cn(
+          "transition-all duration-300 ease-in-out p-0 border-none bg-transparent gap-0",
+          "max-w-4xl max-h-[95vh]",
+          "data-[fullscreen=true]:max-w-[98vw] data-[fullscreen=true]:max-h-[98vh] data-[fullscreen=true]:w-[98vw] data-[fullscreen=true]:h-[98vh]"
+        )}>
+          <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
+              <CSVImport
+                onImport={handleCSVImport}
+                onCancel={handleCSVComplete}
+              />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -270,6 +373,23 @@ export default function PeoplePage() {
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={formLoading}>
               {formLoading ? 'Excluindo...' : 'Excluir'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir as {selectedIds.size} pessoas selecionadas?
+              Esta ação não pode ser desfeita e removerá permanentemente os registros.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkDeleting}>
+              {isBulkDeleting ? 'Excluindo...' : 'Excluir Todos'}
             </Button>
           </DialogFooter>
         </DialogContent>
