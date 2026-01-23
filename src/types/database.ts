@@ -195,3 +195,48 @@ export interface UserPermission {
   permission: PermissionLevel
   area?: PermissionArea
 }
+
+// Filtros e paginação
+export interface PeopleFilters {
+  search?: string
+  nationality?: string
+  hasPassport?: boolean
+  page?: number
+  pageSize?: number
+}
+
+export interface PaginatedResponse<T> {
+  data: T[]
+  count: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+// Form types
+export interface PersonFormData {
+  name: string
+  surname: string
+  event_name?: string | null
+  fighter_id?: number | null
+  gender?: string | null
+  phone?: string | null
+  dob?: string | null
+  nationality?: string | null
+  passport_number?: string | null
+  passport_expiry?: string | null
+  passport_photo?: string | null
+  document_folder?: string | null
+  height?: number | null
+  reach?: number | null
+}
+
+// CSV Import
+export interface CSVMapping {
+  csvColumn: string
+  dbField: keyof PersonFormData | 'skip'
+}
+
+export interface CSVPreviewRow {
+  [key: string]: string
+}

@@ -43,7 +43,7 @@ export function usePermissions() {
     }
 
     fetchPermissions()
-  }, [user])
+  }, [user, supabase])
 
   const hasPermission = (areaCode: string, level: PermissionLevel = 'view'): boolean => {
     if (!user) return false

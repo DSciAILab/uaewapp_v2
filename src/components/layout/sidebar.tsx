@@ -47,18 +47,33 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname()
   const { user } = useUser()
-  const { canView, isAdmin } = usePermissions()
+  const { canView, isAdmin, loading: permissionsLoading } = usePermissions()
   const router = useRouter()
   const supabase = createClient()
   const [collapsed, setCollapsed] = useState(false)
+  
+  const eventIdMatch = pathname.match(/\/events\/([^\/]+)/)
+  const eventId = eventIdMatch ? eventIdMatch[1] : null
 
   const handleLogout = async () => {
     await supabase.auth.signOut()
     router.push('/login')
   }
 
-  const filteredItems = navItems.filter(item => {
+  const filteredItems = navItems.map(item => {
+    // Se estivermos dentro de um evento e o item for Hotel ou Transporte,
+    // atualizamos o link para ser contextual ao evento.
+    if (eventId && (item.area === 'hotels' || item.area === 'transport')) {
+      const subPath = item.href.startsWith('/') ? item.href : `/${item.href}`
+      return {
+        ...item,
+        href: `/events/${eventId}${subPath}`
+      }
+    }
+    return item
+  }).filter(item => {
     if (!item.area) return true
+    if (permissionsLoading) return false // Oculta durante o loading para evitar flash
     if (isAdmin) return true
     return canView(item.area)
   })
@@ -86,26 +101,33 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
-        {filteredItems.map(item => {
-          const Icon = icons[item.icon as keyof typeof icons]
-          const isActive = pathname.startsWith(item.href)
+        {permissionsLoading ? (
+          <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-50">
+            <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
+            {!collapsed && <span className="text-[10px] uppercase font-bold tracking-widest">Carregando...</span>}
+          </div>
+        ) : (
+          filteredItems.map(item => {
+            const Icon = icons[item.icon as keyof typeof icons]
+            const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
 
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
-                isActive
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-muted'
-              )}
-            >
-              <Icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
-            </Link>
-          )
-        })}
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'hover:bg-muted'
+                )}
+              >
+                <Icon className="h-5 w-5 shrink-0" />
+                {!collapsed && <span>{item.label}</span>}
+              </Link>
+            )
+          })
+        )}
       </nav>
 
       {/* User */}
