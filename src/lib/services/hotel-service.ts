@@ -70,10 +70,14 @@ export async function getEventHotels(
     }
 
     // Return a virtual "Pending" hotel if no reservation exists in DB
+    if (!event) {
+        return null;
+    }
+
     const virtualDates = calculateHotelDates(
       { arrival_datetime, departure_datetime },
-      event?.event_date,
-      event?.event_end_date || event?.event_date
+      event.event_date,
+      event.event_end_date || event.event_date
     );
 
     return {
@@ -92,7 +96,7 @@ export async function getEventHotels(
       updated_at: new Date().toISOString(),
       ...commonData
     } as unknown as Hotel;
-  });
+  }).filter((h): h is Hotel => h !== null);
   
   // Client-side filtering for complex fields or virtual records
   if (filters?.search) {

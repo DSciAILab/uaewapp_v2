@@ -17,7 +17,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Pencil, X, Plane, FileText, Hotel, Car } from 'lucide-react'
+import { MoreHorizontal, Pencil, X, Plane, FileText, Hotel, Car, BrainCircuit } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import type { EnrollmentWithDetails } from '@/lib/services/enrollments'
 import { getFighterPhotoUrl } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ interface EnrollmentsTableProps {
 }
 
 export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true }: EnrollmentsTableProps) {
+  const router = useRouter()
   const getRoleBadgeColor = (code: string) => {
     switch (code) {
       case 'F': return 'default'
@@ -132,6 +134,11 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                       <DropdownMenuItem className="text-red-500" onClick={() => onCancel(enrollment)}>
                         <X className="mr-2 h-4 w-4" />Cancelar
                       </DropdownMenuItem>
+                    )}
+                    {enrollment.role?.code === 'F' && (
+                       <DropdownMenuItem onClick={() => router.push(`/operations?eventId=${enrollment.event_id}&personId=${enrollment.person_id}&enrolledId=${enrollment.id}`)}>
+                         <BrainCircuit className="mr-2 h-4 w-4 text-blue-500" />Operations
+                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>
                 </DropdownMenu>

@@ -12,7 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { toast } from 'sonner';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HotelSpreadsheet } from '@/components/hotels/hotel-spreadsheet';
 import { LayoutList, Table2, RefreshCw } from 'lucide-react';
 
@@ -52,130 +52,121 @@ export default function GlobalHotelsPage() {
   }, [loadData]);
 
   return (
-    <div className="flex flex-colmin-h-screen bg-slate-50/50 dark:bg-slate-950">
+    <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
         <Header 
             title="Global Hotel Logistics" 
             description="Manage hotel accommodations across all events."
-        />
+        >
+          <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as 'list' | 'spreadsheet')} className="mr-2">
+             <TabsList>
+                 <TabsTrigger value="list" className="flex items-center gap-2 h-8">
+                     <LayoutList className="h-4 w-4" />
+                     List
+                 </TabsTrigger>
+                 <TabsTrigger value="spreadsheet" className="flex items-center gap-2 h-8">
+                     <Table2 className="h-4 w-4" />
+                     Sheet
+                 </TabsTrigger>
+             </TabsList>
+          </Tabs>
+
+           <Button variant="outline" size="sm" onClick={() => {
+                loadData();
+                router.refresh();
+                toast.success('Refreshing data...');
+            }} className="h-9">
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Refresh
+            </Button>
+        </Header>
 
         <main className="flex-1 p-6 space-y-8 max-w-[1600px] mx-auto w-full">
             
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-           {/* Header */}
-        </div>
-      </div>
-
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card 
-            className={`border-l-4 border-l-blue-500 shadow-sm cursor-pointer transition-all hover:bg-accent ${Object.keys(filters).length === 0 ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${Object.keys(filters).length === 0 ? 'border-primary ring-1 ring-primary' : ''}`}
             onClick={() => setFilters({})}
         >
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Total</CardTitle>
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-1">
+          <CardContent className="p-4 pt-2">
             <div className="flex items-center gap-2">
-              <Hotel className="h-4 w-4 text-blue-600" />
-              <span className="text-lg font-bold">{stats.total}</span>
+              <Hotel className="h-5 w-5 text-blue-600" />
+              <span className="text-2xl font-bold">{stats.total}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card 
-            className={`border-l-4 border-l-green-500 shadow-sm cursor-pointer transition-all hover:bg-accent ${filters.status === 'confirmed' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.status === 'confirmed' ? 'border-primary ring-1 ring-primary' : ''}`}
             onClick={() => setFilters({ status: 'confirmed' })}
         >
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Confirmed</CardTitle>
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-1">
+          <CardContent className="p-4 pt-2">
             <div className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green-600" />
-              <span className="text-lg font-bold">{stats.confirmed}</span>
+              <CheckCircle className="h-5 w-5 text-green-600" />
+              <span className="text-2xl font-bold">{stats.confirmed}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card 
-            className={`border-l-4 border-l-yellow-500 shadow-sm cursor-pointer transition-all hover:bg-accent ${filters.status === 'pending' ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.status === 'pending' ? 'border-primary ring-1 ring-primary' : ''}`}
             onClick={() => setFilters({ status: 'pending' })}
         >
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Pending</CardTitle>
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-1">
+          <CardContent className="p-4 pt-2">
             <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-yellow-600" />
-              <span className="text-lg font-bold">{stats.pending}</span>
+              <Clock className="h-5 w-5 text-yellow-600" />
+              <span className="text-2xl font-bold">{stats.pending}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card 
-            className={`border-l-4 border-l-orange-500 shadow-sm cursor-pointer transition-all hover:bg-accent ${filters.has_divergence ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.has_divergence ? 'border-primary ring-1 ring-primary' : ''}`}
             onClick={() => setFilters({ has_divergence: true })}
         >
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Divergences</CardTitle>
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Divergences</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-1">
+          <CardContent className="p-4 pt-2">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-orange-600" />
-              <span className="text-lg font-bold">{stats.with_divergence}</span>
+              <AlertTriangle className="h-5 w-5 text-orange-600" />
+              <span className="text-2xl font-bold">{stats.with_divergence}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card 
-            className={`border-l-4 border-l-red-500 shadow-sm cursor-pointer transition-all hover:bg-accent ${filters.has_divergence && filters.divergence_approved === false ? 'ring-2 ring-primary' : ''}`}
+            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.has_divergence && filters.divergence_approved === false ? 'border-primary ring-1 ring-primary' : ''}`}
             onClick={() => setFilters({ has_divergence: true, divergence_approved: false })}
         >
-          <CardHeader className="p-3 pb-1">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Action Needed</CardTitle>
+          <CardHeader className="p-4 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Action Needed</CardTitle>
           </CardHeader>
-          <CardContent className="p-3 pt-1">
+          <CardContent className="p-4 pt-2">
             <div className="flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-600" />
-              <span className="text-lg font-bold">{stats.pending_approval}</span>
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+              <span className="text-2xl font-bold">{stats.pending_approval}</span>
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Filters */}
-      <div className="bg-card border rounded-lg p-4 flex flex-col gap-4 shadow-sm">
-        <div className="flex items-center justify-between mb-[-8px]">
-            <h4 className="text-[10px] font-bold uppercase text-muted-foreground">Filter & Search</h4>
-            <Button variant="ghost" size="sm" onClick={() => {
-                loadData();
-                router.refresh();
-                toast.success('Refreshing data...');
-            }} className="h-6 text-[10px] text-muted-foreground hover:text-foreground">
-                <RefreshCw className="mr-1 h-3 w-3" />
-                Force Refresh
-            </Button>
-        </div>
+      <div className="bg-card border rounded-lg p-4 shadow-sm">
         <HotelFilters filters={filters} onChange={setFilters} />
       </div>
 
-      {/* View Mode Tabs */}
-      <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as 'list' | 'spreadsheet')} className="w-full">
-         <div className="flex items-center justify-between mb-4">
-            <TabsList>
-                <TabsTrigger value="list" className="flex items-center gap-2">
-                    <LayoutList className="h-4 w-4" />
-                    List View
-                </TabsTrigger>
-                <TabsTrigger value="spreadsheet" className="flex items-center gap-2">
-                    <Table2 className="h-4 w-4" />
-                    Spreadsheet
-                </TabsTrigger>
-            </TabsList>
-         </div>
-
-        <TabsContent value="list" className="mt-0">
+      {viewMode === 'list' ? (
+         <>
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-card rounded-lg border">
                 <Loader2 className="h-8 w-8 animate-spin mb-4" />
@@ -204,9 +195,9 @@ export default function GlobalHotelsPage() {
                     )}
                 </div>
             )}
-        </TabsContent>
-        
-        <TabsContent value="spreadsheet" className="mt-0">
+        </>
+      ) : (
+        <>
              {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 text-muted-foreground bg-card rounded-lg border">
                     <Loader2 className="h-8 w-8 animate-spin mb-4" />
@@ -218,8 +209,8 @@ export default function GlobalHotelsPage() {
                     onRefresh={loadData}
                 />
              )}
-        </TabsContent>
-      </Tabs>
+        </>
+      )}
       
       <div className="flex items-start gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200 rounded-lg text-sm">
         <Info className="h-5 w-5 shrink-0" />

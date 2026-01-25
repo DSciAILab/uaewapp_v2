@@ -7,7 +7,7 @@ const supabase = createClient();
 
 export async function getFighterStats(personId: string): Promise<FighterStats | null> {
   const { data, error } = await supabase
-    .from('mma_fighter_stats')
+    .from('mma_athlete_stats')
     .select(`
       *,
       person:mma_people!inner(id, full_name, role, nationality)
@@ -37,7 +37,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
   if (personIds.length === 0) return [];
 
   const { data, error } = await supabase
-    .from('mma_fighter_stats')
+    .from('mma_athlete_stats')
     .select(`
       *,
       person:mma_people!inner(id, full_name, role, nationality)
@@ -51,7 +51,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
 
 export async function createFighterStats(personId: string, formData: FighterStatsFormData): Promise<FighterStats> {
   const { data, error } = await supabase
-    .from('mma_fighter_stats')
+    .from('mma_athlete_stats')
     .insert({
       person_id: personId,
       height_cm: formData.height_cm || null,
@@ -81,7 +81,7 @@ export async function createFighterStats(personId: string, formData: FighterStat
 
 export async function updateFighterStats(statsId: string, formData: Partial<FighterStatsFormData>): Promise<FighterStats> {
   const { data, error } = await supabase
-    .from('mma_fighter_stats')
+    .from('mma_athlete_stats')
     .update(formData)
     .eq('id', statsId)
     .select()
@@ -192,7 +192,9 @@ export async function updateWeighIn(weighInId: string, formData: Partial<EventWe
       .single();
 
     if (current) {
-      const stats = await getFighterStats(current.enrolled.person_id);
+      const enrolledData: any = current.enrolled;
+      const personId = Array.isArray(enrolledData) ? enrolledData[0].person_id : enrolledData.person_id;
+      const stats = await getFighterStats(personId);
       
       if (stats?.weight_class && stats.weight_class !== 'catch_weight') {
         const limit = WEIGHT_CLASS_LIMITS[stats.weight_class].kg;

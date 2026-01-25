@@ -66,10 +66,10 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {fighterId && (
+      {(fighterId !== null && fighterId !== undefined) && (
         <div className="flex justify-center">
           <Avatar className="h-24 w-24">
-            <AvatarImage src={getFighterPhotoUrl(fighterId)} alt={`${name} ${surname}`} />
+            <AvatarImage src={getFighterPhotoUrl(Number(fighterId))} alt={`${name} ${surname}`} />
             <AvatarFallback>{name?.[0]}{surname?.[0]}</AvatarFallback>
           </Avatar>
         </div>

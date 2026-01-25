@@ -131,7 +131,7 @@ export function PeopleTable({
               )}
               <TableCell>
                 <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                  {person.fighter_id ? (
+                  {person.fighter_id !== null && person.fighter_id !== undefined ? (
                     <AvatarImage 
                       src={getFighterPhotoUrl(person.fighter_id)} 
                       alt={person.compiled_name} 
@@ -143,7 +143,7 @@ export function PeopleTable({
                 </Avatar>
               </TableCell>
               <TableCell>
-                {person.fighter_id ? (
+                {person.fighter_id !== null && person.fighter_id !== undefined ? (
                   <Badge variant="outline" className="font-mono text-[10px] bg-background">
                     ID: {person.fighter_id}
                   </Badge>
