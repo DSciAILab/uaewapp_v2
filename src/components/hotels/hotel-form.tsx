@@ -12,11 +12,12 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Hotel, HotelFormData, HotelStatus } from '@/types/hotel';
 import { createHotel, updateHotel, getEnrolledWithoutHotel } from '@/lib/services/hotel-service';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 
 const hotelSchema = z.object({
   enrollment_id: z.string().min(1, 'Please select a person'),
-  hotel_name: z.string().min(1, 'Hotel name is required'),
+  hotel_name: z.string().optional(), // Now optional in UI, handled by service
   room_type: z.string().optional(),
   actual_checkin: z.string().min(1, 'Check-in date is required'),
   actual_checkout: z.string().min(1, 'Check-out date is required'),
@@ -76,6 +77,7 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
   }, [open, eventId]);
 
   useEffect(() => {
+    // Only reset if the hotel ID changes (meaning a different record was selected)
     if (hotel) {
       form.reset({
         enrollment_id: hotel.enrollment_id,
@@ -101,7 +103,8 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
         divergence_reason: '',
       });
     }
-  }, [hotel, form, isPreFilled]);
+  }, [hotel?.id]); // Only trigger when ID changes (removing form dependency to avoid loops)
+
 
   const onSubmit = async (data: HotelFormData) => {
     setIsLoading(true);
@@ -138,7 +141,20 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {!isEditing && (
+            {/* Guest Name Display (Read-only if we already know who it is) */}
+            {(hotel || form.getValues('enrollment_id')) ? (
+              <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-md border border-slate-100 dark:border-slate-800">
+                <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Guest</p>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-sm">
+                    {hotel?.enrolled?.person.full_name || availableEnrolled.find(e => e.id === form.getValues('enrollment_id'))?.person.compiled_name || 'Loading...'}
+                  </span>
+                  <Badge variant="secondary" className="text-[10px]">
+                     {hotel?.enrolled?.person.role || availableEnrolled.find(e => e.id === form.getValues('enrollment_id'))?.person.role || 'Guest'}
+                  </Badge>
+                </div>
+              </div>
+            ) : (
               <FormField
                 control={form.control}
                 name="enrollment_id"
@@ -163,14 +179,13 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
               />
             )}
 
+            {/* Hidden Hotel Name (Automatically handled by service) */}
             <FormField
               control={form.control}
               name="hotel_name"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Hotel Name *</FormLabel>
-                  <FormControl><Input placeholder="e.g., Hilton Garden Inn" {...field} /></FormControl>
-                  <FormMessage />
+                <FormItem className="hidden">
+                  <FormControl><Input {...field} /></FormControl>
                 </FormItem>
               )}
             />

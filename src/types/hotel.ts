@@ -21,7 +21,7 @@ export interface Hotel {
   
   // Divergence tracking
   has_divergence: boolean;
-  divergence_type: DivergenceType | null;
+  primary_divergence_type: DivergenceType | null;
   divergence_reason: string | null;
   divergence_approved: boolean;
   approved_by: string | null;
@@ -29,8 +29,10 @@ export interface Hotel {
   
   // Booking info
   confirmation_number: string | null;
+  room_number: string | null;
   status: HotelStatus;
   notes: string | null;
+  checked_in_at: string | null;
   
   created_at: string;
   updated_at: string;
@@ -53,10 +55,12 @@ export interface Hotel {
 
 export interface HotelFormData {
   enrollment_id: string;
-  hotel_name: string;
+  hotel_name?: string;
   room_type?: string;
+  room_number?: string;
   actual_checkin: string;
   actual_checkout: string;
+  checked_in_at?: string;
   confirmation_number?: string;
   status: HotelStatus;
   notes?: string;

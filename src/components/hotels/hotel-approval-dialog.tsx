@@ -78,7 +78,7 @@ export function HotelApprovalDialog({ hotel, open, onOpenChange, onApprovalChang
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Divergence</span>
             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-              {hotel.divergence_type && formatDivergenceLabel(hotel.divergence_type)}
+              {hotel.primary_divergence_type && formatDivergenceLabel(hotel.primary_divergence_type)}
             </Badge>
           </div>
 

@@ -85,7 +85,7 @@ export async function getEventCars(eventId: string): Promise<EventCar[]> {
       driver:mma_drivers(*),
       passengers:mma_car_passengers(
         *,
-        enrolled:mma_enrollments(id, person:mma_people(id, compiled_name, role)),
+        enrolled:mma_enrollments(id, person:mma_people(id, compiled_name), role:mma_roles(name)),
         flight:mma_flights(id, flight_number, arrival_datetime, departure_datetime)
       )
     `)
@@ -104,8 +104,9 @@ export async function getEventCars(eventId: string): Promise<EventCar[]> {
         enrolled: {
           ...p.enrolled,
           person: {
-            ...person,
-            full_name: person.compiled_name
+            id: person.id,
+            full_name: person.compiled_name,
+            role: p.enrolled.role?.name || 'N/A'
           }
         }
       };
@@ -121,7 +122,7 @@ export async function getCarById(carId: string): Promise<EventCar | null> {
       driver:mma_drivers(*),
       passengers:mma_car_passengers(
         *,
-        enrolled:mma_enrollments(id, person:mma_people(id, compiled_name, role)),
+        enrolled:mma_enrollments(id, person:mma_people(id, compiled_name), role:mma_roles(name)),
         flight:mma_flights(id, flight_number, arrival_datetime, departure_datetime)
       )
     `)
@@ -142,8 +143,9 @@ export async function getCarById(carId: string): Promise<EventCar | null> {
         enrolled: {
           ...p.enrolled,
           person: {
-            ...person,
-            full_name: person.compiled_name
+            id: person.id,
+            full_name: person.compiled_name,
+            role: p.enrolled.role?.name || 'N/A'
           }
         }
       };
@@ -226,7 +228,7 @@ export async function addPassengerToCar(carId: string, formData: CarPassengerFor
     })
     .select(`
       *,
-      enrolled:mma_enrollments(id, person:mma_people(id, compiled_name, role)),
+      enrolled:mma_enrollments(id, person:mma_people(id, compiled_name), role:mma_roles(name)),
       flight:mma_flights(id, flight_number, arrival_datetime, departure_datetime)
     `)
     .single();
@@ -287,7 +289,8 @@ export async function getFlightGroups(eventId: string): Promise<{
       id,
       arrival_flight_id,
       departure_flight_id,
-      person:mma_people!inner(id, compiled_name, role),
+      person:mma_people!inner(id, compiled_name),
+      role:mma_roles(name),
       car_passengers:mma_car_passengers(id, transport_type, car:mma_event_cars(id, car_number, car_label))
     `)
     .eq('event_id', eventId);
@@ -316,10 +319,12 @@ export async function getFlightGroups(eventId: string): Promise<{
         const car = arrivalAssignment?.car;
         const assignedCar = Array.isArray(car) ? car[0] : car;
 
+        const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
+        
         group.passengers.push({
           enrolled_id: e.id,
           person_name: person.compiled_name,
-          role: person.role,
+          role: roleName || 'N/A',
           assigned_car: assignedCar || undefined
         });
 
@@ -347,10 +352,12 @@ export async function getFlightGroups(eventId: string): Promise<{
         const car = departureAssignment?.car;
         const assignedCar = Array.isArray(car) ? car[0] : car;
 
+        const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
+        
         group.passengers.push({
           enrolled_id: e.id,
           person_name: person.compiled_name,
-          role: person.role,
+          role: roleName || 'N/A',
           assigned_car: assignedCar || undefined
         });
 
@@ -379,7 +386,7 @@ export async function getUnassignedPassengers(
 
   const { data: enrolled, error } = await supabase
     .from('mma_enrollments')
-    .select(`id, person:mma_people!inner(id, compiled_name, role)`)
+    .select(`id, person:mma_people!inner(id, compiled_name), role:mma_roles(name)`)
     .eq('event_id', eventId)
     .eq(flightColumn, flightId);
 
@@ -399,7 +406,8 @@ export async function getUnassignedPassengers(
     .filter(e => !assignedIds.has(e.id))
     .map(e => {
       const person = Array.isArray(e.person) ? e.person[0] : e.person;
-      return { enrolled_id: e.id, person_name: person.compiled_name, role: person.role };
+      const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
+      return { enrolled_id: e.id, person_name: person.compiled_name, role: roleName || 'N/A' };
     });
 }
 
@@ -415,7 +423,8 @@ export async function getUnassignedPassengersForEvent(
       id, 
       ${flightColumn},
       needs_transport,
-      person:mma_people!inner(id, compiled_name, role)
+      person:mma_people!inner(id, compiled_name),
+      role:mma_roles(name)
     `)
     .eq('event_id', eventId)
     .or(`${flightColumn}.not.is.null,needs_transport.eq.${transportType},needs_transport.eq.both`);
@@ -435,10 +444,11 @@ export async function getUnassignedPassengersForEvent(
     .filter(e => !assignedIds.has(e.id))
     .map((e: any) => {
       const person = Array.isArray(e.person) ? e.person[0] : e.person;
+      const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
       return { 
         enrolled_id: e.id, 
         person_name: person.compiled_name, 
-        role: person.role,
+        role: roleName || 'N/A',
         flight_id: e[flightColumn]
       };
     });

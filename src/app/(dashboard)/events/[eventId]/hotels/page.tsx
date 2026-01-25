@@ -27,48 +27,14 @@ export default function HotelsPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [hotelsData, statsData, event, missingData] = await Promise.all([
+      const [hotelsData, statsData, event] = await Promise.all([
         getEventHotels(eventId, filters),
         getHotelStats(eventId),
-        getEventById(eventId),
-        getEnrolledWithoutHotel(eventId)
+        getEventById(eventId)
       ]);
 
-      // Convert missing enrollments to mock Hotel objects
-      const missingHotels: HotelType[] = missingData.map(m => ({
-        id: `missing-${m.id}`,
-        event_id: eventId,
-        enrollment_id: m.id,
-        hotel_name: 'Pending Booking',
-        status: 'pending', // Special status for UI
-        has_divergence: false,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        calculated_checkin: '',
-        calculated_checkout: '',
-        actual_checkin: '',
-        actual_checkout: '',
-        enrolled: {
-          id: m.id,
-          person: {
-            ...m.person,
-            full_name: m.person.compiled_name
-          },
-          arrival_flight: m.flights?.[0] ? {
-             arrival_datetime: m.flights[0].arrival_date ? `${m.flights[0].arrival_date}T${m.flights[0].arrival_time || '00:00'}` : undefined
-          } : undefined,
-          departure_flight: m.flights?.[0] ? {
-             departure_datetime: m.flights[0].departure_date ? `${m.flights[0].departure_date}T${m.flights[0].departure_time || '00:00'}` : undefined
-          } : undefined
-        }
-      } as unknown as HotelType));
-
-      setHotels([...missingHotels, ...hotelsData]);
-      setStats({
-         ...statsData,
-         pending: statsData.pending + missingHotels.length, // Add to pending count (visual only)
-         total: statsData.total + missingHotels.length
-      });
+      setHotels(hotelsData);
+      setStats(statsData);
       
       if (event) {
         setEventDates({ 
@@ -88,11 +54,7 @@ export default function HotelsPage() {
   }, [loadData]);
 
   const handleEdit = (hotel: HotelType) => {
-    if (hotel.id.startsWith('missing-')) {
-       setEditingHotel(null); // Ensure creation mode
-    } else {
-       setEditingHotel(hotel);
-    }
+    setEditingHotel(hotel);
     setIsFormOpen(true);
   };
 
@@ -189,7 +151,12 @@ export default function HotelsPage() {
           <p>Loading hotel reservations...</p>
         </div>
       ) : (
-        <HotelTable hotels={hotels} onEdit={handleEdit} onRefresh={loadData} />
+        <HotelTable 
+          hotels={hotels} 
+          eventDates={eventDates}
+          onEdit={handleEdit} 
+          onRefresh={loadData} 
+        />
       )}
 
       {/* Form Dialog */}

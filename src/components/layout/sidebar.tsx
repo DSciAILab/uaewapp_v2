@@ -92,12 +92,10 @@ export function Sidebar() {
     // Sempre mostrar dashboard
     if (!item.area) return true
     
-    // Se ainda está carregando, mas temos usuário, podemos mostrar baseado no tipo (optimistic)
+    // If permissions are still loading, showing everything is misleading for non-admins
     if (permissionsLoading) {
-       if (user?.user_type === 'admin') return true
-       // Se não é admin, espera carregar ou mostra padrão (melhor esconder se for restrito)
-       // Mas para evitar "empty sidebar", vamos mostrar itens básicos se user existir
-       return user ? true : false 
+       // Admins see everything, others wait for permissions
+       return user?.user_type === 'admin'
     }
 
     if (isAdmin) return true
