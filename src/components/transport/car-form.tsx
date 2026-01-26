@@ -11,13 +11,13 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { EventCar, EventCarFormData, Driver } from '@/types/transport';
-import { createEventCar, updateEventCar, getDrivers } from '@/lib/services/transport-service';
+import { createEventCar, updateEventCar } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
 
 const carSchema = z.object({
-  driver_id: z.string().optional(),
+  driver_id: z.string().optional().or(z.literal('')),
   car_label: z.string().optional(),
-  capacity: z.number().min(1, 'Capacity must be at least 1'),
+  capacity: z.coerce.number().min(1, 'Capacity must be at least 1'),
   vehicle_type: z.string().optional(),
   license_plate: z.string().optional(),
   notes: z.string().optional(),
@@ -26,21 +26,14 @@ const carSchema = z.object({
 interface CarFormProps {
   eventId: string;
   car?: EventCar | null;
+  drivers: Driver[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
 }
 
-const vehicleTypes = [
-  { value: 'sedan', label: 'Sedan (4 passengers)', cap: 4 },
-  { value: 'suv', label: 'SUV (6 passengers)', cap: 6 },
-  { value: 'van', label: 'Van (12 passengers)', cap: 12 },
-  { value: 'bus', label: 'Bus (20+ passengers)', cap: 24 },
-];
-
-export function CarForm({ eventId, car, open, onOpenChange, onSuccess }: CarFormProps) {
+export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }: CarFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [drivers, setDrivers] = useState<Driver[]>([]);
   const isEditing = !!car;
 
   const form = useForm<EventCarFormData>({
@@ -49,17 +42,11 @@ export function CarForm({ eventId, car, open, onOpenChange, onSuccess }: CarForm
       driver_id: '',
       car_label: '',
       capacity: 4,
-      vehicle_type: 'sedan',
+      vehicle_type: '',
       license_plate: '',
       notes: '',
     },
   });
-
-  useEffect(() => {
-    if (open) {
-      getDrivers(true).then(setDrivers).catch(console.error);
-    }
-  }, [open]);
 
   useEffect(() => {
     if (car) {
@@ -67,7 +54,7 @@ export function CarForm({ eventId, car, open, onOpenChange, onSuccess }: CarForm
         driver_id: car.driver_id || '',
         car_label: car.car_label || '',
         capacity: car.capacity,
-        vehicle_type: car.vehicle_type || 'sedan',
+        vehicle_type: car.vehicle_type || '',
         license_plate: car.license_plate || '',
         notes: car.notes || '',
       });
@@ -81,73 +68,67 @@ export function CarForm({ eventId, car, open, onOpenChange, onSuccess }: CarForm
         notes: '',
       });
     }
-  }, [car, form, open]);
-
-  const vehicleType = form.watch('vehicle_type');
-  useEffect(() => {
-    if (vehicleType && !isEditing) {
-      const type = vehicleTypes.find(t => t.value === vehicleType);
-      if (type) {
-        form.setValue('capacity', type.cap);
-      }
-    }
-  }, [vehicleType, form, isEditing]);
+  }, [car, open, form]);
 
   const onSubmit = async (data: EventCarFormData) => {
     setIsLoading(true);
     try {
-      if (isEditing) {
+      if (isEditing && car) {
         await updateEventCar(car.id, data);
-        toast.success('Car updated');
+        toast.success('Car updated successfully');
       } else {
         await createEventCar(eventId, data);
-        toast.success('Car added to event');
+        toast.success('Car added successfully');
       }
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
-      toast.error(isEditing ? 'Failed to update car' : 'Failed to add car');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save car');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleDriverChange = (driverId: string) => {
+      form.setValue('driver_id', driverId);
+      // Auto-fill vehicle info if available and empty in form
+      const driver = drivers.find(d => d.id === driverId);
+      if (driver && driver.vehicle_info && !form.getValues('vehicle_type')) {
+          // Simple heuristic: check if info contains keywords
+          const info = driver.vehicle_info.toLowerCase();
+          if (info.includes('van')) form.setValue('vehicle_type', 'van');
+          else if (info.includes('suv')) form.setValue('vehicle_type', 'suv');
+          else if (info.includes('bus')) form.setValue('vehicle_type', 'bus');
+          else form.setValue('vehicle_type', 'sedan');
+      }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Car' : 'Add Car to Event'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Event Car' : 'Add Car to Event'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="car_label"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Car Label (Optional)</FormLabel>
-                  <FormControl><Input placeholder="e.g., VAN 1, SUV 2" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="driver_id"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Assigned Driver</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
+                  <FormLabel>Driver (Optional)</FormLabel>
+                  <Select onValueChange={handleDriverChange} value={field.value || ''}>
                     <FormControl>
-                      <SelectTrigger><SelectValue placeholder="Select driver (optional)" /></SelectTrigger>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a driver" />
+                      </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">No Driver Assigned</SelectItem>
-                      {drivers.map((driver) => (
-                        <SelectItem key={driver.id} value={driver.id}>
-                          {driver.full_name}{driver.vehicle_info && ` - ${driver.vehicle_info}`}
+                      <SelectItem value="unassigned">-- No Driver --</SelectItem>
+                      {drivers.filter(d => d.is_active).map((d) => (
+                        <SelectItem key={d.id} value={d.id}>
+                          {d.full_name} {d.vehicle_info ? `(${d.vehicle_info})` : ''}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -158,49 +139,67 @@ export function CarForm({ eventId, car, open, onOpenChange, onSuccess }: CarForm
             />
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="vehicle_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Vehicle Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value || ''}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {vehicleTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                 <FormField
+                  control={form.control}
+                  name="car_label"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Label</FormLabel>
+                      <FormControl><Input placeholder="e.g. VAN 1" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-              <FormField
-                control={form.control}
-                name="capacity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Capacity *</FormLabel>
-                    <FormControl><Input type="number" min={1} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="capacity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Capacity</FormLabel>
+                      <FormControl><Input type="number" min="1" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
             </div>
 
-            <FormField
-              control={form.control}
-              name="license_plate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>License Plate</FormLabel>
-                  <FormControl><Input placeholder="ABC-1234" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="vehicle_type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Vehicle Type</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="sedan">Sedan (4)</SelectItem>
+                          <SelectItem value="suv">SUV (6)</SelectItem>
+                          <SelectItem value="van">Van (10+)</SelectItem>
+                          <SelectItem value="bus">Bus (30+)</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="license_plate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>License Plate</FormLabel>
+                      <FormControl><Input placeholder="ABC-123" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
 
             <FormField
               control={form.control}
@@ -208,7 +207,7 @@ export function CarForm({ eventId, car, open, onOpenChange, onSuccess }: CarForm
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
-                  <FormControl><Textarea placeholder="Additional notes..." {...field} /></FormControl>
+                  <FormControl><Textarea placeholder="Specific instructions..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

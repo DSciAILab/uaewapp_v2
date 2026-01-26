@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/client';
 import { EntranceMusic, EntranceMusicFormData, MusicStatus } from '@/types/music';
 
-const supabase = createClient();
+function getClient() {
+  return createClient();
+}
 
 export async function getAthleteMusic(enrolledId: string): Promise<EntranceMusic[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_music')
     .select(`
@@ -24,6 +27,7 @@ export async function getAthleteMusic(enrolledId: string): Promise<EntranceMusic
 }
 
 export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_music')
     .select(`
@@ -42,6 +46,7 @@ export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
 }
 
 export async function createAthleteMusic(eventId: string, formData: EntranceMusicFormData): Promise<EntranceMusic> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_music')
     .insert({
@@ -66,6 +71,7 @@ export async function createAthleteMusic(eventId: string, formData: EntranceMusi
 }
 
 export async function updateAthleteMusic(musicId: string, formData: Partial<EntranceMusicFormData>): Promise<EntranceMusic> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_music')
     .update(formData)

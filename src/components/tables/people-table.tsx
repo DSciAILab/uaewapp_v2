@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { MoreHorizontal, Pencil, Trash2, ExternalLink, UserPlus } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import type { Person } from '@/types/database'
 import { getFighterPhotoUrl, formatDate, cn } from '@/lib/utils'
@@ -28,6 +28,7 @@ interface PeopleTableProps {
   onSelectionChange?: (ids: Set<string>) => void
   onEdit: (person: Person) => void
   onDelete: (person: Person) => void
+  onEnroll?: (person: Person) => void
   canEdit?: boolean
   canDelete?: boolean
 }
@@ -38,6 +39,7 @@ export function PeopleTable({
   onSelectionChange,
   onEdit,
   onDelete,
+  onEnroll,
   canEdit = true,
   canDelete = false,
 }: PeopleTableProps) {
@@ -195,6 +197,12 @@ export function PeopleTable({
                       <DropdownMenuItem onClick={() => onEdit(person)}>
                         <Pencil className="mr-2 h-4 w-4" />
                         Editar Detalhes
+                      </DropdownMenuItem>
+                    )}
+                    {canEdit && onEnroll && (
+                      <DropdownMenuItem onClick={() => onEnroll(person)}>
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Enroll in Event
                       </DropdownMenuItem>
                     )}
                     {person.document_folder && (

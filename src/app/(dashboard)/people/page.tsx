@@ -29,6 +29,7 @@ import {
 import { PeopleTable } from '@/components/tables/people-table'
 import { PersonForm } from '@/components/forms/person-form'
 import { CSVImport } from '@/components/forms/csv-import'
+import { QuickEnrollDialog } from '@/components/forms/quick-enroll-dialog'
 import { Plus, Upload, Search, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
@@ -61,9 +62,10 @@ export default function PeoplePage() {
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
 
-  const { canEdit, isAdmin } = usePermissions()
+  const { canEdit, isAdmin, loading: permissionsLoading } = usePermissions()
   const canEditPeople = canEdit('people')
 
   const fetchPeople = async () => {
@@ -90,7 +92,11 @@ export default function PeoplePage() {
     }
   }
 
-  useEffect(() => { fetchPeople() }, [filters])
+  useEffect(() => { 
+    if (!permissionsLoading) {
+      fetchPeople() 
+    }
+  }, [filters, permissionsLoading])
   useEffect(() => { fetchNationalities() }, [])
 
   const handleCreate = () => {
@@ -106,6 +112,11 @@ export default function PeoplePage() {
   const handleDelete = (person: Person) => {
     setSelectedPerson(person)
     setDeleteDialogOpen(true)
+  }
+
+  const handleEnroll = (person: Person) => {
+    setSelectedPerson(person)
+    setEnrollDialogOpen(true)
   }
 
   const handleSubmit = async (data: PersonSchema) => {
@@ -287,6 +298,7 @@ export default function PeoplePage() {
                 onSelectionChange={setSelectedIds}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
+                onEnroll={handleEnroll}
                 canEdit={canEditPeople}
                 canDelete={isAdmin}
               />
@@ -394,6 +406,16 @@ export default function PeoplePage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <QuickEnrollDialog
+        person={selectedPerson}
+        open={enrollDialogOpen}
+        onOpenChange={setEnrollDialogOpen}
+        onSuccess={() => {
+            // Optional: refresh something? Usually enrollment doesn't change person list directly, but maybe updates visual indicators if we had any
+            toast.success('Enrollment complete');
+        }}
+      />
     </div>
   )
 }

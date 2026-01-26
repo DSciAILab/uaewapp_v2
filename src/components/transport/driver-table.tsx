@@ -5,11 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Pencil, UserX } from 'lucide-react';
+import { MoreHorizontal, Pencil, CheckCircle, XCircle } from 'lucide-react';
 import { Driver } from '@/types/transport';
-import { deactivateDriver } from '@/lib/services/transport-service';
+import { deactivateDriver, updateDriver } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface DriverTableProps {
   drivers: Driver[];
@@ -18,98 +17,91 @@ interface DriverTableProps {
 }
 
 export function DriverTable({ drivers, onEdit, onRefresh }: DriverTableProps) {
-  const [deactivateId, setDeactivateId] = useState<string | null>(null);
-  const [isDeactivating, setIsDeactivating] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const handleDeactivate = async () => {
-    if (!deactivateId) return;
-    
-    setIsDeactivating(true);
+  const handleToggleActive = async (driver: Driver) => {
+    setUpdatingId(driver.id);
     try {
-      await deactivateDriver(deactivateId);
-      toast.success('Driver deactivated');
+      await updateDriver(driver.id, { is_active: !driver.is_active });
+      toast.success(`Driver ${driver.is_active ? 'deactivated' : 'activated'}`);
       onRefresh();
-    } catch (error) {
-      toast.error('Failed to deactivate driver');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to update status');
     } finally {
-      setIsDeactivating(false);
-      setDeactivateId(null);
+      setUpdatingId(null);
     }
   };
 
   return (
-    <>
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
+    <div className="rounded-md border bg-card">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Full Name</TableHead>
+            <TableHead>Contact</TableHead>
+            <TableHead>Vehicle</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="w-[70px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {drivers.length === 0 ? (
             <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Phone</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-[70px]"></TableHead>
+              <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                No drivers found
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {drivers.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                  No drivers found
+          ) : (
+            drivers.map((driver) => (
+              <TableRow 
+                key={driver.id}
+                className="cursor-pointer hover:bg-muted/50"
+                onClick={() => onEdit(driver)}
+              >
+                <TableCell>
+                  <div className="flex flex-col">
+                    <span className="font-medium">{driver.full_name}</span>
+                    <span className="text-xs text-muted-foreground">{driver.license_number}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col text-sm">
+                     {driver.phone && <span>{driver.phone}</span>}
+                     {driver.email && <span className="text-muted-foreground">{driver.email}</span>}
+                  </div>
+                </TableCell>
+                <TableCell>
+                    {driver.vehicle_info || <span className="text-muted-foreground">-</span>}
+                </TableCell>
+                <TableCell>
+                  <Badge variant={driver.is_active ? 'default' : 'secondary'} className={driver.is_active ? 'bg-green-600 text-white hover:bg-green-700' : ''}>
+                    {driver.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onEdit(driver)}>
+                        <Pencil className="mr-2 h-4 w-4" />Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleToggleActive(driver)}>
+                        {driver.is_active ? (
+                            <><XCircle className="mr-2 h-4 w-4 text-red-500" />Deactivate</>
+                        ) : (
+                            <><CheckCircle className="mr-2 h-4 w-4 text-green-500" />Activate</>
+                        )}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ) : (
-              drivers.map((driver) => (
-                <TableRow key={driver.id}>
-                  <TableCell className="font-medium">{driver.full_name}</TableCell>
-                  <TableCell>{driver.phone || '-'}</TableCell>
-                  <TableCell>{driver.email || '-'}</TableCell>
-                  <TableCell>{driver.vehicle_info || '-'}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={driver.is_active ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}>
-                      {driver.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => onEdit(driver)}>
-                          <Pencil className="mr-2 h-4 w-4" />Edit
-                        </DropdownMenuItem>
-                        {driver.is_active && (
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeactivateId(driver.id)}>
-                            <UserX className="mr-2 h-4 w-4" />Deactivate
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <AlertDialog open={!!deactivateId} onOpenChange={() => setDeactivateId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Deactivate Driver?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This driver will be marked as inactive and won't appear as an option for new assignments.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeactivating}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeactivate} disabled={isDeactivating} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {isDeactivating ? 'Deactivating...' : 'Deactivate'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+            ))
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

@@ -11,11 +11,14 @@ import {
   BatchTimeline,
 } from '@/types/batch';
 
-const supabase = createClient();
+function getClient() {
+  return createClient();
+}
 
 // ==================== BATCHES ====================
 
 export async function getEventBatches(eventId: string, filters?: BatchFilters): Promise<Batch[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_batches')
     .select(`
@@ -57,6 +60,7 @@ export async function getEventBatches(eventId: string, filters?: BatchFilters): 
 }
 
 export async function getBatchById(batchId: string): Promise<Batch | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batches')
     .select(`
@@ -80,6 +84,7 @@ export async function getBatchById(batchId: string): Promise<Batch | null> {
 }
 
 async function getNextBatchNumber(eventId: string, batchType: BatchType): Promise<number> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batches')
     .select('batch_number')
@@ -94,6 +99,7 @@ async function getNextBatchNumber(eventId: string, batchType: BatchType): Promis
 }
 
 export async function createBatch(eventId: string, formData: BatchFormData): Promise<Batch> {
+  const supabase = getClient();
   const batchNumber = await getNextBatchNumber(eventId, formData.batch_type);
 
   const { data, error } = await supabase
@@ -122,6 +128,7 @@ export async function createBatch(eventId: string, formData: BatchFormData): Pro
 }
 
 export async function updateBatch(batchId: string, formData: Partial<BatchFormData>): Promise<Batch> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batches')
     .update(formData)
@@ -135,6 +142,7 @@ export async function updateBatch(batchId: string, formData: Partial<BatchFormDa
 }
 
 export async function deleteBatch(batchId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_batches')
     .delete()
@@ -152,6 +160,9 @@ export async function updateBatchStatus(batchId: string, status: BatchStatus): P
     updateData.completed_at = new Date().toISOString();
   }
 
+
+
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batches')
     .update(updateData)
@@ -167,6 +178,7 @@ export async function updateBatchStatus(batchId: string, status: BatchStatus): P
 // ==================== BATCH PARTICIPANTS ====================
 
 export async function getBatchParticipants(batchId: string): Promise<BatchParticipant[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batch_participants')
     .select(`
@@ -188,6 +200,7 @@ export async function addParticipantToBatch(
   batchId: string,
   formData: BatchParticipantFormData
 ): Promise<BatchParticipant> {
+  const supabase = getClient();
   // Get next order number
   const { data: existing } = await supabase
     .from('mma_batch_participants')
@@ -222,6 +235,7 @@ export async function addParticipantToBatch(
 }
 
 export async function removeParticipantFromBatch(participantId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_batch_participants')
     .delete()
@@ -242,6 +256,9 @@ export async function updateParticipantStatus(
     updateData.completed_at = new Date().toISOString();
   }
 
+
+
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batch_participants')
     .update(updateData)
@@ -258,6 +275,7 @@ export async function updateParticipantResult(
   participantId: string,
   resultData: Record<string, unknown>
 ): Promise<BatchParticipant> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batch_participants')
     .update({
@@ -275,6 +293,7 @@ export async function updateParticipantResult(
 }
 
 export async function reorderParticipants(batchId: string, orderedIds: string[]): Promise<void> {
+  const supabase = getClient();
   const updates = orderedIds.map((id, index) =>
     supabase
       .from('mma_batch_participants')
@@ -331,6 +350,7 @@ export async function getAvailableEnrolledForBatch(
   id: string;
   person: { id: string; full_name: string; role: string };
 }>> {
+  const supabase = getClient();
   // Get all enrolled for event
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
@@ -352,7 +372,12 @@ export async function getAvailableEnrolledForBatch(
 
   const assignedIds = new Set(assigned?.map(a => a.enrolled_id) || []);
 
-  return (enrolled || []).filter(e => !assignedIds.has(e.id));
+  return (enrolled || [])
+    .map((e: any) => ({
+      id: e.id,
+      person: Array.isArray(e.person) ? e.person[0] : e.person
+    }))
+    .filter(e => !assignedIds.has(e.id));
 }
 
 export async function getBatchStats(eventId: string): Promise<{
@@ -374,6 +399,7 @@ export async function getBatchStats(eventId: string): Promise<{
   }
 
   // Get participant stats
+  const supabase = getClient();
   const { data: participants, error } = await supabase
     .from('mma_batch_participants')
     .select('status, batch:mma_batches!inner(event_id)')

@@ -15,11 +15,14 @@ import {
   ClearanceStatus,
 } from '@/types/pre-event';
 
-const supabase = createClient();
+function getClient() {
+  return createClient();
+}
 
 // ==================== BLOOD TESTS ====================
 
 export async function getEventBloodTests(eventId: string): Promise<BloodTest[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .select(`
@@ -38,6 +41,7 @@ export async function getEventBloodTests(eventId: string): Promise<BloodTest[]> 
 }
 
 export async function getBloodTestById(testId: string): Promise<BloodTest | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .select(`
@@ -59,6 +63,7 @@ export async function getBloodTestById(testId: string): Promise<BloodTest | null
 }
 
 export async function createBloodTest(eventId: string, formData: BloodTestFormData): Promise<BloodTest> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .insert({
@@ -91,6 +96,7 @@ export async function createBloodTest(eventId: string, formData: BloodTestFormDa
 }
 
 export async function updateBloodTest(testId: string, formData: Partial<BloodTestFormData>): Promise<BloodTest> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .update(formData)
@@ -110,6 +116,7 @@ export async function updateBloodTest(testId: string, formData: Partial<BloodTes
 }
 
 export async function deleteBloodTest(testId: string): Promise<void> {
+  const supabase = getClient();
   const test = await getBloodTestById(testId);
   
   const { error } = await supabase
@@ -130,6 +137,7 @@ export async function updateBloodTestResult(
   result: BloodTestResult,
   resultNotes?: string
 ): Promise<BloodTest> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .update({
@@ -156,6 +164,7 @@ export async function updateBloodTestResult(
 // ==================== MEDICAL EXAMS ====================
 
 export async function getEventMedicalExams(eventId: string): Promise<MedicalExam[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_medical_exams')
     .select(`
@@ -174,6 +183,7 @@ export async function getEventMedicalExams(eventId: string): Promise<MedicalExam
 }
 
 export async function getMedicalExamById(examId: string): Promise<MedicalExam | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_medical_exams')
     .select(`
@@ -195,6 +205,7 @@ export async function getMedicalExamById(examId: string): Promise<MedicalExam | 
 }
 
 export async function createMedicalExam(eventId: string, formData: MedicalExamFormData): Promise<MedicalExam> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_medical_exams')
     .insert({
@@ -224,6 +235,7 @@ export async function createMedicalExam(eventId: string, formData: MedicalExamFo
 }
 
 export async function updateMedicalExam(examId: string, formData: Partial<MedicalExamFormData>): Promise<MedicalExam> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_medical_exams')
     .update(formData)
@@ -242,6 +254,7 @@ export async function updateMedicalExam(examId: string, formData: Partial<Medica
 }
 
 export async function deleteMedicalExam(examId: string): Promise<void> {
+  const supabase = getClient();
   const exam = await getMedicalExamById(examId);
 
   const { error } = await supabase
@@ -259,6 +272,7 @@ export async function deleteMedicalExam(examId: string): Promise<void> {
 // ==================== REQUIRED DOCUMENTS ====================
 
 export async function getEventDocuments(eventId: string): Promise<RequiredDocument[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .select(`
@@ -277,6 +291,7 @@ export async function getEventDocuments(eventId: string): Promise<RequiredDocume
 }
 
 export async function getDocumentById(docId: string): Promise<RequiredDocument | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .select(`
@@ -298,6 +313,7 @@ export async function getDocumentById(docId: string): Promise<RequiredDocument |
 }
 
 export async function createDocument(eventId: string, formData: RequiredDocumentFormData): Promise<RequiredDocument> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .insert({
@@ -322,6 +338,7 @@ export async function createDocument(eventId: string, formData: RequiredDocument
 }
 
 export async function updateDocument(docId: string, formData: Partial<RequiredDocumentFormData>): Promise<RequiredDocument> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .update(formData)
@@ -355,6 +372,9 @@ export async function updateDocumentStatus(
     updateData.rejection_reason = rejectionReason;
   }
 
+
+
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .update(updateData)
@@ -373,6 +393,7 @@ export async function updateDocumentStatus(
 }
 
 export async function deleteDocument(docId: string): Promise<void> {
+  const supabase = getClient();
   const doc = await getDocumentById(docId);
 
   const { error } = await supabase
@@ -390,6 +411,7 @@ export async function deleteDocument(docId: string): Promise<void> {
 // ==================== CLEARANCE ====================
 
 export async function getClearanceStatus(eventId: string, enrolledId: string): Promise<PreEventClearance | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_pre_event_clearance')
     .select('*')
@@ -406,6 +428,7 @@ export async function getClearanceStatus(eventId: string, enrolledId: string): P
 }
 
 export async function updateClearanceStatus(eventId: string, enrolledId: string): Promise<PreEventClearance> {
+  const supabase = getClient();
   // Get all requirements for this enrolled
   const [bloodTests, medicalExams, documents] = await Promise.all([
     supabase
@@ -483,6 +506,7 @@ export async function grantClearance(
   enrolledId: string,
   clearedBy: string
 ): Promise<PreEventClearance> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_pre_event_clearance')
     .upsert({
@@ -510,6 +534,7 @@ export async function denyClearance(
   enrolledId: string,
   reason: string
 ): Promise<PreEventClearance> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_pre_event_clearance')
     .upsert({
@@ -531,6 +556,7 @@ export async function denyClearance(
 // ==================== SUMMARY ====================
 
 export async function getPreEventSummary(eventId: string): Promise<PreEventSummary[]> {
+  const supabase = getClient();
   // Get all enrolled for event
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
@@ -580,8 +606,8 @@ export async function getPreEventSummary(eventId: string): Promise<PreEventSumma
 
     summaries.push({
       enrolled_id: e.id,
-      person_name: e.person.full_name,
-      role: e.person.role,
+      person_name: (Array.isArray(e.person) ? e.person[0] : e.person).full_name,
+      role: (Array.isArray(e.person) ? e.person[0] : e.person).role,
       blood_tests: {
         total: bt.length,
         completed: bt.filter(t => t.status === 'completed').length,

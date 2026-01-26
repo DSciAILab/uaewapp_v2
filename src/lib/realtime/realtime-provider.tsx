@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, ReactNode, useState, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { TeamMember } from '@/types/war-room';
@@ -19,10 +19,20 @@ interface RealtimeProviderProps {
   children: ReactNode;
 }
 
+// Define PresenceState type based on the structure expected from Supabase presence
+// This is inferred from the original code's usage of `presence` object
+interface PresenceState {
+  name: string;
+  role: string;
+  section: string;
+  online_at: string;
+  // Add other properties if they exist in the presence object
+}
+
 export function RealtimeProvider({ eventId, children }: RealtimeProviderProps) {
   const [isConnected, setIsConnected] = useState(false);
   const [activeUsers, setActiveUsers] = useState<TeamMember[]>([]);
-  const [presenceChannel, setPresenceChannel] = useState<RealtimeChannel | null>(null);
+  const presenceChannelRef = useRef<RealtimeChannel | null>(null);
   
   const { user } = useUser();
   const supabase = createClient();
@@ -30,6 +40,7 @@ export function RealtimeProvider({ eventId, children }: RealtimeProviderProps) {
   useEffect(() => {
     if (!user) return;
 
+    // Join the global presence channel
     const channel = supabase.channel(`presence:${eventId}`, {
       config: {
         presence: {
@@ -40,22 +51,26 @@ export function RealtimeProvider({ eventId, children }: RealtimeProviderProps) {
 
     channel
       .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        const users: TeamMember[] = [];
+        const newState = channel.presenceState();
+        const onlineUsers: TeamMember[] = []; // Changed from PresenceState[] to TeamMember[] to match setActiveUsers
         
-        Object.entries(state).forEach(([userId, presences]) => {
-          const presence = presences[0] as any;
-          users.push({
-            id: userId,
-            name: presence.name || 'Unknown',
-            role: presence.role || 'User',
-            status: 'online',
-            current_section: presence.section,
-            last_seen: new Date().toISOString(),
-          });
-        });
+        for (const key in newState) {
+          const state = newState[key] as unknown as PresenceState[];
+          if (state && state.length > 0) {
+            // Assuming the first presence object contains the user's details
+            const presence = state[0];
+            onlineUsers.push({
+              id: key, // The key from newState is the user ID
+              name: presence.name || 'Unknown',
+              role: presence.role || 'User',
+              status: 'online', // Assuming 'online' for active presence
+              current_section: presence.section,
+              last_seen: presence.online_at, // Using online_at as last_seen
+            });
+          }
+        }
         
-        setActiveUsers(users);
+        setActiveUsers(onlineUsers); // Changed from setPresenceState to setActiveUsers
       })
       .on('presence', { event: 'join' }, ({ key, newPresences }) => {
         console.log('User joined:', key, newPresences);
@@ -67,26 +82,27 @@ export function RealtimeProvider({ eventId, children }: RealtimeProviderProps) {
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
           await channel.track({
-            name: user.full_name || user.email || user.id,
-            role: user.role_code || 'Admin', 
+            name: user.name || user.email || user.id,
+            role: user.user_type || 'staff', 
             section: 'dashboard',
             online_at: new Date().toISOString(),
           });
         }
       });
 
-    setPresenceChannel(channel);
+    presenceChannelRef.current = channel;
 
     return () => {
       channel.unsubscribe();
+      presenceChannelRef.current = null;
     };
   }, [eventId, user, supabase]);
 
   const broadcastPresence = async (section?: string) => {
-    if (presenceChannel && user) {
-      await presenceChannel.track({
-        name: user.full_name || user.email || user.id,
-        role: user.role_code || 'Admin',
+    if (presenceChannelRef.current && user) {
+      await presenceChannelRef.current.track({
+        name: user.name || user.email || user.id,
+        role: user.user_type || 'staff',
         section: section || 'dashboard',
         online_at: new Date().toISOString(),
       });

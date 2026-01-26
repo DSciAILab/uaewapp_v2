@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Plus, Hotel, AlertTriangle, CheckCircle, Clock, Loader2, Info } from 'lucide-react';
 import { HotelTable } from '@/components/hotels/hotel-table';
+import { HotelStats } from '@/components/hotels/hotel-stats';
 import { HotelFilters } from '@/components/hotels/hotel-filters';
 import { Hotel as HotelType, HotelFilters as HotelFiltersType } from '@/types/hotel';
 import { getEventHotels } from '@/lib/services/hotel-service';
@@ -12,9 +13,8 @@ import { useRouter } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { toast } from 'sonner';
 
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { HotelSpreadsheet } from '@/components/hotels/hotel-spreadsheet';
-import { LayoutList, Table2, RefreshCw } from 'lucide-react';
 
 export default function GlobalHotelsPage() {
   const router = useRouter();
@@ -56,113 +56,44 @@ export default function GlobalHotelsPage() {
         <Header 
             title="Global Hotel Logistics" 
             description="Manage hotel accommodations across all events."
-        >
-          <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as 'list' | 'spreadsheet')} className="mr-2">
-             <TabsList>
-                 <TabsTrigger value="list" className="flex items-center gap-2 h-8">
-                     <LayoutList className="h-4 w-4" />
-                     List
-                 </TabsTrigger>
-                 <TabsTrigger value="spreadsheet" className="flex items-center gap-2 h-8">
-                     <Table2 className="h-4 w-4" />
-                     Sheet
-                 </TabsTrigger>
-             </TabsList>
-          </Tabs>
+        />
 
-           <Button variant="outline" size="sm" onClick={() => {
-                loadData();
-                router.refresh();
-                toast.success('Refreshing data...');
-            }} className="h-9">
-                <RefreshCw className="mr-2 h-4 w-4" />
-                Refresh
-            </Button>
-        </Header>
-
-        <main className="flex-1 p-6 space-y-8 max-w-[1600px] mx-auto w-full">
+        <main className="flex-1 p-6 space-y-8 w-full">
             
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card 
-            className={`cursor-pointer transition-all hover:bg-accent/50 ${Object.keys(filters).length === 0 ? 'border-primary ring-1 ring-primary' : ''}`}
-            onClick={() => setFilters({})}
-        >
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <div className="flex items-center gap-2">
-              <Hotel className="h-5 w-5 text-blue-600" />
-              <span className="text-2xl font-bold">{stats.total}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.status === 'confirmed' ? 'border-primary ring-1 ring-primary' : ''}`}
-            onClick={() => setFilters({ status: 'confirmed' })}
-        >
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-2xl font-bold">{stats.confirmed}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.status === 'pending' ? 'border-primary ring-1 ring-primary' : ''}`}
-            onClick={() => setFilters({ status: 'pending' })}
-        >
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-yellow-600" />
-              <span className="text-2xl font-bold">{stats.pending}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.has_divergence ? 'border-primary ring-1 ring-primary' : ''}`}
-            onClick={() => setFilters({ has_divergence: true })}
-        >
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Divergences</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-orange-600" />
-              <span className="text-2xl font-bold">{stats.with_divergence}</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card 
-            className={`cursor-pointer transition-all hover:bg-accent/50 ${filters.has_divergence && filters.divergence_approved === false ? 'border-primary ring-1 ring-primary' : ''}`}
-            onClick={() => setFilters({ has_divergence: true, divergence_approved: false })}
-        >
-          <CardHeader className="p-4 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Action Needed</CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 pt-2">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-600" />
-              <span className="text-2xl font-bold">{stats.pending_approval}</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <HotelStats 
+        stats={stats}
+        activeStatus={
+            filters.has_divergence && filters.divergence_approved === false ? 'action_needed' :
+            filters.has_divergence ? 'divergence' :
+            filters.status || 'all'
+        }
+        onStatusClick={(status) => {
+            if (status === 'all') {
+                setFilters({});
+            } else if (status === 'divergence') {
+                setFilters({ has_divergence: true });
+            } else if (status === 'action_needed') {
+                setFilters({ has_divergence: true, divergence_approved: false });
+            } else {
+                setFilters({ status: status as any });
+            }
+        }}
+      />
 
       {/* Filters */}
       <div className="bg-card border rounded-lg p-4 shadow-sm">
-        <HotelFilters filters={filters} onChange={setFilters} />
+        <HotelFilters 
+            filters={filters} 
+            onChange={setFilters} 
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            onRefresh={() => {
+                loadData();
+                router.refresh();
+                toast.success('Refreshing data...');
+            }}
+        />
       </div>
 
       {viewMode === 'list' ? (

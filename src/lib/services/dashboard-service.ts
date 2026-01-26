@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { DashboardData, EventMetrics, ModuleStatus, UpcomingDeadline, ActivityItem } from '@/types/dashboard';
 
-const supabase = createClient();
+const getClient = () => createClient();
 
 /**
  * MISSION CRITICAL OPTIMIZATION: Remote Procedure Call (RPC)
@@ -9,6 +9,7 @@ const supabase = createClient();
  * This reduces latency from ~800ms to ~40ms.
  */
 export async function getDashboardData(eventId: string): Promise<DashboardData> {
+  const supabase = getClient();
   // Parallel fetch: Event Static Info + Metrics (via RPC) + Deadlines
   const [eventResult, metricsResult, deadlinesResult] = await Promise.all([
     supabase.from('mma_events').select('id, name, event_date, city, status').eq('id', eventId).single(),
@@ -47,6 +48,7 @@ export async function getDashboardData(eventId: string): Promise<DashboardData> 
  * Compatibility export: Fetches only metrics using the optimized RPC.
  */
 export async function getEventMetrics(eventId: string): Promise<EventMetrics> {
+  const supabase = getClient();
   const { data, error } = await supabase.rpc('get_event_dashboard_metrics', { p_event_id: eventId });
   if (error) throw error;
   return data as EventMetrics;
@@ -56,6 +58,7 @@ export async function getEventMetrics(eventId: string): Promise<EventMetrics> {
  * Helper to fetch upcoming deadlines (optimized)
  */
 async function getUpcomingDeadlines(eventId: string): Promise<UpcomingDeadline[]> {
+  const supabase = getClient();
   const { data: tasks } = await supabase
     .from('mma_athlete_tasks')
     .select('id, task_type, scheduled_date, scheduled_time')

@@ -6,13 +6,15 @@ import { useUser } from './use-user'
 import type { UserPermission, PermissionLevel } from '@/types/database'
 
 export function usePermissions() {
-  const { user } = useUser()
+  const { user, loading: userLoading } = useUser()
   const [permissions, setPermissions] = useState<UserPermission[]>([])
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
     async function fetchPermissions() {
+      if (userLoading) return
+
       if (!user) {
         setPermissions([])
         setLoading(false)
@@ -43,7 +45,7 @@ export function usePermissions() {
     }
 
     fetchPermissions()
-  }, [user, supabase])
+  }, [user, userLoading, supabase])
 
   const hasPermission = (areaCode: string, level: PermissionLevel = 'view'): boolean => {
     if (!user) return false

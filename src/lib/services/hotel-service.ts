@@ -2,12 +2,13 @@ import { createClient } from '@/lib/supabase/client';
 import { Hotel, HotelFormData, HotelFilters, HotelStatus } from '@/types/hotel';
 import { calculateHotelDates, detectDivergences, getPrimaryDivergence } from '@/lib/utils/hotel-calculations';
 
-const supabase = createClient();
+const getClient = () => createClient();
 
 export async function getEventHotels(
   eventId?: string,
   filters?: HotelFilters
 ): Promise<Hotel[]> {
+  const supabase = getClient();
   // We use mma_enrollments as the primary source to ensure everyone who "needs_hotel" is included
   let query = supabase
     .from('mma_enrollments')
@@ -129,6 +130,7 @@ export async function getEventHotels(
 }
 
 export async function getHotelById(hotelId: string): Promise<Hotel | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_hotels')
     .select(`
@@ -177,6 +179,7 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
 // Helper to get the most common/latest hotel name for an event
 async function getEventDefaultHotelName(eventId: string): Promise<string> {
   try {
+    const supabase = getClient();
     const { data } = await supabase
       .from('mma_hotels')
       .select('hotel_name')
@@ -198,6 +201,7 @@ export async function createHotel(
   formData: HotelFormData,
   eventDates: { event_date: string; event_end_date: string }
 ): Promise<Hotel> {
+  const supabase = getClient();
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
     .select(`
@@ -325,6 +329,7 @@ export async function updateHotel(
 ): Promise<Hotel> {
   // To ensure we have everything needed for recalculations, 
   // we fetch the current enrollment if it's an update.
+  const supabase = getClient();
   const { data: current, error: fetchError } = await supabase
     .from('mma_hotels')
     .select(`
@@ -411,6 +416,7 @@ export async function updateHotel(
 }
 
 export async function approveDivergence(hotelId: string, approverId: string): Promise<Hotel> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_hotels')
     .update({
@@ -428,6 +434,7 @@ export async function approveDivergence(hotelId: string, approverId: string): Pr
 }
 
 export async function rejectDivergence(hotelId: string): Promise<Hotel> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_hotels')
     .update({
@@ -445,6 +452,7 @@ export async function rejectDivergence(hotelId: string): Promise<Hotel> {
 }
 
 export async function deleteHotel(hotelId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_hotels')
     .delete()
@@ -463,6 +471,7 @@ export async function updateHotelStatus(
     const enrollmentId = hotelId.replace('missing-', '');
     
     // We need to find the event_id first
+    const supabase = getClient();
     const { data: enrollment } = await supabase
       .from('mma_enrollments')
       .select('event_id')
@@ -483,6 +492,7 @@ export async function updateHotelStatus(
     }, eventDates);
   }
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_hotels')
     .update({ status })
@@ -500,6 +510,7 @@ export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
   person: { id: string; compiled_name: string; role: string };
   flights?: any[];
 }>> {
+  const supabase = getClient();
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
     .select(`
@@ -575,6 +586,7 @@ export async function updateHotelBatch(
   if (data.actual_checkout) updateData.actual_checkout = data.actual_checkout;
   if (data.checked_in_at !== undefined) updateData.checked_in_at = data.checked_in_at;
 
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_hotels')
     .update(updateData)
@@ -584,6 +596,7 @@ export async function updateHotelBatch(
 }
 
 export async function checkInGuest(hotelId: string): Promise<void> {
+    const supabase = getClient();
     const { error } = await supabase
         .from('mma_hotels')
         .update({ 
@@ -597,6 +610,7 @@ export async function checkInGuest(hotelId: string): Promise<void> {
 }
 
 export async function checkOutGuest(hotelId: string): Promise<void> {
+    const supabase = getClient();
     const { error } = await supabase
         .from('mma_hotels')
         .update({ checked_in_at: null })

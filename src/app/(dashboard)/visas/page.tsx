@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/dialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { VisasTable } from '@/components/tables/visas-table'
+import { VisaStats } from '@/components/visas/visa-stats'
 import { VisaForm } from '@/components/forms/visa-form'
 import {
   Plus,
@@ -198,6 +199,20 @@ function VisasContent() {
       />
 
       <div className="flex-1 p-6 space-y-4">
+        {/* Stats */}
+        {stats && selectedEventId && (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <VisaStats 
+                    stats={stats}
+                    activeStatus={filters.status}
+                    onStatusClick={(status) => setFilters(prev => ({
+                        ...prev,
+                        status: status === 'all' ? undefined : status as VisaStatus
+                    }))}
+                />
+            </div>
+        )}
+
         {/* Filters */}
         <Card>
           <CardContent className="p-4">
@@ -285,81 +300,6 @@ function VisasContent() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Stats */}
-        {stats && selectedEventId && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  <span className="text-2xl font-bold">{stats.total}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Pendentes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-yellow-500" />
-                  <span className="text-2xl font-bold">{stats.pending}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Applied
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-blue-500" />
-                  <span className="text-2xl font-bold">{stats.applied}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Approved
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-2xl font-bold">{stats.approved}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Rejected
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-2xl font-bold">{stats.rejected}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
 
         {/* Table */}
         {selectedEventId ? (

@@ -72,8 +72,15 @@ export function Sidebar() {
   const eventId = eventIdMatch ? eventIdMatch[1] : null
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push('/login')
+    try {
+      await supabase.auth.signOut()
+      router.refresh()
+      router.replace('/login')
+    } catch (error) {
+      console.error('Logout error:', error)
+      // Fallback to hard navigation
+      window.location.href = '/login'
+    }
   }
 
   const filteredItems = navItems.map(item => {

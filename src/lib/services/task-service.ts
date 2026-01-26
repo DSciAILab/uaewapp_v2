@@ -1,11 +1,14 @@
 import { createClient } from '@/lib/supabase/client';
 import { TaskTemplate, TaskTemplateFormData, EventTask, EventTaskFormData, TaskFilters, TaskStatus, TaskChecklistItem } from '@/types/task';
 
-const supabase = createClient();
+function getClient() {
+  return createClient();
+}
 
 // ==================== TASK TEMPLATES ====================
 
 export async function getTaskTemplates(activeOnly: boolean = false): Promise<TaskTemplate[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_task_templates')
     .select('*')
@@ -24,6 +27,7 @@ export async function getTaskTemplates(activeOnly: boolean = false): Promise<Tas
 }
 
 export async function getTaskTemplateById(templateId: string): Promise<TaskTemplate | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_task_templates')
     .select('*')
@@ -39,6 +43,7 @@ export async function getTaskTemplateById(templateId: string): Promise<TaskTempl
 }
 
 export async function createTaskTemplate(formData: TaskTemplateFormData): Promise<TaskTemplate> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_task_templates')
     .insert({
@@ -59,6 +64,7 @@ export async function createTaskTemplate(formData: TaskTemplateFormData): Promis
 }
 
 export async function updateTaskTemplate(templateId: string, formData: Partial<TaskTemplateFormData>): Promise<TaskTemplate> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_task_templates')
     .update(formData)
@@ -72,6 +78,7 @@ export async function updateTaskTemplate(templateId: string, formData: Partial<T
 }
 
 export async function deleteTaskTemplate(templateId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_task_templates')
     .update({ is_active: false })
@@ -83,6 +90,7 @@ export async function deleteTaskTemplate(templateId: string): Promise<void> {
 // ==================== EVENT TASKS ====================
 
 export async function getEventTasks(eventId: string, filters?: TaskFilters): Promise<EventTask[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_event_tasks')
     .select(`
@@ -128,6 +136,7 @@ export async function getEventTasks(eventId: string, filters?: TaskFilters): Pro
 }
 
 export async function getTaskById(taskId: string): Promise<EventTask | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .select(`
@@ -159,6 +168,7 @@ export async function createEventTask(eventId: string, formData: EventTaskFormDa
     completed_by: null,
   }));
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .insert({
@@ -225,6 +235,9 @@ export async function updateEventTask(taskId: string, formData: Partial<EventTas
     });
   }
 
+
+
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .update(updateData)
@@ -238,6 +251,7 @@ export async function updateEventTask(taskId: string, formData: Partial<EventTas
 }
 
 export async function deleteEventTask(taskId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_event_tasks')
     .delete()
@@ -255,6 +269,9 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
     updateData.completed_at = new Date().toISOString();
   }
 
+
+
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .update(updateData)
@@ -285,6 +302,7 @@ export async function toggleChecklistItem(taskId: string, itemId: string, userId
 
   const allCompleted = updatedItems.length > 0 && updatedItems.every(item => item.completed);
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .update({ 
@@ -302,6 +320,7 @@ export async function toggleChecklistItem(taskId: string, itemId: string, userId
 }
 
 export async function assignTask(taskId: string, assigneeId: string | null, assignerId: string): Promise<EventTask> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .update({
@@ -325,6 +344,7 @@ export async function getTaskStats(eventId: string): Promise<{
   overdue: number;
   by_category: Record<string, number>;
 }> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_tasks')
     .select('status, category, due_date')

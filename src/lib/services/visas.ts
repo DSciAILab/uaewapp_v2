@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Visa, VisaStatus, Enrollment } from '@/types/database'
 
-const supabase = createClient()
+function getClient() {
+  return createClient();
+}
 
 export interface VisaWithEnrollment extends Visa {
   enrollment: Enrollment & {
@@ -32,6 +34,7 @@ export interface VisaFilters {
 }
 
 export async function getVisasByEvent(eventId: string, filters: VisaFilters = {}): Promise<VisaWithEnrollment[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_visas')
     .select(`
@@ -95,6 +98,7 @@ export async function getVisasByEvent(eventId: string, filters: VisaFilters = {}
 }
 
 export async function getVisaByEnrollment(enrollmentId: string): Promise<Visa | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_visas')
     .select('*')
@@ -106,6 +110,7 @@ export async function getVisaByEnrollment(enrollmentId: string): Promise<Visa | 
 }
 
 export async function getVisaById(id: string): Promise<VisaWithEnrollment | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_visas')
     .select(`
@@ -149,6 +154,7 @@ export interface VisaFormData {
 }
 
 export async function createVisa(formData: VisaFormData): Promise<Visa> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_visas')
     .insert({
@@ -170,6 +176,7 @@ export async function updateVisa(id: string, formData: Partial<VisaFormData>): P
     updateData.is_done = true
   }
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_visas')
     .update(updateData)
@@ -182,6 +189,7 @@ export async function updateVisa(id: string, formData: Partial<VisaFormData>): P
 }
 
 export async function deleteVisa(id: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_visas')
     .delete()
@@ -192,6 +200,7 @@ export async function deleteVisa(id: string): Promise<void> {
 
 export async function getEnrollmentsNeedingVisa(eventId: string): Promise<any[]> {
   // Get enrollments that need visa but don't have one yet
+  const supabase = getClient();
   const { data: enrollments, error: enrollError } = await supabase
     .from('mma_enrollments')
     .select(`
@@ -234,6 +243,7 @@ export async function getEnrollmentsNeedingVisa(eventId: string): Promise<any[]>
 }
 
 export async function getVisaStats(eventId: string) {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_visas')
     .select(`
@@ -262,6 +272,7 @@ export async function getVisaStats(eventId: string) {
 }
 
 export async function getNationalitiesInEvent(eventId: string): Promise<string[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_visas')
     .select(`

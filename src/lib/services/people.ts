@@ -2,7 +2,9 @@ import { createClient } from '@/lib/supabase/client'
 import type { Person, PeopleFilters, PaginatedResponse, PersonFormData } from '@/types/database'
 import { normalizeName } from '@/lib/utils'
 
-const supabase = createClient()
+function getClient() {
+  return createClient();
+}
 
 export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedResponse<Person>> {
   const {
@@ -13,6 +15,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
     pageSize = 20,
   } = filters
 
+  const supabase = getClient();
   let query = supabase
     .from('mma_people')
     .select('*', { count: 'exact' })
@@ -58,6 +61,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
 }
 
 export async function getPersonById(id: string): Promise<Person | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_people')
     .select('*')
@@ -76,6 +80,7 @@ export async function createPerson(formData: PersonFormData): Promise<Person> {
     event_name: formData.event_name ? normalizeName(formData.event_name) : null,
   }
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_people')
     .insert(normalized)
@@ -93,6 +98,7 @@ export async function updatePerson(id: string, formData: Partial<PersonFormData>
   if (formData.surname) normalized.surname = normalizeName(formData.surname)
   if (formData.event_name) normalized.event_name = normalizeName(formData.event_name)
 
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_people')
     .update(normalized)
@@ -105,6 +111,7 @@ export async function updatePerson(id: string, formData: Partial<PersonFormData>
 }
 
 export async function deletePerson(id: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_people')
     .delete()
@@ -114,6 +121,7 @@ export async function deletePerson(id: string): Promise<void> {
 }
 
 export async function bulkDeletePeople(ids: string[]): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_people')
     .delete()
@@ -123,6 +131,7 @@ export async function bulkDeletePeople(ids: string[]): Promise<void> {
 }
 
 export async function getNationalities(): Promise<string[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_people')
     .select('nationality')
@@ -157,6 +166,7 @@ export async function importPeopleFromCSV(
       if (onProgress) onProgress(0, total, 'Verificando duplicados no banco...')
       console.log('CSV Import: Buscando registros existentes...')
       
+      const supabase = getClient();
       const { data: existingData, error: fetchError } = await supabase
         .from('mma_people')
         .select('name, surname')
@@ -242,6 +252,7 @@ export async function importPeopleFromCSV(
       }
 
       console.log(`CSV Import: Enviando lote ${Math.floor(i/BATCH_SIZE) + 1}...`)
+      const supabase = getClient();
       const { error: insertError } = await supabase
         .from('mma_people')
         .insert(batch)
@@ -266,6 +277,7 @@ export async function importPeopleFromCSV(
 }
 
 export async function checkDuplicatePerson(name: string, surname: string, excludeId?: string): Promise<boolean> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_people')
     .select('id')

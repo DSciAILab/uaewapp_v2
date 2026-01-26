@@ -41,9 +41,10 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
   const isEditing = !!batch;
 
   const form = useForm<BatchFormData>({
-    resolver: zodResolver(batchSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(batchSchema) as any,
     defaultValues: {
-      batch_type: 'weigh_in',
+      batch_type: 'weigh_in' as BatchType,
       name: '',
       description: '',
       scheduled_date: new Date().toISOString().split('T')[0],
@@ -51,8 +52,8 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
       end_time: '',
       location: '',
       room: '',
-      max_capacity: null as any,
-      status: 'scheduled',
+      max_capacity: undefined,
+      status: 'scheduled' as BatchStatus,
       notes: '',
     },
   });
@@ -82,6 +83,7 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
         end_time: '',
         location: '',
         room: '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         max_capacity: null as any,
         status: 'scheduled',
         notes: '',
@@ -101,7 +103,7 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
       }
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
+    } catch (_error) {
       toast.error(isEditing ? 'Failed to update batch' : 'Failed to create batch');
     } finally {
       setIsLoading(false);
@@ -250,7 +252,14 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Max Capacity</FormLabel>
-                  <FormControl><Input type="number" placeholder="Unlimited" {...field} /></FormControl>
+                  <FormControl>
+                              <Input 
+                                type="number" 
+                                placeholder="0" 
+                                {...field} 
+                                value={field.value ?? ''}
+                                onChange={(e) => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                              /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

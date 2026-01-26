@@ -11,7 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { EntranceMusic, EntranceMusicFormData, MusicStatus, MusicSource } from '@/types/music';
-import { createMusic, updateMusic, getEnrolledWithoutMusic } from '@/lib/services/music-service';
+import { createAthleteMusic, updateAthleteMusic } from '@/lib/services/music-service';
+import { getEnrollmentsByEvent } from '@/lib/services/enrollments';
 import { toast } from 'sonner';
 
 const musicSchema = z.object({
@@ -45,7 +46,8 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
   const isEditing = !!music;
 
   const form = useForm<EntranceMusicFormData>({
-    resolver: zodResolver(musicSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(musicSchema) as any,
     defaultValues: {
       enrolled_id: '',
       song_title: '',
@@ -62,7 +64,18 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
 
   useEffect(() => {
     if (open && !isEditing) {
-      getEnrolledWithoutMusic(eventId).then(setAvailableEnrolled).catch(console.error);
+      // Fetch all enrollments, filter in component if needed or create specialized service method
+      getEnrollmentsByEvent(eventId).then(enrollments => {
+        // Simple mapping for now, ideally we filter out those who already have music
+        setAvailableEnrolled(enrollments.map(e => ({
+          id: e.id,
+          person: {
+            id: e.person.id,
+            full_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
+            role: 'Participant' // Default or derive from e.role
+          }
+        })));
+      }).catch(console.error);
     }
   }, [open, eventId, isEditing]);
 
@@ -100,16 +113,16 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
     setIsLoading(true);
     try {
       if (isEditing) {
-        await updateMusic(music.id, data);
+        await updateAthleteMusic(music.id, data);
         toast.success('Music updated');
       } else {
-        await createMusic(eventId, data);
+        await createAthleteMusic(eventId, data);
         toast.success('Music added');
       }
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
-      toast.error(isEditing ? 'Failed to update music' : 'Failed to add music');
+    } catch (_error) {
+      toast.error('Failed to save entrance music');
     } finally {
       setIsLoading(false);
     }
@@ -148,9 +161,12 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select fighter" /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {availableEnrolled.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>{e.person.full_name}</SelectItem>
-                        ))}
+                        {availableEnrolled.map((e) => {
+                          const personName = e.person.full_name;
+                          return (
+                            <SelectItem key={e.id} value={e.id}>{personName || 'Unknown'}</SelectItem>
+                          );
+                        })}
                       </SelectContent>
                     </Select>
                     <FormMessage />

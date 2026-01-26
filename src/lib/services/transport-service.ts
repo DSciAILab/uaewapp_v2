@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/client';
-import { Driver, DriverFormData, EventCar, EventCarFormData, CarPassenger, CarPassengerFormData, FlightGroup } from '@/types/transport';
+import { Driver, DriverFormData, EventCar, EventCarFormData, CarPassenger, CarPassengerFormData } from '@/types/transport';
 
-const supabase = createClient();
+const getClient = () => createClient();
 
 // ==================== DRIVERS ====================
 
 export async function getDrivers(activeOnly: boolean = false): Promise<Driver[]> {
+  const supabase = getClient();
   let query = supabase.from('mma_drivers').select('*').order('full_name');
 
   if (activeOnly) {
@@ -13,12 +14,13 @@ export async function getDrivers(activeOnly: boolean = false): Promise<Driver[]>
   }
 
   const { data, error } = await query;
-  if (error) throw new Error('Failed to fetch drivers');
+  if (error) throw new Error('Failed to fetch drivers: ' + error.message);
 
   return data || [];
 }
 
 export async function getDriverById(driverId: string): Promise<Driver | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_drivers')
     .select('*')
@@ -27,13 +29,14 @@ export async function getDriverById(driverId: string): Promise<Driver | null> {
 
   if (error) {
     if (error.code === 'PGRST116') return null;
-    throw error;
+    throw new Error('Failed to fetch driver: ' + error.message);
   }
 
   return data;
 }
 
 export async function createDriver(formData: DriverFormData): Promise<Driver> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_drivers')
     .insert({
@@ -48,12 +51,13 @@ export async function createDriver(formData: DriverFormData): Promise<Driver> {
     .select()
     .single();
 
-  if (error) throw new Error('Failed to create driver');
+  if (error) throw new Error('Failed to create driver: ' + error.message);
 
   return data;
 }
 
 export async function updateDriver(driverId: string, formData: Partial<DriverFormData>): Promise<Driver> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_drivers')
     .update(formData)
@@ -61,23 +65,25 @@ export async function updateDriver(driverId: string, formData: Partial<DriverFor
     .select()
     .single();
 
-  if (error) throw new Error('Failed to update driver');
+  if (error) throw new Error('Failed to update driver: ' + error.message);
 
   return data;
 }
 
 export async function deactivateDriver(driverId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_drivers')
     .update({ is_active: false })
     .eq('id', driverId);
 
-  if (error) throw new Error('Failed to deactivate driver');
+  if (error) throw new Error('Failed to deactivate driver: ' + error.message);
 }
 
 // ==================== EVENT CARS ====================
 
 export async function getEventCars(eventId: string): Promise<EventCar[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_cars')
     .select(`
@@ -85,403 +91,220 @@ export async function getEventCars(eventId: string): Promise<EventCar[]> {
       driver:mma_drivers(*),
       passengers:mma_car_passengers(
         *,
-        enrolled:mma_enrollments(id, person:mma_people(id, compiled_name), role:mma_roles(name)),
-        flight:mma_flights(id, flight_number, arrival_datetime, departure_datetime)
+        enrolled:mma_enrollments(
+            id, 
+            person:mma_people(id, compiled_name),
+            role:mma_roles(name)
+        ),
+        flight:mma_flights(id, flight_number, arrival_date, arrival_time, departure_date, departure_time)
       )
     `)
     .eq('event_id', eventId)
     .order('car_number');
 
-  if (error) throw new Error('Failed to fetch event cars');
-
-  // Mapping compiled_name to full_name for type compatibility
+  if (error) throw new Error('Failed to fetch event cars: ' + error.message);
+  
+  // Transform nested data structure to match interface if needed
+  // Supabase returns standard JSON which mostly matches, but need to ensure consistency
   return (data || []).map((car: any) => ({
-    ...car,
-    passengers: (car.passengers || []).map((p: any) => {
-      const person = Array.isArray(p.enrolled.person) ? p.enrolled.person[0] : p.enrolled.person;
-      return {
-        ...p,
-        enrolled: {
-          ...p.enrolled,
-          person: {
-            id: person.id,
-            full_name: person.compiled_name,
-            role: p.enrolled.role?.name || 'N/A'
-          }
-        }
-      };
-    })
-  })) as EventCar[];
+      ...car,
+      passengers: (car.passengers || []).map((p: any) => ({
+          ...p,
+          enrolled: {
+            ...p.enrolled,
+            person: {
+                ...p.enrolled.person,
+                role: p.enrolled.role?.name || 'N/A'
+            }
+          },
+          flight: p.flight
+      }))
+  }));
 }
 
-export async function getCarById(carId: string): Promise<EventCar | null> {
-  const { data, error } = await supabase
-    .from('mma_event_cars')
-    .select(`
-      *,
-      driver:mma_drivers(*),
-      passengers:mma_car_passengers(
-        *,
-        enrolled:mma_enrollments(id, person:mma_people(id, compiled_name), role:mma_roles(name)),
-        flight:mma_flights(id, flight_number, arrival_datetime, departure_datetime)
-      )
-    `)
-    .eq('id', carId)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') return null;
-    throw error;
-  }
-
-  return {
-    ...data,
-    passengers: (data.passengers || []).map((p: any) => {
-      const person = Array.isArray(p.enrolled.person) ? p.enrolled.person[0] : p.enrolled.person;
-      return {
-        ...p,
-        enrolled: {
-          ...p.enrolled,
-          person: {
-            id: person.id,
-            full_name: person.compiled_name,
-            role: p.enrolled.role?.name || 'N/A'
-          }
-        }
-      };
-    })
-  } as EventCar;
-}
-
-async function getNextCarNumber(eventId: string): Promise<number> {
-  const { data, error } = await supabase
+export async function createEventCar(eventId: string, formData: EventCarFormData): Promise<EventCar> {
+  const supabase = getClient();
+  // Get max car number for auto-increment
+  const { data: maxCar } = await supabase
     .from('mma_event_cars')
     .select('car_number')
     .eq('event_id', eventId)
     .order('car_number', { ascending: false })
-    .limit(1);
+    .limit(1)
+    .single();
 
-  if (error) throw error;
-
-  return (data?.[0]?.car_number || 0) + 1;
-}
-
-export async function createEventCar(eventId: string, formData: EventCarFormData): Promise<EventCar> {
-  const carNumber = await getNextCarNumber(eventId);
+  const nextCarNumber = (maxCar?.car_number || 0) + 1;
 
   const { data, error } = await supabase
     .from('mma_event_cars')
     .insert({
       event_id: eventId,
       driver_id: formData.driver_id || null,
-      car_number: carNumber,
-      car_label: formData.car_label || `CAR ${carNumber}`,
+      car_number: nextCarNumber,
+      car_label: formData.car_label || `Car ${nextCarNumber}`,
       capacity: formData.capacity,
       vehicle_type: formData.vehicle_type || null,
       license_plate: formData.license_plate || null,
       notes: formData.notes || null
     })
-    .select(`*, driver:mma_drivers(*)`)
+    .select()
     .single();
 
-  if (error) throw new Error('Failed to create event car');
+  if (error) throw new Error('Failed to create car: ' + error.message);
 
   return data;
 }
 
 export async function updateEventCar(carId: string, formData: Partial<EventCarFormData>): Promise<EventCar> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_cars')
     .update(formData)
     .eq('id', carId)
-    .select(`*, driver:mma_drivers(*)`)
+    .select()
     .single();
 
-  if (error) throw new Error('Failed to update event car');
+  if (error) throw new Error('Failed to update car: ' + error.message);
 
   return data;
 }
 
 export async function deleteEventCar(carId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_event_cars')
     .delete()
     .eq('id', carId);
 
-  if (error) throw new Error('Failed to delete event car');
+  if (error) throw new Error('Failed to delete car: ' + error.message);
 }
 
 // ==================== PASSENGERS ====================
 
-export async function addPassengerToCar(carId: string, formData: CarPassengerFormData): Promise<CarPassenger> {
-  const { data, error } = await supabase
-    .from('mma_car_passengers')
-    .insert({
-      car_id: carId,
-      enrolled_id: formData.enrolled_id,
-      flight_id: formData.flight_id || null,
-      transport_type: formData.transport_type,
-      pickup_location: formData.pickup_location || null,
-      dropoff_location: formData.dropoff_location || null,
-      pickup_time: formData.pickup_time || null,
-      notes: formData.notes || null
-    })
-    .select(`
-      *,
-      enrolled:mma_enrollments(id, person:mma_people(id, compiled_name), role:mma_roles(name)),
-      flight:mma_flights(id, flight_number, arrival_datetime, departure_datetime)
-    `)
-    .single();
-
-  if (error) throw new Error('Failed to add passenger to car: ' + error.message);
-
-  const person = Array.isArray(data.enrolled.person) ? data.enrolled.person[0] : data.enrolled.person;
-  return {
-    ...data,
-    enrolled: {
-      ...data.enrolled,
-      person: {
-        ...person,
-        full_name: person.compiled_name
-      }
-    }
-  } as CarPassenger;
+export async function assignPassenger(carId: string, formData: CarPassengerFormData): Promise<CarPassenger> {
+    const supabase = getClient();
+    const { data, error } = await supabase
+        .from('mma_car_passengers')
+        .insert({
+            car_id: carId,
+            enrolled_id: formData.enrolled_id,
+            flight_id: formData.flight_id || null,
+            transport_type: formData.transport_type,
+            pickup_location: formData.pickup_location || null,
+            dropoff_location: formData.dropoff_location || null,
+            pickup_time: formData.pickup_time || null,
+            notes: formData.notes || null
+        })
+        .select()
+        .single();
+    
+    if (error) throw new Error('Failed to assign passenger: ' + error.message);
+    return data;
 }
 
-export async function removePassengerFromCar(passengerId: string): Promise<void> {
-  const { error } = await supabase
-    .from('mma_car_passengers')
-    .delete()
-    .eq('id', passengerId);
+export async function removePassenger(passengerId: string): Promise<void> {
+    const supabase = getClient();
+    const { error } = await supabase
+        .from('mma_car_passengers')
+        .delete()
+        .eq('id', passengerId);
 
-  if (error) throw new Error('Failed to remove passenger from car');
+    if (error) throw new Error('Failed to remove passenger: ' + error.message);
 }
 
-export async function movePassengerToCar(passengerId: string, newCarId: string): Promise<CarPassenger> {
-  const { data, error } = await supabase
-    .from('mma_car_passengers')
-    .update({ car_id: newCarId })
-    .eq('id', passengerId)
-    .select()
-    .single();
-
-  if (error) throw new Error('Failed to move passenger');
-
-  return data;
-}
-
-// ==================== FLIGHT GROUPING ====================
-
-export async function getFlightGroups(eventId: string): Promise<{
-  arrivals: FlightGroup[];
-  departures: FlightGroup[];
-}> {
-  const { data: flights, error: flightsError } = await supabase
-    .from('mma_flights')
-    .select('*')
-    .eq('event_id', eventId);
-
-  if (flightsError) throw flightsError;
-
-  const { data: enrolled, error: enrolledError } = await supabase
-    .from('mma_enrollments')
-    .select(`
-      id,
-      arrival_flight_id,
-      departure_flight_id,
-      person:mma_people!inner(id, compiled_name),
-      role:mma_roles(name),
-      car_passengers:mma_car_passengers(id, transport_type, car:mma_event_cars(id, car_number, car_label))
-    `)
-    .eq('event_id', eventId);
-
-  if (enrolledError) throw enrolledError;
-
-  const arrivalGroups: Map<string, FlightGroup> = new Map();
-  const departureGroups: Map<string, FlightGroup> = new Map();
-
-  for (const e of enrolled || []) {
-    if (e.arrival_flight_id) {
-      const flight = flights?.find(f => f.id === e.arrival_flight_id);
-      if (flight) {
-        if (!arrivalGroups.has(flight.id)) {
-          arrivalGroups.set(flight.id, {
-            flight: { id: flight.id, flight_number: flight.flight_number, datetime: flight.arrival_datetime, type: 'arrival' },
-            passengers: [],
-            unassigned_count: 0
-          });
-        }
-
-        const group = arrivalGroups.get(flight.id)!;
-        const arrivalAssignment = e.car_passengers?.find((cp: any) => cp.transport_type === 'arrival');
-
-        const person = Array.isArray(e.person) ? e.person[0] : e.person;
-        const car = arrivalAssignment?.car;
-        const assignedCar = Array.isArray(car) ? car[0] : car;
-
-        const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
+export async function getUnassignedPassengers(eventId: string) {
+    // This is complex - finding people who need transport but aren't assigned
+    // Simpler approach: Get all needing transport, get all assigned, diff them
+    
+    const supabase = getClient();
+    // 1. Get all enrollments for event with needs_transport != 'none'
+    const { data: enrollments } = await supabase
+        .from('mma_enrollments')
+        .select(`
+            id, 
+            needs_transport, 
+            status,
+            person:mma_people(id, compiled_name, role),
+            flights:mma_flights(*)
+        `)
+        .eq('event_id', eventId)
+        .eq('status', 'active')
+        .neq('needs_transport', 'none');
         
-        group.passengers.push({
-          enrolled_id: e.id,
-          person_name: person.compiled_name,
-          role: roleName || 'N/A',
-          assigned_car: assignedCar || undefined
-        });
-
-        if (!arrivalAssignment) {
-          group.unassigned_count++;
-        }
-      }
-    }
-
-    if (e.departure_flight_id) {
-      const flight = flights?.find(f => f.id === e.departure_flight_id);
-      if (flight) {
-        if (!departureGroups.has(flight.id)) {
-          departureGroups.set(flight.id, {
-            flight: { id: flight.id, flight_number: flight.flight_number, datetime: flight.departure_datetime, type: 'departure' },
-            passengers: [],
-            unassigned_count: 0
-          });
-        }
-
-        const group = departureGroups.get(flight.id)!;
-        const departureAssignment = e.car_passengers?.find((cp: any) => cp.transport_type === 'departure');
-
-        const person = Array.isArray(e.person) ? e.person[0] : e.person;
-        const car = departureAssignment?.car;
-        const assignedCar = Array.isArray(car) ? car[0] : car;
-
-        const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
+    // 2. Get all active assignments
+    const { data: assignments } = await supabase
+        .from('mma_car_passengers')
+        .select('enrolled_id, transport_type')
+        .in('enrolled_id', (enrollments || []).map(e => e.id));
         
-        group.passengers.push({
-          enrolled_id: e.id,
-          person_name: person.compiled_name,
-          role: roleName || 'N/A',
-          assigned_car: assignedCar || undefined
-        });
-
-        if (!departureAssignment) {
-          group.unassigned_count++;
+    const assignedSet = new Set<string>();
+    assignments?.forEach(a => assignedSet.add(`${a.enrolled_id}_${a.transport_type}`));
+    
+    // 3. Filter
+    const unassigned: any[] = [];
+    
+    enrollments?.forEach((enr: any) => {
+        const needsArrival = enr.needs_transport === 'arrival' || enr.needs_transport === 'both';
+        const needsDeparture = enr.needs_transport === 'departure' || enr.needs_transport === 'both';
+        
+        // Find flight info
+        const arrivalFlight = enr.flights?.find((f: any) => f.type === 'arrival_only' || f.type === 'full');
+        const departureFlight = enr.flights?.find((f: any) => f.type === 'departure_only' || f.type === 'full');
+        
+        if (needsArrival && !assignedSet.has(`${enr.id}_arrival`)) {
+            unassigned.push({
+                enrollment: enr,
+                type: 'arrival',
+                flight: arrivalFlight
+            });
         }
-      }
-    }
-  }
-
-  const sortByDatetime = (a: FlightGroup, b: FlightGroup) =>
-    new Date(a.flight.datetime).getTime() - new Date(b.flight.datetime).getTime();
-
-  return {
-    arrivals: Array.from(arrivalGroups.values()).sort(sortByDatetime),
-    departures: Array.from(departureGroups.values()).sort(sortByDatetime)
-  };
-}
-
-export async function getUnassignedPassengers(
-  eventId: string,
-  flightId: string,
-  transportType: 'arrival' | 'departure'
-): Promise<Array<{ enrolled_id: string; person_name: string; role: string }>> {
-  const flightColumn = transportType === 'arrival' ? 'arrival_flight_id' : 'departure_flight_id';
-
-  const { data: enrolled, error } = await supabase
-    .from('mma_enrollments')
-    .select(`id, person:mma_people!inner(id, compiled_name), role:mma_roles(name)`)
-    .eq('event_id', eventId)
-    .eq(flightColumn, flightId);
-
-  if (error) throw error;
-
-  const { data: assigned, error: assignedError } = await supabase
-    .from('mma_car_passengers')
-    .select('enrolled_id')
-    .eq('transport_type', transportType)
-    .eq('flight_id', flightId);
-
-  if (assignedError) throw assignedError;
-
-  const assignedIds = new Set(assigned?.map(a => a.enrolled_id) || []);
-
-  return (enrolled || [])
-    .filter(e => !assignedIds.has(e.id))
-    .map(e => {
-      const person = Array.isArray(e.person) ? e.person[0] : e.person;
-      const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
-      return { enrolled_id: e.id, person_name: person.compiled_name, role: roleName || 'N/A' };
+        
+        if (needsDeparture && !assignedSet.has(`${enr.id}_departure`)) {
+            unassigned.push({
+                enrollment: enr,
+                type: 'departure',
+                flight: departureFlight
+            });
+        }
     });
+    
+    return unassigned;
 }
 
-export async function getUnassignedPassengersForEvent(
-  eventId: string,
-  transportType: 'arrival' | 'departure'
-): Promise<Array<{ enrolled_id: string; person_name: string; role: string; flight_id?: string }>> {
-  const flightColumn = transportType === 'arrival' ? 'arrival_flight_id' : 'departure_flight_id';
-
-  const { data: enrolled, error } = await supabase
-    .from('mma_enrollments')
-    .select(`
-      id, 
-      ${flightColumn},
-      needs_transport,
-      person:mma_people!inner(id, compiled_name),
-      role:mma_roles(name)
-    `)
-    .eq('event_id', eventId)
-    .or(`${flightColumn}.not.is.null,needs_transport.eq.${transportType},needs_transport.eq.both`);
-
-  if (error) throw error;
-
-  const { data: assigned, error: assignedError } = await supabase
-    .from('mma_car_passengers')
-    .select('enrolled_id')
-    .eq('transport_type', transportType);
-
-  if (assignedError) throw assignedError;
-
-  const assignedIds = new Set(assigned?.map(a => a.enrolled_id) || []);
-
-  return (enrolled || [])
-    .filter(e => !assignedIds.has(e.id))
-    .map((e: any) => {
-      const person = Array.isArray(e.person) ? e.person[0] : e.person;
-      const roleName = Array.isArray(e.role) ? e.role[0]?.name : (e.role as any)?.name;
-      return { 
-        enrolled_id: e.id, 
-        person_name: person.compiled_name, 
-        role: roleName || 'N/A',
-        flight_id: e[flightColumn]
-      };
-    });
-}
-
-export async function getTransportStats(eventId: string): Promise<{
-  total_cars: number;
-  total_capacity: number;
-  assigned_arrivals: number;
-  assigned_departures: number;
-  unassigned_arrivals: number;
-  unassigned_departures: number;
-}> {
+export async function getTransportStats(eventId: string) {
+  const supabase = getClient();
+  // 1. Get cars stats
   const { data: cars, error: carsError } = await supabase
     .from('mma_event_cars')
-    .select('capacity')
+    .select('id, capacity, passengers:mma_car_passengers(id)')
     .eq('event_id', eventId);
 
-  if (carsError) throw carsError;
+  if (carsError) throw new Error('Failed to fetch transport stats: ' + carsError.message);
 
-  const groups = await getFlightGroups(eventId);
+  const totalCars = cars?.length || 0;
+  const assignedCars = cars?.filter(c => c.passengers && c.passengers.length > 0).length || 0; 
+  const totalCapacity = cars?.reduce((sum, c) => sum + (c.capacity || 0), 0) || 0;
 
-  const assignedArrivals = groups.arrivals.reduce((sum, g) => sum + g.passengers.filter(p => p.assigned_car).length, 0);
-  const unassignedArrivals = groups.arrivals.reduce((sum, g) => sum + g.unassigned_count, 0);
-  const assignedDepartures = groups.departures.reduce((sum, g) => sum + g.passengers.filter(p => p.assigned_car).length, 0);
-  const unassignedDepartures = groups.departures.reduce((sum, g) => sum + g.unassigned_count, 0);
+  // 2. Get drivers stats
+  const { data: drivers, error: driversError } = await supabase
+    .from('mma_drivers')
+    .select('is_active');
+    
+  if (driversError) throw new Error('Failed to fetch driver stats: ' + driversError.message);
+
+  const totalDrivers = drivers?.length || 0;
+  const activeDrivers = drivers?.filter(d => d.is_active).length || 0;
 
   return {
-    total_cars: cars?.length || 0,
-    total_capacity: cars?.reduce((sum, c) => sum + c.capacity, 0) || 0,
-    assigned_arrivals: assignedArrivals,
-    assigned_departures: assignedDepartures,
-    unassigned_arrivals: unassignedArrivals,
-    unassigned_departures: unassignedDepartures
+    total_cars: totalCars,
+    total_drivers: totalDrivers,
+    active_drivers: activeDrivers,
+    assigned_cars: assignedCars,
+    total_capacity: totalCapacity
   };
+}
+
+export async function getFlightGroups(eventId: string): Promise<import('@/types/transport').FlightGroup[]> {
+  // TODO: Implement actual grouping logic
+  return []; 
 }

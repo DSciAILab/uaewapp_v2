@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserPlus, UserMinus, Users, Plane, PlaneLanding, PlaneTakeoff, Loader2 } from 'lucide-react';
 import { EventCar, CarPassenger } from '@/types/transport';
-import { addPassengerToCar, removePassengerFromCar, getUnassignedPassengersForEvent } from '@/lib/services/transport-service';
+import { assignPassenger, removePassenger, getUnassignedPassengers } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
 
 interface PassengerAssignmentProps {
@@ -28,7 +28,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
   const loadUnassigned = async () => {
     setIsUnassignedLoading(true);
     try {
-      const data = await getUnassignedPassengersForEvent(eventId, activeTab);
+      const data = await getUnassignedPassengers(eventId);
       setUnassigned(data);
     } catch (error) {
       console.error('Failed to load unassigned passengers:', error);
@@ -46,7 +46,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
   const handleAddPassenger = async (enrolledId: string, flightId?: string) => {
     setIsLoading(true);
     try {
-      await addPassengerToCar(car.id, { 
+      await assignPassenger(car.id, { 
         enrolled_id: enrolledId, 
         transport_type: activeTab,
         flight_id: flightId
@@ -64,7 +64,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
   const handleRemovePassenger = async (passengerId: string) => {
     setIsLoading(true);
     try {
-      await removePassengerFromCar(passengerId);
+      await removePassenger(passengerId);
       toast.success('Passenger removed');
       onSuccess();
       loadUnassigned();
@@ -89,7 +89,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
         passengers.map((passenger) => (
           <div key={passenger.id} className="flex items-center justify-between p-3 border rounded-lg bg-card/50 hover:bg-card transition-colors">
             <div>
-              <p className="font-medium text-sm">{passenger.enrolled?.person?.full_name}</p>
+              <p className="font-medium text-sm">{passenger.enrolled?.person?.compiled_name}</p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                 <Badge variant="outline" className="text-[9px] h-4 px-1 uppercase">{passenger.enrolled?.person?.role}</Badge>
                 {passenger.flight && (

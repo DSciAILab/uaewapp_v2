@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Event, EventStatus } from '@/types/database'
 
-const supabase = createClient()
+function getClient() {
+  return createClient();
+}
 
 export interface EventFilters {
   status?: EventStatus
@@ -24,6 +26,7 @@ export interface EventFormData {
 }
 
 export async function getEvents(filters: EventFilters = {}): Promise<Event[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_events')
     .select('*')
@@ -44,6 +47,7 @@ export async function getEvents(filters: EventFilters = {}): Promise<Event[]> {
 }
 
 export async function getEventById(id: string): Promise<Event | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_events')
     .select('*')
@@ -55,6 +59,7 @@ export async function getEventById(id: string): Promise<Event | null> {
 }
 
 export async function createEvent(formData: EventFormData): Promise<Event> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_events')
     .insert({
@@ -71,6 +76,7 @@ export async function createEvent(formData: EventFormData): Promise<Event> {
 }
 
 export async function updateEvent(id: string, formData: Partial<EventFormData>): Promise<Event> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_events')
     .update(formData)
@@ -83,6 +89,7 @@ export async function updateEvent(id: string, formData: Partial<EventFormData>):
 }
 
 export async function deleteEvent(id: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_events')
     .delete()
@@ -92,6 +99,7 @@ export async function deleteEvent(id: string): Promise<void> {
 }
 
 export async function getActiveEvents(): Promise<Event[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_events')
     .select('*')

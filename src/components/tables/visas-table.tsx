@@ -27,7 +27,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import type { VisaWithEnrollment } from '@/lib/services/visas'
-import { getFighterPhotoUrl } from '@/lib/utils'
+import { getFighterPhotoUrl, cn } from '@/lib/utils'
 import { VISA_STATUS_LABELS, VISA_STATUS_COLORS } from '@/lib/constants'
 
 interface VisasTableProps {
@@ -70,7 +70,14 @@ export function VisasTable({
           </TableRow>
         ) : (
           visas.map((visa) => (
-            <TableRow key={visa.id} className={visa.is_done ? 'opacity-60' : ''}>
+            <TableRow
+              key={visa.id}
+              className={cn(
+                "cursor-pointer hover:bg-muted/50",
+                visa.is_done && "opacity-60"
+              )}
+              onClick={() => onEdit(visa)}
+            >
               <TableCell>
                 <Checkbox
                   checked={visa.is_done}
@@ -122,6 +129,7 @@ export function VisasTable({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-primary hover:underline flex items-center gap-1"
+                    onClick={(e) => e.stopPropagation()} // Prevent row click
                   >
                     <ExternalLink className="h-4 w-4" />
                     Ver
@@ -135,7 +143,7 @@ export function VisasTable({
                   {VISA_STATUS_LABELS[visa.status]}
                 </Badge>
               </TableCell>
-              <TableCell>
+              <TableCell onClick={(e) => e.stopPropagation()}>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon">

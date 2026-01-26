@@ -1,11 +1,14 @@
 import { createClient } from '@/lib/supabase/client';
 import { FighterStats, FighterStatsFormData, EventWeighIn, EventWeighInFormData, WEIGHT_CLASS_LIMITS } from '@/types/stats';
 
-const supabase = createClient();
+function getClient() {
+  return createClient();
+}
 
 // ==================== FIGHTER STATS ====================
 
 export async function getFighterStats(personId: string): Promise<FighterStats | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_stats')
     .select(`
@@ -24,6 +27,7 @@ export async function getFighterStats(personId: string): Promise<FighterStats | 
 }
 
 export async function getEventFighterStats(eventId: string): Promise<FighterStats[]> {
+  const supabase = getClient();
   // Get all fighters enrolled in event
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
@@ -34,6 +38,8 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
 
   const personIds = enrolled?.map(e => e.person_id) || [];
   
+  if (personIds.length === 0) return [];
+
   if (personIds.length === 0) return [];
 
   const { data, error } = await supabase
@@ -50,6 +56,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
 }
 
 export async function createFighterStats(personId: string, formData: FighterStatsFormData): Promise<FighterStats> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_stats')
     .insert({
@@ -80,6 +87,7 @@ export async function createFighterStats(personId: string, formData: FighterStat
 }
 
 export async function updateFighterStats(statsId: string, formData: Partial<FighterStatsFormData>): Promise<FighterStats> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_stats')
     .update(formData)
@@ -105,6 +113,7 @@ export async function upsertFighterStats(personId: string, formData: FighterStat
 // ==================== EVENT WEIGH-INS ====================
 
 export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_event_weigh_ins')
     .select(`
@@ -138,6 +147,7 @@ export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]>
 }
 
 export async function createWeighIn(eventId: string, formData: EventWeighInFormData): Promise<EventWeighIn> {
+  const supabase = getClient();
   // Get enrolled data to check weight class
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
@@ -161,6 +171,8 @@ export async function createWeighIn(eventId: string, formData: EventWeighInFormD
     }
   }
 
+
+
   const { data, error } = await supabase
     .from('mma_event_weigh_ins')
     .insert({
@@ -181,6 +193,7 @@ export async function createWeighIn(eventId: string, formData: EventWeighInFormD
 }
 
 export async function updateWeighIn(weighInId: string, formData: Partial<EventWeighInFormData>): Promise<EventWeighIn> {
+  const supabase = getClient();
   const updateData: Record<string, unknown> = { ...formData };
 
   // Recalculate made_weight if weight changed
@@ -206,6 +219,8 @@ export async function updateWeighIn(weighInId: string, formData: Partial<EventWe
     }
   }
 
+
+
   const { data, error } = await supabase
     .from('mma_event_weigh_ins')
     .update(updateData)
@@ -219,6 +234,7 @@ export async function updateWeighIn(weighInId: string, formData: Partial<EventWe
 }
 
 export async function deleteWeighIn(weighInId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_event_weigh_ins')
     .delete()

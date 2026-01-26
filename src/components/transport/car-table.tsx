@@ -5,12 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
-import { MoreHorizontal, Pencil, Trash2, Users } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Car, User } from 'lucide-react';
 import { EventCar } from '@/types/transport';
 import { deleteEventCar } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface CarTableProps {
   cars: EventCar[];
@@ -20,129 +18,128 @@ interface CarTableProps {
 }
 
 export function CarTable({ cars, onEdit, onManagePassengers, onRefresh }: CarTableProps) {
-  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const handleDelete = async () => {
-    if (!deleteId) return;
+  const handleDelete = async (id: string) => {
+    if (!confirm('Are you sure? This will unassign all passengers.')) return;
     
     setIsDeleting(true);
     try {
-      await deleteEventCar(deleteId);
-      toast.success('Car removed from event');
+      await deleteEventCar(id);
+      toast.success('Car removed');
       onRefresh();
-    } catch (error) {
+    } catch (error: any) {
       toast.error('Failed to remove car');
     } finally {
       setIsDeleting(false);
-      setDeleteId(null);
     }
   };
 
   return (
-    <>
-      <div className="rounded-md border bg-card">
-        <Table>
-          <TableHeader>
+    <div className="rounded-md border bg-card">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Car #</TableHead>
+            <TableHead>Driver</TableHead>
+            <TableHead>Vehicle</TableHead>
+            <TableHead>Capacity</TableHead>
+            <TableHead>Passengers</TableHead>
+            <TableHead className="w-[70px]"></TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {cars.length === 0 ? (
             <TableRow>
-              <TableHead className="w-[80px]">Car #</TableHead>
-              <TableHead>Label</TableHead>
-              <TableHead>Driver</TableHead>
-              <TableHead>Details</TableHead>
-              <TableHead>Seats</TableHead>
-              <TableHead className="w-[180px]">Occupation</TableHead>
-              <TableHead className="w-[70px]"></TableHead>
+              <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                No cars assigned to this event
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {cars.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No cars assigned to this event
-                </TableCell>
-              </TableRow>
-            ) : (
-              cars.map((car) => {
+          ) : (
+            cars.map((car) => {
                 const passengerCount = car.passengers?.length || 0;
-                const fillPercentage = (passengerCount / car.capacity) * 100;
+                const isFull = passengerCount >= car.capacity;
+                const utilizationColor = isFull ? 'bg-red-100 text-red-800' : passengerCount > 0 ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
 
                 return (
-                  <TableRow key={car.id}>
-                    <TableCell className="font-mono font-bold text-center">#{car.car_number}</TableCell>
-                    <TableCell>{car.car_label || `CAR ${car.car_number}`}</TableCell>
+                  <TableRow 
+                    key={car.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => onEdit(car)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-muted p-2 rounded-md">
+                            <Car className="h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="font-bold">#{car.car_number}</span>
+                            <span className="text-xs text-muted-foreground">{car.car_label}</span>
+                        </div>
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {car.driver ? (
-                        <div>
-                          <p className="font-medium text-sm">{car.driver.full_name}</p>
-                          {car.driver.phone && <p className="text-xs text-muted-foreground">{car.driver.phone}</p>}
-                        </div>
+                          <div className="flex flex-col">
+                              <span className="font-medium">{car.driver.full_name}</span>
+                              <span className="text-xs text-muted-foreground">{car.driver.phone}</span>
+                          </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground italic">Not assigned</span>
+                          <span className="text-muted-foreground italic">Unassigned</span>
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <Badge variant="outline" className="capitalize text-[10px] w-fit h-4 px-1">{car.vehicle_type || 'Unknown'}</Badge>
-                        {car.license_plate && <p className="text-[10px] text-muted-foreground font-mono">{car.license_plate}</p>}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-center">{car.capacity}</TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] uppercase font-bold text-muted-foreground">
-                          <span>{passengerCount} / {car.capacity} used</span>
-                          {passengerCount > car.capacity && (
-                            <span className="text-red-600">OVER LIMIT</span>
-                          )}
+                        <div className="flex flex-col">
+                            <span className="capitalize">{car.vehicle_type || 'Unknown'}</span>
+                            <span className="text-xs text-muted-foreground">{car.license_plate}</span>
                         </div>
-                        <Progress 
-                          value={Math.min(fillPercentage, 100)} 
-                          className={`h-1.5 ${fillPercentage > 100 ? 'bg-red-200 [&>div]:bg-red-600' : ''}`} 
-                        />
-                      </div>
                     </TableCell>
                     <TableCell>
+                       {car.capacity}
+                    </TableCell>
+                    <TableCell>
+                       <Badge variant="outline" className={utilizationColor}>
+                           {passengerCount} / {car.capacity}
+                       </Badge>
+                       {passengerCount > 0 && (
+                           <div className="mt-1 flex -space-x-2 overflow-hidden">
+                                {car.passengers?.slice(0, 3).map((p, i) => (
+                                    <div key={i} className="inline-block h-6 w-6 rounded-full ring-2 ring-background bg-slate-200 flex items-center justify-center text-[10px] font-bold" title={p.enrolled?.person.compiled_name}>
+                                        {p.enrolled?.person.compiled_name.charAt(0)}
+                                    </div>
+                                ))}
+                                {passengerCount > 3 && (
+                                    <div className="inline-block h-6 w-6 rounded-full ring-2 ring-background bg-slate-100 flex items-center justify-center text-[10px]">
+                                        +{passengerCount - 3}
+                                    </div>
+                                )}
+                           </div>
+                       )}
+                    </TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onManagePassengers(car)}>
-                            <Users className="mr-2 h-4 w-4" />Manage Passengers
-                          </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onEdit(car)}>
-                            <Pencil className="mr-2 h-4 w-4" />Edit Car Details
+                            <Pencil className="mr-2 h-4 w-4" />Edit
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(car.id)}>
-                            <Trash2 className="mr-2 h-4 w-4" />Delete Car
+                          <DropdownMenuItem onClick={() => onManagePassengers(car)}>
+                            <User className="mr-2 h-4 w-4" />Passengers
+                          </DropdownMenuItem>
+                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(car.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" />Remove
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
-
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove Car?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will remove the car and all passenger assignments for this event. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {isDeleting ? 'Removing...' : 'Remove'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </>
+            })
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }

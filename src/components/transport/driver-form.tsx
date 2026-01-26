@@ -15,12 +15,12 @@ import { createDriver, updateDriver } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
 
 const driverSchema = z.object({
-  full_name: z.string().min(1, 'Name is required'),
+  full_name: z.string().min(1, 'Full name is required'),
   phone: z.string().optional(),
-  email: z.string().email().optional().or(z.literal('')),
+  email: z.string().email('Invalid email').optional().or(z.literal('')),
   license_number: z.string().optional(),
   vehicle_info: z.string().optional(),
-  is_active: z.boolean(),
+  is_active: z.boolean().default(true),
   notes: z.string().optional(),
 });
 
@@ -70,22 +70,22 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
         notes: '',
       });
     }
-  }, [driver, form, open]);
+  }, [driver, open, form]);
 
   const onSubmit = async (data: DriverFormData) => {
     setIsLoading(true);
     try {
-      if (isEditing) {
+      if (isEditing && driver) {
         await updateDriver(driver.id, data);
-        toast.success('Driver updated');
+        toast.success('Driver updated successfully');
       } else {
         await createDriver(data);
-        toast.success('Driver created');
+        toast.success('Driver created successfully');
       }
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
-      toast.error(isEditing ? 'Failed to update driver' : 'Failed to create driver');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save driver');
     } finally {
       setIsLoading(false);
     }
@@ -93,7 +93,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Driver' : 'New Driver'}</DialogTitle>
         </DialogHeader>
@@ -106,7 +106,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name *</FormLabel>
-                  <FormControl><Input placeholder="Driver's full name" {...field} /></FormControl>
+                  <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -119,7 +119,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Phone</FormLabel>
-                    <FormControl><Input placeholder="+1 234 567 8900" {...field} /></FormControl>
+                    <FormControl><Input placeholder="+971 50 ..." {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -131,7 +131,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Email</FormLabel>
-                    <FormControl><Input type="email" placeholder="driver@email.com" {...field} /></FormControl>
+                    <FormControl><Input type="email" placeholder="john@example.com" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -143,11 +143,11 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
               name="license_number"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>License Number</FormLabel>
-                  <FormControl><Input placeholder="Driver's license" {...field} /></FormControl>
-                  <FormMessage />
+                    <FormLabel>License Number</FormLabel>
+                    <FormControl><Input placeholder="DL-12345" {...field} /></FormControl>
+                    <FormMessage />
                 </FormItem>
-              )}
+               )}
             />
 
             <FormField
@@ -155,24 +155,26 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
               name="vehicle_info"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Vehicle Info</FormLabel>
-                  <FormControl><Input placeholder="e.g., Black Toyota Camry" {...field} /></FormControl>
-                  <FormMessage />
+                    <FormLabel>Vehicle Info (Default)</FormLabel>
+                    <FormControl><Input placeholder="White Toyota Camry" {...field} /></FormControl>
+                    <FormMessage />
                 </FormItem>
-              )}
+               )}
             />
 
             <FormField
               control={form.control}
               name="is_active"
               render={({ field }) => (
-                <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                   <div className="space-y-0.5">
-                    <FormLabel>Active</FormLabel>
-                    <p className="text-sm text-muted-foreground">Driver is available for assignments</p>
+                    <FormLabel>Active Status</FormLabel>
                   </div>
                   <FormControl>
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
                   </FormControl>
                 </FormItem>
               )}

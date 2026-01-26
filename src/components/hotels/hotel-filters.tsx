@@ -3,15 +3,19 @@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { Search, X } from 'lucide-react';
+import { Search, X, LayoutList, Table2, RefreshCw } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HotelFilters as HotelFiltersType, HotelStatus } from '@/types/hotel';
 
 interface HotelFiltersProps {
   filters: HotelFiltersType;
   onChange: (filters: HotelFiltersType) => void;
+  viewMode?: 'list' | 'spreadsheet';
+  onViewModeChange?: (mode: 'list' | 'spreadsheet') => void;
+  onRefresh?: () => void;
 }
 
-export function HotelFilters({ filters, onChange }: HotelFiltersProps) {
+export function HotelFilters({ filters, onChange, viewMode, onViewModeChange, onRefresh }: HotelFiltersProps) {
   const handleSearchChange = (search: string) => {
     onChange({ ...filters, search });
   };
@@ -92,6 +96,29 @@ export function HotelFilters({ filters, onChange }: HotelFiltersProps) {
           <X className="h-4 w-4 mr-1" />Clear
         </Button>
       )}
+
+      <div className="ml-auto flex items-center gap-2">
+         {onViewModeChange && viewMode && (
+             <Tabs value={viewMode} onValueChange={(val) => onViewModeChange(val as 'list' | 'spreadsheet')}>
+                <TabsList className="h-8">
+                    <TabsTrigger value="list" className="h-[calc(100%-4px)] text-xs px-2.5">
+                        <LayoutList className="h-3.5 w-3.5 mr-1.5" />
+                        List
+                    </TabsTrigger>
+                    <TabsTrigger value="spreadsheet" className="h-[calc(100%-4px)] text-xs px-2.5">
+                        <Table2 className="h-3.5 w-3.5 mr-1.5" />
+                        Sheet
+                    </TabsTrigger>
+                </TabsList>
+             </Tabs>
+         )}
+         
+         {onRefresh && (
+            <Button variant="outline" size="sm" onClick={onRefresh} className="h-8 w-8 p-0">
+                <RefreshCw className="h-3.5 w-3.5" />
+            </Button>
+         )}
+      </div>
     </div>
   );
 }

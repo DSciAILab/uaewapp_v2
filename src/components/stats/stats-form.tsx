@@ -45,7 +45,8 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<FighterStatsFormData>({
-    resolver: zodResolver(statsSchema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(statsSchema) as any,
     defaultValues: {
       height_cm: undefined,
       reach_cm: undefined,
@@ -96,8 +97,8 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
       toast.success('Fighter stats saved');
       onSuccess();
       onOpenChange(false);
-    } catch (error) {
-      toast.error('Failed to save fighter stats');
+    } catch (_error) {
+      toast.error('Failed to save stats');
     } finally {
       setIsLoading(false);
     }

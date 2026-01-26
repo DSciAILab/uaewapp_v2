@@ -219,8 +219,13 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                     const nights = calculateNights(hotel.actual_checkin, hotel.actual_checkout);
                     
                     return (
-                    <TableRow key={hotel.id} data-state={isSelected ? 'selected' : undefined}>
-                        <TableCell>
+                    <TableRow 
+                        key={hotel.id} 
+                        data-state={isSelected ? 'selected' : undefined}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => onEdit(hotel)}
+                    >
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                             <Checkbox 
                                 checked={isSelected}
                                 onCheckedChange={(checked) => handleSelectOne(hotel.id, !!checked)}
@@ -272,8 +277,8 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         <TableCell>
                         {hotel.has_divergence && hotel.primary_divergence_type ? (
                             <div 
-                            className="cursor-pointer inline-block" 
-                            onClick={() => setApprovalHotel(hotel)}
+                            className="inline-block" 
+                            onClick={(e) => { e.stopPropagation(); setApprovalHotel(hotel); }}
                             >
                             <HotelDivergenceBadge
                                 divergenceType={hotel.primary_divergence_type}
@@ -285,7 +290,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                             <span className="text-sm text-muted-foreground">-</span>
                         )}
                         </TableCell>
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon"><MoreHorizontal className="h-4 w-4" /></Button>

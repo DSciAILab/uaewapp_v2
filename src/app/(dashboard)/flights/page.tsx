@@ -4,20 +4,23 @@ import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Header } from '@/components/layout/header'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet'
+import {
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -26,11 +29,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { FlightsTable } from '@/components/tables/flights-table'
+import { FlightBatchGrid } from '@/components/flights/flight-batch-grid'
 import { FlightForm } from '@/components/forms/flight-form'
-import { Plus, Search, Plane, Clock, CheckCircle2, XCircle } from 'lucide-react'
-import { toast } from 'sonner'
+import { FlightStats } from '@/components/flights/flight-stats'
+import { FlightToolbar } from '@/components/flights/flight-toolbar'
+import { Plus, Search, Plane, Clock, CheckCircle2, XCircle, LayoutList, Table2 } from 'lucide-react'
 import {
   getFlightsByEvent,
   createFlight,
@@ -57,6 +62,7 @@ function FlightsContent() {
   const [stats, setStats] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState<FlightFilters>({})
+  const [viewMode, setViewMode] = useState<'list' | 'batch'>('list')
 
   // Drawer
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
@@ -77,7 +83,7 @@ function FlightsContent() {
           setSelectedEventId(data[0].id)
         }
       } catch (error) {
-        toast.error('Erro ao carregar eventos')
+        toast.error('Failed to load events')
       }
     }
     loadEvents()
@@ -99,7 +105,7 @@ function FlightsContent() {
       setFlights(flightsData)
       setStats(statsData)
     } catch (error) {
-      toast.error('Erro ao carregar voos')
+      toast.error('Failed to load flights')
     } finally {
       setLoading(false)
     }
@@ -136,10 +142,10 @@ function FlightsContent() {
 
     try {
       await deleteFlight(flightToDelete.id)
-      toast.success('Voo excluído com sucesso')
+      toast.success('Flight deleted')
       fetchFlights()
     } catch (error) {
-      toast.error('Erro ao excluir voo')
+      toast.error('Failed to delete flight')
     } finally {
       setDeleteDialogOpen(false)
       setFlightToDelete(null)
@@ -151,15 +157,15 @@ function FlightsContent() {
     try {
       if (editingFlight) {
         await updateFlight(editingFlight.id, data)
-        toast.success('Voo atualizado com sucesso')
+        toast.success('Flight updated')
       } else {
         await createFlight(data)
-        toast.success('Voo criado com sucesso')
+        toast.success('Flight created')
       }
       setIsDrawerOpen(false)
       fetchFlights()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar voo')
+      toast.error(error.message || 'Failed to save flight')
     } finally {
       setSaving(false)
     }
@@ -168,160 +174,82 @@ function FlightsContent() {
   const selectedEvent = events.find(e => e.id === selectedEventId)
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full space-y-6">
       <Header
-        title="Aéreo"
-        description={selectedEvent ? `Voos para ${selectedEvent.name}` : 'Selecione um evento'}
-      />
+        title="Flights Manager"
+        description={selectedEvent ? `Flights for ${selectedEvent.name}` : 'Select an event to view flights'}
+      >
+          <Tabs value={viewMode} onValueChange={(val) => setViewMode(val as 'list' | 'batch')} className="mr-2">
+             <TabsList>
+                 <TabsTrigger value="list" className="flex items-center gap-2 h-8">
+                     <LayoutList className="h-4 w-4" />
+                     List
+                 </TabsTrigger>
+                 <TabsTrigger value="batch" className="flex items-center gap-2 h-8">
+                     <Table2 className="h-4 w-4" />
+                     Batch
+                 </TabsTrigger>
+             </TabsList>
+          </Tabs>
+      </Header>
 
-      <div className="flex-1 p-6 space-y-4">
-        {/* Event Selector + Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-wrap gap-4">
-              <Select
-                value={selectedEventId}
-                onValueChange={setSelectedEventId}
-              >
-                <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Selecione um evento" />
-                </SelectTrigger>
-                <SelectContent>
-                  {events.map((event) => (
-                    <SelectItem key={event.id} value={event.id}>
-                      {event.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <div className="flex-1 min-w-[200px]">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome, voo..."
-                    className="pl-9"
-                    value={filters.search || ''}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  />
+      <div className="flex-1 px-6 pb-6 space-y-6">
+         {selectedEventId ? (
+            <>
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <FlightStats 
+                        stats={stats} 
+                        activeStatus={filters.status}
+                        onStatusClick={(status) => setFilters(prev => ({ ...prev, status: status || undefined }))}
+                    />
                 </div>
-              </div>
 
-              <Select
-                value={filters.status || 'all'}
-                onValueChange={(value) =>
-                  setFilters(prev => ({ ...prev, status: value === 'all' ? undefined : value }))
-                }
-              >
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
-                  <SelectItem value="pending">Pendente</SelectItem>
-                  <SelectItem value="booked">Reservado</SelectItem>
-                  <SelectItem value="confirmed">Confirmado</SelectItem>
-                  <SelectItem value="cancelled">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
+                <div className="space-y-4 animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
+                    <FlightToolbar
+                        events={events}
+                        selectedEventId={selectedEventId}
+                        onEventChange={setSelectedEventId}
+                        searchValue={filters.search || ''}
+                        onSearchChange={(v) => setFilters(prev => ({ ...prev, search: v }))}
+                        statusValue={filters.status || 'all'}
+                        onStatusChange={(v) => setFilters(prev => ({ ...prev, status: v === 'all' ? undefined : v }))}
+                        onAddClick={handleNewFlight}
+                        canEdit={canEdit('flights')}
+                    />
 
-              {canEdit('flights') && selectedEventId && (
-                <Button onClick={handleNewFlight}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Voo
-                </Button>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Stats */}
-        {stats && selectedEventId && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Total
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Plane className="h-5 w-5 text-primary" />
-                  <span className="text-2xl font-bold">{stats.total}</span>
+                    {loading ? (
+                        <Card className="min-h-[300px] flex items-center justify-center">
+                            <CardContent>
+                                <div className="flex flex-col items-center gap-2 text-muted-foreground animate-pulse">
+                                    <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                                    Loading flights...
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ) : viewMode === 'list' ? (
+                        <FlightsTable
+                            flights={flights}
+                            onEdit={handleEditFlight}
+                            onDelete={handleDeleteClick}
+                            canEdit={canEdit('flights')}
+                            canDelete={isAdmin}
+                        />
+                    ) : (
+                        <FlightBatchGrid 
+                            flights={flights}
+                            onRefresh={fetchFlights}
+                        />
+                    )}
                 </div>
-              </CardContent>
+            </>
+         ) : (
+            <Card className="border-dashed">
+                <CardContent className="py-20 text-center text-muted-foreground">
+                    <p className="text-lg font-medium mb-2">No event selected</p>
+                    <p>Please select an active event to manage flights.</p>
+                </CardContent>
             </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Pendentes
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-yellow-500" />
-                  <span className="text-2xl font-bold">{stats.pending}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Confirmados
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  <span className="text-2xl font-bold">{stats.confirmed}</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Cancelados
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
-                  <XCircle className="h-5 w-5 text-red-500" />
-                  <span className="text-2xl font-bold">{stats.cancelled}</span>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Table */}
-        {selectedEventId ? (
-          <Card>
-            <CardContent className="p-0">
-              {loading ? (
-                <div className="py-8 text-center text-muted-foreground">
-                  Carregando...
-                </div>
-              ) : (
-                <FlightsTable
-                  flights={flights}
-                  onEdit={handleEditFlight}
-                  onDelete={handleDeleteClick}
-                  canEdit={canEdit('flights')}
-                  canDelete={isAdmin}
-                />
-              )}
-            </CardContent>
-          </Card>
-        ) : (
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              Selecione um evento para ver os voos
-            </CardContent>
-          </Card>
-        )}
+         )}
       </div>
 
       {/* Drawer */}
@@ -329,7 +257,7 @@ function FlightsContent() {
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {editingFlight ? 'Editar Voo' : 'Novo Voo'}
+              {editingFlight ? 'Edit Flight' : 'New Flight'}
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6">
@@ -350,18 +278,19 @@ function FlightsContent() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir o voo de{' '}
-              {flightToDelete?.enrollment?.person?.compiled_name}?
+              Are you sure you want to delete the flight for{' '}
+              <span className="font-semibold text-foreground">{flightToDelete?.enrollment?.person?.compiled_name}</span>?
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancelar
+              Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Excluir
+              Delete Flight
             </Button>
           </DialogFooter>
         </DialogContent>

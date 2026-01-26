@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Flight, FlightType, Enrollment } from '@/types/database'
 
-const supabase = createClient()
+function getClient() {
+  return createClient();
+}
 
 export interface FlightWithEnrollment extends Flight {
   enrollment: Enrollment & {
@@ -31,6 +33,7 @@ export interface FlightFilters {
 }
 
 export async function getFlightsByEvent(eventId: string, filters: FlightFilters = {}): Promise<FlightWithEnrollment[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_flights')
     .select(`
@@ -94,6 +97,7 @@ export async function getFlightsByEvent(eventId: string, filters: FlightFilters 
 }
 
 export async function getFlightByEventCode(eventId: string, code: string): Promise<Flight | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
     .select(`
@@ -113,6 +117,7 @@ export async function getFlightByEventCode(eventId: string, code: string): Promi
 }
 
 export async function getFlightByEnrollment(enrollmentId: string): Promise<Flight | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
     .select('*')
@@ -124,6 +129,7 @@ export async function getFlightByEnrollment(enrollmentId: string): Promise<Fligh
 }
 
 export async function getFlightById(id: string): Promise<FlightWithEnrollment | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
     .select(`
@@ -173,6 +179,7 @@ export interface FlightFormData {
 }
 
 export async function createFlight(formData: FlightFormData): Promise<Flight> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
     .insert({
@@ -187,6 +194,7 @@ export async function createFlight(formData: FlightFormData): Promise<Flight> {
 }
 
 export async function updateFlight(id: string, formData: Partial<FlightFormData>): Promise<Flight> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
     .update(formData)
@@ -199,6 +207,7 @@ export async function updateFlight(id: string, formData: Partial<FlightFormData>
 }
 
 export async function deleteFlight(id: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_flights')
     .delete()
@@ -208,6 +217,7 @@ export async function deleteFlight(id: string): Promise<void> {
 }
 
 export async function getEnrollmentsNeedingFlight(eventId: string): Promise<any[]> {
+  const supabase = getClient();
   // Get enrollments that need flight but don't have one yet
   const { data: enrollments, error: enrollError } = await supabase
     .from('mma_enrollments')
@@ -249,6 +259,7 @@ export async function getEnrollmentsNeedingFlight(eventId: string): Promise<any[
 }
 
 export async function getFlightStats(eventId: string) {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
     .select(`

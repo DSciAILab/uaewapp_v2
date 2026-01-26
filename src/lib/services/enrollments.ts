@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Enrollment, Role, Person, TransportNeed, FlightType } from '@/types/database'
 
-const supabase = createClient()
+function getClient() {
+  return createClient();
+}
 
 export interface EnrollmentWithDetails extends Enrollment {
   person: Person
@@ -19,6 +21,7 @@ export interface EnrollmentFormData {
 }
 
 export async function getEnrollmentsByEvent(eventId: string): Promise<EnrollmentWithDetails[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_enrollments')
     .select(`
@@ -35,6 +38,7 @@ export async function getEnrollmentsByEvent(eventId: string): Promise<Enrollment
 }
 
 export async function getEnrollmentById(id: string): Promise<EnrollmentWithDetails | null> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_enrollments')
     .select(`
@@ -50,6 +54,7 @@ export async function getEnrollmentById(id: string): Promise<EnrollmentWithDetai
 }
 
 export async function createEnrollment(formData: EnrollmentFormData): Promise<Enrollment> {
+  const supabase = getClient();
   // Use upsert to handle both new and re-activating enrollments atomically
   // We specify onConflict columns to ensure we target the unique constraint
   const { data, error } = await supabase
@@ -81,6 +86,7 @@ export async function createEnrollment(formData: EnrollmentFormData): Promise<En
 }
 
 export async function updateEnrollment(id: string, formData: Partial<EnrollmentFormData>): Promise<Enrollment> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_enrollments')
     .update(formData)
@@ -104,6 +110,7 @@ export async function updateEnrollment(id: string, formData: Partial<EnrollmentF
  * Cria registros placeholder se não existirem.
  */
 async function syncRelatedModules(enrollment: Enrollment) {
+  const supabase = getClient();
   const { event_id, id: enrolled_id, needs_visa, needs_hotel, needs_flight } = enrollment
 
   console.log('Syncing related modules for enrollment:', { enrolled_id, needs_visa, needs_hotel, needs_flight })
@@ -198,6 +205,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
 }
 
 export async function cancelEnrollment(id: string, reason?: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_enrollments')
     .update({
@@ -211,6 +219,7 @@ export async function cancelEnrollment(id: string, reason?: string): Promise<voi
 }
 
 export async function getRoles(): Promise<Role[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_roles')
     .select('*')
@@ -222,6 +231,7 @@ export async function getRoles(): Promise<Role[]> {
 }
 
 export async function getAvailablePeopleForEvent(eventId: string): Promise<Person[]> {
+  const supabase = getClient();
   const { data: enrolled } = await supabase
     .from('mma_enrollments')
     .select('person_id')
@@ -246,6 +256,7 @@ export async function getAvailablePeopleForEvent(eventId: string): Promise<Perso
 }
 
 export async function linkCornerToFighter(fighterEnrollmentId: string, cornerEnrollmentId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_enrollment_corners')
     .insert({
@@ -257,6 +268,7 @@ export async function linkCornerToFighter(fighterEnrollmentId: string, cornerEnr
 }
 
 export async function unlinkCornerFromFighter(fighterEnrollmentId: string, cornerEnrollmentId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_enrollment_corners')
     .delete()
@@ -267,6 +279,7 @@ export async function unlinkCornerFromFighter(fighterEnrollmentId: string, corne
 }
 
 export async function getCornersByFighter(fighterEnrollmentId: string): Promise<EnrollmentWithDetails[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_enrollment_corners')
     .select(`
@@ -283,6 +296,7 @@ export async function getCornersByFighter(fighterEnrollmentId: string): Promise<
 }
 
 export async function getFightersByCorner(cornerEnrollmentId: string): Promise<EnrollmentWithDetails[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_enrollment_corners')
     .select(`
@@ -299,6 +313,7 @@ export async function getFightersByCorner(cornerEnrollmentId: string): Promise<E
 }
 
 export async function getEnrollmentStats(eventId: string) {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_enrollments')
     .select(`

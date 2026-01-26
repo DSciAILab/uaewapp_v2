@@ -1,9 +1,12 @@
 import { createClient } from '@/lib/supabase/client';
 import { EventTask, EventTaskFormData, TaskFilters } from '@/types/task';
 
-const supabase = createClient();
+function getClient() {
+  return createClient();
+}
 
 export async function getEventTasks(eventId: string, filters: TaskFilters = {}): Promise<EventTask[]> {
+  const supabase = getClient();
   let query = supabase
     .from('mma_athlete_tasks')
     .select(`
@@ -41,6 +44,7 @@ export async function getEventTasks(eventId: string, filters: TaskFilters = {}):
 }
 
 export async function getAthleteTasks(eventId: string, assignedTo: string): Promise<EventTask[]> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_tasks')
     .select('*')
@@ -54,6 +58,7 @@ export async function getAthleteTasks(eventId: string, assignedTo: string): Prom
 }
 
 export async function createTask(eventId: string, formData: EventTaskFormData): Promise<EventTask> {
+  const supabase = getClient();
   const { data: user } = await supabase.auth.getUser();
   
   const { data, error } = await supabase
@@ -88,6 +93,7 @@ export async function createTask(eventId: string, formData: EventTaskFormData): 
 }
 
 export async function updateTask(taskId: string, formData: Partial<EventTaskFormData>): Promise<EventTask> {
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_tasks')
     .update(formData)
@@ -111,6 +117,9 @@ export async function updateTaskStatus(taskId: string, status: EventTask['status
     updates.completed_at = null;
   }
   
+
+  
+  const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_athlete_tasks')
     .update(updates)
@@ -124,6 +133,7 @@ export async function updateTaskStatus(taskId: string, status: EventTask['status
 }
 
 export async function toggleChecklistItem(taskId: string, itemId: string, completed: boolean): Promise<EventTask> {
+  const supabase = getClient();
   const { data: currentTask } = await supabase
     .from('mma_athlete_tasks')
     .select('checklist_items')
@@ -159,6 +169,7 @@ export async function toggleChecklistItem(taskId: string, itemId: string, comple
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
+  const supabase = getClient();
   const { error } = await supabase
     .from('mma_athlete_tasks')
     .delete()

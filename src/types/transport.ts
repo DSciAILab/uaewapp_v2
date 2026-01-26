@@ -25,10 +25,10 @@ export interface EventCar {
   id: string;
   event_id: string;
   driver_id: string | null;
-  car_number: number; // Auto-incremented per event
-  car_label: string | null; // e.g., "VAN 1", "SUV 2"
+  car_number: number;
+  car_label: string | null;
   capacity: number;
-  vehicle_type: string | null; // sedan, suv, van, bus
+  vehicle_type: string | null;
   license_plate: string | null;
   notes: string | null;
   created_at: string;
@@ -52,7 +52,7 @@ export interface CarPassenger {
   id: string;
   car_id: string;
   enrolled_id: string;
-  flight_id: string | null; // Which flight this transport is for
+  flight_id: string | null;
   transport_type: 'arrival' | 'departure';
   pickup_location: string | null;
   dropoff_location: string | null;
@@ -62,17 +62,22 @@ export interface CarPassenger {
   
   // Joined data
   enrolled?: {
+    id: string;
     person: {
       id: string;
-      full_name: string;
+      compiled_name: string; // Changed from full_name to match DB
       role: string;
     };
   };
   flight?: {
     id: string;
     flight_number: string;
-    arrival_datetime: string | null;
+    arrival_datetime: string | null; // Changed from datetime to arrival_datetime/departure_datetime
     departure_datetime: string | null;
+    arrival_date: string | null;
+    arrival_time: string | null;
+    departure_date: string | null;
+    departure_time: string | null;
   };
 }
 
@@ -95,13 +100,10 @@ export interface FlightGroup {
   };
   passengers: Array<{
     enrolled_id: string;
+    person_id: string;
     person_name: string;
     role: string;
-    assigned_car?: {
-      id: string;
-      car_number: number;
-      car_label: string | null;
-    };
+    assigned_car?: EventCar;
   }>;
   unassigned_count: number;
 }

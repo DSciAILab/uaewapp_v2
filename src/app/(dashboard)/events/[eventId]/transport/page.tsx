@@ -14,7 +14,9 @@ import { DriverForm } from '@/components/transport/driver-form';
 import { PassengerAssignment } from '@/components/transport/passenger-assignment';
 import { FlightGroupingView } from '@/components/transport/flight-grouping-view';
 import { EventCar, Driver } from '@/types/transport';
-import { getEventCars, getDrivers, getTransportStats } from '@/lib/services/transport-service';
+import { getEventCars, getDrivers, getTransportStats, getFlightGroups } from '@/lib/services/transport-service';
+import { FlightGroup } from '@/types/transport';
+import { TransportStats } from '@/components/transport/transport-stats';
 
 export default function TransportPage() {
   const params = useParams();
@@ -23,6 +25,7 @@ export default function TransportPage() {
   const [activeTab, setActiveTab] = useState('cars');
   const [cars, setCars] = useState<EventCar[]>([]);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [flightGroups, setFlightGroups] = useState<FlightGroup[]>([]);
   const [editingCar, setEditingCar] = useState<EventCar | null>(null);
   const [editingDriver, setEditingDriver] = useState<Driver | null>(null);
   const [isCarFormOpen, setIsCarFormOpen] = useState(false);
@@ -31,24 +34,25 @@ export default function TransportPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({
     total_cars: 0,
-    total_capacity: 0,
-    assigned_arrivals: 0,
-    assigned_departures: 0,
-    unassigned_arrivals: 0,
-    unassigned_departures: 0,
+    total_drivers: 0,
+    active_drivers: 0,
+    assigned_cars: 0,
+    total_capacity: 0
   });
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [carsData, driversData, statsData] = await Promise.all([
+      const [carsData, driversData, statsData, groupsData] = await Promise.all([
         getEventCars(eventId),
         getDrivers(),
         getTransportStats(eventId),
+        getFlightGroups(eventId),
       ]);
       setCars(carsData);
       setDrivers(driversData);
       setStats(statsData);
+      setFlightGroups(groupsData);
     } catch (error) {
       console.error('Failed to load transport data:', error);
     } finally {
@@ -105,63 +109,7 @@ export default function TransportPage() {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Cars assigned</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2">
-              <Car className="h-5 w-5 text-blue-600 mb-1" />
-              <span className="text-2xl font-bold leading-none">{stats.total_cars}</span>
-              <span className="text-xs text-muted-foreground mb-1">({stats.total_capacity} seats)</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Arrivals Linked</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2">
-              <PlaneLanding className="h-5 w-5 text-green-600 mb-1" />
-              <span className="text-2xl font-bold leading-none">{stats.assigned_arrivals}</span>
-              {stats.unassigned_arrivals > 0 && (
-                <span className="text-xs text-orange-600 font-bold mb-1">+{stats.unassigned_arrivals} PENDING</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-green-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Departures Linked</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2">
-              <PlaneTakeoff className="h-5 w-5 text-green-600 mb-1" />
-              <span className="text-2xl font-bold leading-none">{stats.assigned_departures}</span>
-              {stats.unassigned_departures > 0 && (
-                <span className="text-xs text-orange-600 font-bold mb-1">+{stats.unassigned_departures} PENDING</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-l-4 border-l-blue-500">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-[10px] font-bold uppercase text-muted-foreground">Total Drivers</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-end gap-2">
-              <UserCheck className="h-5 w-5 text-blue-600 mb-1" />
-              <span className="text-2xl font-bold leading-none">{drivers.filter(d => d.is_active).length}</span>
-              <span className="text-xs text-muted-foreground mb-1 uppercase">Active</span>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <TransportStats stats={stats} />
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="bg-card border rounded-xl overflow-hidden shadow-sm">
@@ -191,7 +139,11 @@ export default function TransportPage() {
           </TabsContent>
 
           <TabsContent value="flights" className="mt-0">
-             <FlightGroupingView eventId={eventId} />
+             <FlightGroupingView 
+                groups={flightGroups}
+                cars={cars}
+                onRefresh={loadData}
+             />
           </TabsContent>
 
           <TabsContent value="drivers" className="mt-0">
@@ -215,6 +167,7 @@ export default function TransportPage() {
       <CarForm
         eventId={eventId}
         car={editingCar}
+        drivers={drivers}
         open={isCarFormOpen}
         onOpenChange={handleCarFormClose}
         onSuccess={loadData}
