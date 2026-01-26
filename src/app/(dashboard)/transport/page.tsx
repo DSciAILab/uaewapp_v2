@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -8,48 +9,33 @@ import { Plus, RefreshCw, Car, User, Plane } from 'lucide-react';
 import { 
   getDrivers, 
   getEventCars, 
-  getUnassignedPassengers,
-  createDriver,
-  updateDriver,
-  deactivateDriver,
-  createEventCar,
-  updateEventCar,
-  deleteEventCar,
-  assignPassenger,
-  removePassenger
+  getTransportStats, 
+  getUnassignedPassengers
 } from '@/lib/services/transport-service';
 import { getFlightsByEvent } from '@/lib/services/flights';
 import { DriverTable } from '@/components/transport/driver-table';
-import { DriverForm } from '@/components/transport/driver-form';
 import { CarTable } from '@/components/transport/car-table';
-import { CarForm } from '@/components/transport/car-form';
 import { FlightGroupingView } from '@/components/transport/flight-grouping-view';
+import { DriverForm } from '@/components/transport/driver-form';
+import { CarForm } from '@/components/transport/car-form';
+import { TransportStats } from '@/components/transport/transport-stats';
+import { toast } from 'sonner';
 import { Driver, EventCar, FlightGroup } from '@/types/transport';
 import { usePermissions } from '@/hooks/use-permissions';
-import { toast } from 'sonner';
-import { TransportStats } from '@/components/transport/transport-stats';
 
-// Simplified event ID fetch (in a real app, this might come from context or URL)
-// For now, we'll assume there's a way to get the current event or pass it as prop?
-// Actually, this page usually resides in [eventId]/transport/page.tsx or similar.
-// If it's a global page, we need an event selector. 
-// Based on file structure from prompt: src/app/(dashboard)/events/[eventId]/transport/page.tsx
-// But the user prompt had src/app/(dashboard)/transport/page.tsx
-// I will stick to the generic one for now, but assume we need an event context.
-
-// Let's assume we are in the dashboard context and might need to select an event if not in URL.
-// But wait, the file structure in prompts says: src/app/(dashboard)/transport/page.tsx (Global?)
-// Actually, Transport usually depends on an event (except Drivers).
-// Let's verify if there is an event context or if we should use URL params.
+// Let's verify if there is an event context or if we should use the URL params.
 // Checking "flights" page: src/app/(dashboard)/flights/page.tsx
 
-export default function TransportPage({ searchParams }: { searchParams: { eventId?: string } }) {
+export default function TransportPage() {
+    const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState('overview');
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [cars, setCars] = useState<EventCar[]>([]);
     const [flightGroups, setFlightGroups] = useState<FlightGroup[]>([]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [stats, setStats] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
-    
+
     // Dialog states
     const [driverFormOpen, setDriverFormOpen] = useState(false);
     const [carFormOpen, setCarFormOpen] = useState(false);
@@ -61,16 +47,17 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
     // Assuming we can get it from query params or local storage if implemented.
     // For now, let's try to fetch "active" event or just use the first one if not provided.
     // I'll skip the complex event selector logic here and focus on the Transport UI.
-    const eventId = searchParams.eventId || 'e8824106-9572-4ceb-8d62-1262ca83b70c'; // Default or need selector
+    const eventId = searchParams.get('eventId') || 'e8824106-9572-4ceb-8d62-1262ca83b70c'; // Default or need selector
 
     const { canEdit, loading: authLoading } = usePermissions();
 
     const loadData = async () => {
         setLoading(true);
         try {
-            const [driversData, carsData] = await Promise.all([
+            const [driversData, carsData, statsData] = await Promise.all([
                 getDrivers(),
-                getEventCars(eventId)
+                getEventCars(eventId),
+                getTransportStats(eventId)
             ]);
             
             // Build Flight Groups
@@ -79,6 +66,7 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
             const flights = await getFlightsByEvent(eventId);
             
             // Group logic
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const groups: FlightGroup[] = flights.map((f: any) => {
                 // Find passengers for this flight (assigned + unassigned)
                 // Assigned ones are in cars.passengers with flight_id
@@ -98,7 +86,9 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
                     });
                 });
 
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const groupUnassigned = unassigned.filter((u: any) => u.flight?.id === f.id || u.enrollment?.flights?.find((fl: any) => fl.id === f.id));
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const unassignedFormatted = groupUnassigned.map((u: any) => ({
                     enrolled_id: u.enrollment.id,
                     person_name: u.enrollment.person.compiled_name,
@@ -125,6 +115,7 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
 
             setDrivers(driversData);
             setCars(carsData);
+            setStats(statsData);
             setFlightGroups(groups);
 
         } catch (error) {
@@ -140,13 +131,6 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
             loadData();
         }
     }, [authLoading, eventId]);
-
-    const stats = {
-        total_cars: cars.length,
-        total_drivers: drivers.length,
-        active_drivers: drivers.filter(d => d.is_active).length,
-        assigned_cars: cars.filter(c => c.driver_id).length
-    };
 
     const handleEditDriver = (driver: Driver) => {
         setSelectedDriver(driver);
@@ -173,15 +157,17 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
             <Header title="Transport & Logistics" description="Manage drivers, vehicles, and passenger assignments." />
 
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <TransportStats 
-                    stats={stats} 
-                    activeFilter={activeTab}
-                    onFilterClick={(filter) => {
-                        if (filter === 'cars' || filter === 'assigned') setActiveTab('cars');
-                        else if (filter === 'drivers' || filter === 'active_drivers') setActiveTab('drivers');
-                        else setActiveTab('overview');
-                    }}
-                />
+                {stats && (
+                    <TransportStats 
+                        stats={stats} 
+                        activeFilter={activeTab}
+                        onFilterClick={(filter) => {
+                            if (filter === 'cars' || filter === 'assigned') setActiveTab('cars');
+                            else if (filter === 'drivers' || filter === 'active_drivers') setActiveTab('drivers');
+                            else setActiveTab('overview');
+                        }}
+                    />
+                )}
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -224,6 +210,11 @@ export default function TransportPage({ searchParams }: { searchParams: { eventI
                         cars={cars} 
                         onEdit={handleEditCar} 
                         onRefresh={loadData} 
+                        onManagePassengers={(car) => {
+                            // TODO: Open passenger assignment dialog
+                            console.log('Manage passengers for car', car.id);
+                            handleEditCar(car);
+                        }}
                     />
                 </TabsContent>
 

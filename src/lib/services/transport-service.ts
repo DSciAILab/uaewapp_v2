@@ -308,3 +308,7 @@ export async function getFlightGroups(eventId: string): Promise<import('@/types/
   // TODO: Implement actual grouping logic
   return []; 
 }
+// ALIASES for backward compatibility or component consistency
+export const addPassengerToCar = assignPassenger;
+export const removePassengerFromCar = removePassenger;
+export const getUnassignedPassengersForEvent = getUnassignedPassengers;
