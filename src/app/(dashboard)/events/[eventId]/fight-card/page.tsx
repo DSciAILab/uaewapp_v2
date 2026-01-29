@@ -108,11 +108,12 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                        cName.includes(eName);
             });
 
+            const person = fighterStats?.person as any;
             const enrichedFighter = {
                 ...row,
-                photoUrl: fighterStats?.person ? getFighterPhotoUrl((fighterStats.person as any).fighter_id) : '',
-                eventValues: (fighterStats?.person as any)?.event_name 
-                  ? `${(fighterStats.person as any).event_name} ${(fighterStats.person as any).fighter_id}` 
+                photoUrl: person ? getFighterPhotoUrl(person.fighter_id) : '',
+                eventValues: person 
+                  ? `${person.event_name ?? ''} ${person.fighter_id ?? ''}`.trim()
                   : ''
             };
 
