@@ -8,6 +8,7 @@ import { Scale, History, AlertTriangle, CheckCircle } from 'lucide-react';
 import { EventWeighIn } from '@/types/stats';
 import { getEventWeighIns, kgToLbs } from '@/lib/services/stats-service';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 interface StatsHistoryProps {
   eventId: string;
@@ -86,7 +87,15 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
               {weighIns.map((w) => (
                 <TableRow key={w.id}>
                   <TableCell className="font-medium">
-                    {w.enrolled?.person?.full_name}
+                    <div className="flex items-center gap-2">
+                      {w.enrolled?.corner && (
+                        <div className={cn(
+                          "w-2 h-2 rounded-full shrink-0",
+                          w.enrolled.corner.toLowerCase() === 'red' ? "bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]" : "bg-blue-600 shadow-[0_0_4px_rgba(37,99,235,0.5)]"
+                        )} title={`Corner: ${w.enrolled.corner}`} />
+                      )}
+                      {w.enrolled?.person?.event_name || w.enrolled?.person?.full_name}
+                    </div>
                   </TableCell>
                   <TableCell>
                     {w.enrolled?.stats?.weight_class || 'Catch Weight'}

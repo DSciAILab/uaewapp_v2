@@ -330,11 +330,6 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                     <span className="text-sm font-bold">
                         {fighter.person?.event_name || fighter.person?.full_name}
                     </span>
-                    {fighter.person?.event_name && fighter.person.full_name && (
-                        <span className="text-[10px] text-muted-foreground line-clamp-1">
-                            {fighter.person.full_name}
-                        </span>
-                    )}
                     <div className="text-[10px] text-muted-foreground italic mt-0.5">
                       {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}
                     </div>
@@ -343,31 +338,18 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
 
                 {/* Corner Selection */}
                 <TableCell className="p-1">
-                  <div className="flex flex-col gap-1 items-center px-2">
-                      <div className="flex items-center gap-1 w-full justify-center">
-                          <SelectWrapper 
-                             value={fighter.corner} 
-                             options={CORNERS} 
-                             placeholder="Select"
-                             onChange={(v) => saveField(fighter.person_id, fighter, 'corner', v)}
-                          />
-                      </div>
-                      <div className="flex items-center gap-1">
-                          {fighter.corner && (
-                              <Badge className={cn(
-                                  "text-[9px] h-3.5 px-1 py-0 border-none font-black uppercase text-white shadow-sm",
-                                  fighter.corner.toLowerCase() === 'red' ? "bg-red-500" : "bg-blue-600"
-                              )}>
-                                  {fighter.corner}
-                              </Badge>
-                          )}
-                          {(fighter as any)._auto_corner && (
-                              <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 leading-none bg-blue-50/50 text-blue-600 border-blue-200 dark:bg-blue-900/20 whitespace-nowrap">
-                                  SUGGESTED
-                              </Badge>
-                          )}
-                      </div>
-                  </div>
+                    <div className="flex flex-col gap-1 items-center px-2">
+                        {fighter.corner ? (
+                            <Badge className={cn(
+                                "text-[10px] h-5 px-2 py-0 border-none font-black uppercase text-white shadow-sm min-w-[60px] justify-center",
+                                fighter.corner.toLowerCase() === 'red' ? "bg-red-500" : "bg-blue-600"
+                            )}>
+                                {fighter.corner}
+                            </Badge>
+                        ) : (
+                            <span className="text-[10px] text-muted-foreground italic">Not set</span>
+                        )}
+                    </div>
                 </TableCell>
                  
                  {/* Fighter Uniforms */}

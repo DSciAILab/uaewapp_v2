@@ -88,7 +88,7 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                   )}
                 </div>
               </TableCell>
-              <TableCell className="font-medium">{enrollment.person?.compiled_name}</TableCell>
+              <TableCell className="font-medium">{enrollment.person?.event_name || enrollment.person?.compiled_name}</TableCell>
               <TableCell>
                 <Badge variant={getRoleBadgeColor(enrollment.role?.code || '')}>
                   {enrollment.role?.name}

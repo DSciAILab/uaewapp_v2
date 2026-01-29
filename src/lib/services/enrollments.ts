@@ -18,6 +18,7 @@ export interface EnrollmentFormData {
   needs_visa?: boolean
   needs_hotel?: boolean
   needs_transport?: TransportNeed
+  corner?: string | null
 }
 
 export async function getEnrollmentsByEvent(eventId: string): Promise<EnrollmentWithDetails[]> {

@@ -25,6 +25,7 @@ export const enrollmentSchema = z.object({
   needs_visa: z.boolean().optional(),
   needs_hotel: z.boolean().optional(),
   needs_transport: z.enum(['none', 'arrival', 'departure', 'both']).optional(),
+  corner: z.string().optional().nullable(),
 })
 
 export type EnrollmentSchema = z.infer<typeof enrollmentSchema>

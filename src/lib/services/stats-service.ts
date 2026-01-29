@@ -287,7 +287,7 @@ export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]>
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name:compiled_name),
+        person:mma_people!inner(id, full_name:compiled_name, event_name),
         person_id,
         corner
       )

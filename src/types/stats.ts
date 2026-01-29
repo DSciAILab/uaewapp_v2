@@ -122,6 +122,7 @@ export interface EventWeighIn {
   id: string;
   event_id: string;
   enrolled_id: string;
+  corner: string | null;
   
   // Weigh-in data
   official_weight_kg: number | null;
@@ -140,8 +141,10 @@ export interface EventWeighIn {
     person: {
       id: string;
       full_name: string;
+      event_name?: string;
     };
     stats?: FighterStats;
+    corner?: string | null;
   };
 }
 

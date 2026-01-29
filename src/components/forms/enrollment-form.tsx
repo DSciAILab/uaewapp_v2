@@ -61,6 +61,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       needs_visa: enrollment?.needs_visa || false,
       needs_hotel: enrollment?.needs_hotel || false,
       needs_transport: (enrollment?.needs_transport as any) || 'none',
+      corner: (enrollment as any)?.corner || null,
     },
   })
 
@@ -173,6 +174,25 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
           </ToggleGroup>
         </div>
       </div>
+
+      {roles.find(r => r.id === watch('role_id'))?.code === 'F' && (
+        <div className="space-y-4">
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Luta</h3>
+          <div className="space-y-2">
+            <Label className="text-xs">Corner</Label>
+            <ToggleGroup 
+              type="single" 
+              variant="segmented" 
+              value={watch('corner') || 'none'} 
+              onValueChange={(v) => setValue('corner', v === 'none' ? null : v)}
+            >
+              <ToggleGroupItem value="none" className="text-xs">Nenhum</ToggleGroupItem>
+              <ToggleGroupItem value="Red" className="text-xs text-red-600 font-bold border-red-100 data-[state=on]:bg-red-50">RED</ToggleGroupItem>
+              <ToggleGroupItem value="Blue" className="text-xs text-blue-600 font-bold border-blue-100 data-[state=on]:bg-blue-50">BLUE</ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Necessidades</h3>
