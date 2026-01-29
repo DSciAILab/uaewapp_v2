@@ -218,6 +218,17 @@ export async function cancelEnrollment(id: string, reason?: string): Promise<voi
   if (error) throw error
 }
 
+export async function updateEnrollmentCorner(eventId: string, personId: string, corner: string | null): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase
+    .from('mma_enrollments')
+    .update({ corner })
+    .eq('event_id', eventId)
+    .eq('person_id', personId);
+
+  if (error) throw error;
+}
+
 export async function getRoles(): Promise<Role[]> {
   const supabase = getClient();
   const { data, error } = await supabase

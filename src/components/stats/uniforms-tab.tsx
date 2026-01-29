@@ -21,6 +21,7 @@ import autoTable from 'jspdf-autotable';
 
 import { getEventFighterStats, upsertFighterStats, getFightCardData } from '@/lib/services/stats-service';
 import { getEventById } from '@/lib/services/events';
+import { updateEnrollmentCorner } from '@/lib/services/enrollments';
 import { getFighterPhotoUrl, getDataUrl, normalizeName, cn } from '@/lib/utils';
 import type { FighterStats } from '@/types/stats';
 import type { Event } from '@/types/database';
@@ -142,10 +143,14 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
      const key = `${personId}_${String(field)}`;
      setSavingState(prev => ({ ...prev, [key]: true }));
      try {
-        await upsertFighterStats(personId, {
-            ...currentStats,
-            [field]: value
-        } as any);
+        if (field === 'corner') {
+            await updateEnrollmentCorner(eventId, personId, value);
+        } else {
+            await upsertFighterStats(personId, {
+                ...currentStats,
+                [field]: value
+            } as any);
+        }
         
         setFighters(prev => prev.map(f => {
             if (f.person_id === personId) {
@@ -435,7 +440,7 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
 
 function SelectWrapper({ value, options, placeholder, onChange }: { value: string | null | undefined, options: string[], placeholder: string, onChange: (v: string) => void }) {
     return (
-        <Select value={value || ''} onValueChange={onChange}>
+        <Select value={value || 'none'} onValueChange={(v) => onChange(v === 'none' ? '' : v)}>
             <SelectTrigger className={cn(
                 "h-7 w-full min-w-[50px] text-[10px] px-1 font-medium",
                 value?.toLowerCase() === 'red' && "border-red-200 text-red-600",
@@ -444,6 +449,7 @@ function SelectWrapper({ value, options, placeholder, onChange }: { value: strin
                 <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
+                <SelectItem value="none" className="text-[10px] text-muted-foreground italic">None / Reset</SelectItem>
                 {options.map(s => <SelectItem key={s} value={s} className="text-[10px]">{s}</SelectItem>)}
             </SelectContent>
         </Select>

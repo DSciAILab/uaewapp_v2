@@ -20,7 +20,7 @@ import {
 import { MoreHorizontal, Pencil, X, Plane, FileText, Hotel, Car, BrainCircuit } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { EnrollmentWithDetails } from '@/lib/services/enrollments'
-import { getFighterPhotoUrl } from '@/lib/utils'
+import { getFighterPhotoUrl, cn } from '@/lib/utils'
 
 interface EnrollmentsTableProps {
   enrollments: EnrollmentWithDetails[]
@@ -49,6 +49,7 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
           <TableHead className="w-12"></TableHead>
           <TableHead>Nome</TableHead>
           <TableHead>Função</TableHead>
+          <TableHead>Corner</TableHead>
           <TableHead>Necessidades</TableHead>
           <TableHead className="w-12"></TableHead>
         </TableRow>
@@ -56,7 +57,7 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
       <TableBody>
         {enrollments.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
               Nenhuma pessoa inscrita
             </TableCell>
           </TableRow>
@@ -92,6 +93,16 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                 <Badge variant={getRoleBadgeColor(enrollment.role?.code || '')}>
                   {enrollment.role?.name}
                 </Badge>
+              </TableCell>
+              <TableCell>
+                {enrollment.corner && (
+                  <Badge className={cn(
+                    "text-[10px] font-bold uppercase text-white min-w-[50px] justify-center",
+                    enrollment.corner.toLowerCase() === 'red' ? "bg-red-500 hover:bg-red-600" : "bg-blue-600 hover:bg-blue-700"
+                  )}>
+                    {enrollment.corner}
+                  </Badge>
+                )}
               </TableCell>
               <TableCell>
                 <div className="flex gap-1">

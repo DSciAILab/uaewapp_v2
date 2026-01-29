@@ -35,7 +35,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .from('mma_enrollments')
     .select(`
       person_id,
-      person_id,
+      corner,
       person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name),
       role:mma_roles!inner(code)
     `)
@@ -71,7 +71,9 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
   
   return enrolled.map(e => {
     const existing = statsMap.get(e.person_id);
-    if (existing) return existing;
+    const corner = e.corner || existing?.corner; // Enrollment corner takes precedence
+    
+    if (existing) return { ...existing, corner };
     
     // Return placeholder for UI
     return {
@@ -85,7 +87,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
       losses_ko: 0, losses_submission: 0, losses_decision: 0,
       height_cm: null, reach_cm: null, weight_class: null,
       fighting_style: null, team_gym: null, nickname: null,
-      corner: null,
+      corner: corner,
       uniform_size: null, shoe_size: null,
       tshirt_size: null, shorts_size: null, jacket_size: null, gloves_size: null,
       coach1_size: null, coach2_size: null, coach3_size: null,
@@ -286,7 +288,8 @@ export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]>
       enrolled:mma_enrollments!inner(
         id,
         person:mma_people!inner(id, full_name:compiled_name),
-        person_id
+        person_id,
+        corner
       )
     `)
     .eq('event_id', eventId)
