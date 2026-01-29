@@ -511,3 +511,34 @@ export async function getEventFighterHierarchy(eventId: string): Promise<Fighter
   
   return hierarchy;
 }
+export async function getFightCardData(): Promise<any[]> {
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8I30mTm8ZyuBttmebz9wv-41TIZ-8HzHiLEYcEhXD2Y5JXCn7AD3aDmOIBpYSp-9tMF7F7obDdQsw/pub?gid=1830739607&single=true&output=csv';
+  
+  try {
+    const response = await fetch(CSV_URL);
+    if (!response.ok) throw new Error('Failed to fetch CSV');
+    const csvText = await response.text();
+    
+    // Simple CSV parser
+    const rows = csvText.split('\n').slice(1); // Skip header
+    return rows.map(row => {
+      const cols = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(col => col.replace(/^"(.*)"$/, '$1')) || [];
+      return {
+        matchNumber: parseInt(cols[0]) || 0,
+        event: cols[1],
+        corner: cols[2]?.toUpperCase() as 'RED' | 'BLUE',
+        division: cols[3],
+        name: cols[4],
+        nickname: cols[5],
+        record: cols[6],
+        nationality: cols[7],
+        residency: cols[8]
+      };
+    }).filter(r => r.name);
+  } catch (error) {
+    console.error('Error fetching fight card data:', error);
+    return [];
+  }
+}
+
+// ... existing code ...

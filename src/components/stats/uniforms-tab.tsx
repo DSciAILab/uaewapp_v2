@@ -13,14 +13,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Download } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Download, Search, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import { getEventFighterStats, upsertFighterStats } from '@/lib/services/stats-service';
+import { getEventFighterStats, upsertFighterStats, getFightCardData } from '@/lib/services/stats-service';
 import { getEventById } from '@/lib/services/events';
-import { getFighterPhotoUrl, getDataUrl } from '@/lib/utils';
+import { getFighterPhotoUrl, getDataUrl, normalizeName, cn } from '@/lib/utils';
 import type { FighterStats } from '@/types/stats';
 import type { Event } from '@/types/database';
 
@@ -37,7 +38,8 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
   const [eventData, setEventData] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingState, setSavingState] = useState<Record<string, boolean>>({});
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -47,7 +49,24 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
     setSortConfig({ key, direction });
   };
 
-  const sortedFighters = [...fighters].sort((a, b) => {
+  const filteredFighters = fighters.filter(f => {
+    if (!searchQuery.trim()) return true;
+    
+    const terms = searchQuery.toLowerCase().split(',').map(t => t.trim()).filter(t => t.length > 0);
+    if (terms.length === 0) return true;
+
+    return terms.some(term => {
+      const nameMatch = f.person?.full_name?.toLowerCase().includes(term);
+      const idMatch = (f.person as any)?.fighter_id?.toString().toLowerCase().includes(term);
+      const weightMatch = f.weight_class?.toLowerCase().includes(term);
+      const cornerMatch = f.corner?.toLowerCase().includes(term);
+      const eventMatch = f.person?.event_name?.toLowerCase().includes(term);
+      
+      return nameMatch || idMatch || weightMatch || cornerMatch || eventMatch;
+    });
+  });
+
+  const sortedFighters = [...filteredFighters].sort((a, b) => {
     if (!sortConfig) return 0;
     
     let aValue: any = '';
@@ -66,6 +85,10 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
       bValue = (b as any)[sortConfig.key] || '';
     }
 
+    // Convert to string for consistent comparison if not number
+    if (typeof aValue === 'string') aValue = aValue.toLowerCase();
+    if (typeof bValue === 'string') bValue = bValue.toLowerCase();
+
     if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
     if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
     return 0;
@@ -78,11 +101,34 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [data, event] = await Promise.all([
+      const [data, event, fightCard] = await Promise.all([
         getEventFighterStats(eventId),
-        getEventById(eventId)
+        getEventById(eventId),
+        getFightCardData()
       ]);
-      setFighters(data);
+
+      // Cross-reference corners
+      const enrichedFighters = data.map((f: FighterStats) => {
+        // Only auto-fill if corner is null
+        if (!f.corner) {
+          const match = fightCard.find((c: any) => {
+            const pName = normalizeName(f.person?.full_name || '');
+            const cName = normalizeName(c.name);
+            return pName === cName || pName.includes(cName) || cName.includes(pName);
+          });
+          
+          if (match) {
+            return { 
+              ...f, 
+              corner: (match.corner.charAt(0).toUpperCase() + match.corner.slice(1).toLowerCase()) as any,
+              _auto_corner: true // Internal flag for UI hint
+            } as FighterStats & { _auto_corner?: boolean };
+          }
+        }
+        return f;
+      });
+
+      setFighters(enrichedFighters);
       setEventData(event);
     } catch (error) {
       toast.error('Failed to load fighter data');
@@ -197,62 +243,61 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-         <div>
+      <div className="flex justify-between items-center mb-4 gap-4">
+         <div className="flex-1">
              <h2 className="text-xl font-semibold tracking-tight">Uniform Management</h2>
              <p className="text-muted-foreground text-sm">
                Track uniform sizes for fighters and their coaches.
              </p>
          </div>
-         <Button onClick={generatePDF} variant="outline" className="gap-2">
-             <Download className="w-4 h-4" />
-             Export PDF
-         </Button>
+         <div className="flex items-center gap-2">
+            <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                    placeholder="Search name, ID, corner..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 h-9 text-sm"
+                />
+                {searchQuery && (
+                    <button 
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    >
+                        <X className="h-3 w-3" />
+                    </button>
+                )}
+            </div>
+            <Button onClick={generatePDF} variant="outline" size="sm" className="gap-2 h-9">
+                <Download className="w-4 h-4" />
+                Export PDF
+            </Button>
+         </div>
       </div>
 
       <div className="rounded-md border bg-card">
         <Table>
           <TableHeader>
              <TableRow>
-               <TableHead className="w-12 px-4"></TableHead> {/* Empty header for checkboxes visual alignment if requested, though functionality isn't there yet. Let's strictly follow the image provided by user which shows checkboxes. */}
+               <TableHead className="w-12 px-4"></TableHead>
                <TableHead className="w-[80px]">Foto</TableHead>
-               <TableHead className="w-[100px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('fighter_id')}>
-                 Fighter ID {sortConfig?.key === 'fighter_id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="w-[200px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
-                 Nome {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('corner')}>
-                 Corner {sortConfig?.key === 'corner' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('tshirt_size')}>
-                 T-Shirt {sortConfig?.key === 'tshirt_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('shorts_size')}>
-                 Shorts {sortConfig?.key === 'shorts_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('jacket_size')}>
-                 Jacket {sortConfig?.key === 'jacket_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('gloves_size')}>
-                 Gloves {sortConfig?.key === 'gloves_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] border-l bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('coach1_size')}>
-                 C1 Size {sortConfig?.key === 'coach1_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('coach2_size')}>
-                 C2 Size {sortConfig?.key === 'coach2_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
-               <TableHead className="text-center w-[70px] bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('coach3_size')}>
-                 C3 Size {sortConfig?.key === 'coach3_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
-               </TableHead>
+               <SortableHeader label="Fighter ID" sortKey="fighter_id" currentSort={sortConfig} onSort={handleSort} />
+               <SortableHeader label="Nome" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
+               <SortableHeader label="Corner" sortKey="corner" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+               <SortableHeader label="T-Shirt" sortKey="tshirt_size" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+               <SortableHeader label="Shorts" sortKey="shorts_size" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+               <SortableHeader label="Jacket" sortKey="jacket_size" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+               <SortableHeader label="Gloves" sortKey="gloves_size" currentSort={sortConfig} onSort={handleSort} className="text-center" />
+               <SortableHeader label="C1 Size" sortKey="coach1_size" currentSort={sortConfig} onSort={handleSort} className="text-center border-l bg-muted/30" />
+               <SortableHeader label="C2 Size" sortKey="coach2_size" currentSort={sortConfig} onSort={handleSort} className="text-center bg-muted/30" />
+               <SortableHeader label="C3 Size" sortKey="coach3_size" currentSort={sortConfig} onSort={handleSort} className="text-center bg-muted/30" />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {fighters.length === 0 && (
+            {sortedFighters.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={12} className="text-center h-24 text-muted-foreground">
-                    No fighters enrolled.
+                    {searchQuery ? 'No results found matching your search.' : 'No fighters enrolled.'}
                   </TableCell>
                 </TableRow>
             )}
@@ -293,15 +338,22 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                    )}
                  </TableCell>
 
-                 {/* Corner Selection */}
-                 <TableCell className="p-1">
-                    <SelectWrapper 
-                       value={fighter.corner} 
-                       options={CORNERS} 
-                       placeholder="-"
-                       onChange={(v) => saveField(fighter.person_id, fighter, 'corner', v)}
-                    />
-                 </TableCell>
+                  {/* Corner Selection */}
+                  <TableCell className="p-1">
+                    <div className="flex flex-col gap-1 items-center">
+                        <SelectWrapper 
+                           value={fighter.corner} 
+                           options={CORNERS} 
+                           placeholder="-"
+                           onChange={(v) => saveField(fighter.person_id, fighter, 'corner', v)}
+                        />
+                        {(fighter as any)._auto_corner && (
+                            <Badge variant="secondary" className="text-[9px] h-3 px-1 py-0 leading-none bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400">
+                                AUTO
+                            </Badge>
+                        )}
+                    </div>
+                  </TableCell>
                  
                  {/* Fighter Uniforms */}
                  <TableCell className="p-1">
@@ -382,5 +434,30 @@ function SelectWrapper({ value, options, placeholder, onChange }: { value: strin
                 {options.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
             </SelectContent>
         </Select>
+    );
+}
+function SortableHeader({ label, sortKey, currentSort, onSort, className }: { 
+    label: string, 
+    sortKey: string, 
+    currentSort: { key: string, direction: 'asc' | 'desc' } | null, 
+    onSort: (key: string) => void,
+    className?: string
+}) {
+    const isActive = currentSort?.key === sortKey;
+    const Icon = isActive ? (currentSort.direction === 'asc' ? ArrowUp : ArrowDown) : ArrowUpDown;
+
+    return (
+        <TableHead 
+            className={cn("cursor-pointer hover:bg-muted/50 transition-colors group whitespace-nowrap", className)}
+            onClick={() => onSort(sortKey)}
+        >
+            <div className={cn("flex items-center gap-1", className?.includes('text-center') && "justify-center")}>
+                {label}
+                <Icon className={cn(
+                    "h-3 w-3 transition-colors", 
+                    isActive ? "text-primary" : "text-muted-foreground/30 group-hover:text-muted-foreground"
+                )} />
+            </div>
+        </TableHead>
     );
 }
