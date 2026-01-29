@@ -142,17 +142,42 @@ export async function createFighterStats(personId: string, formData: FighterStat
 
 export async function updateFighterStats(statsId: string, formData: Partial<FighterStatsFormData>): Promise<FighterStats> {
   const supabase = getClient();
+  
+  // Clean up formData to only include valid columns
+  const allowedFields = [
+    'height_cm', 'reach_cm', 'weight_class', 'corner', 'uniform_size', 'shoe_size',
+    'tshirt_size', 'shorts_size', 'jacket_size', 'gloves_size',
+    'coach1_size', 'coach2_size', 'coach3_size',
+    'wins', 'losses', 'draws', 'no_contests',
+    'wins_ko', 'wins_submission', 'wins_decision',
+    'losses_ko', 'losses_submission', 'losses_decision',
+    'fighting_style', 'team_gym', 'nickname'
+  ];
+
+  const updatePayload: any = {
+    updated_at: new Date().toISOString()
+  };
+
+  allowedFields.forEach(field => {
+    if (field in formData) {
+      updatePayload[field] = (formData as any)[field];
+    }
+  });
+
   const { data, error } = await supabase
     .from('mma_fighter_stats')
-    .update({ 
-        ...formData, 
-        updated_at: new Date().toISOString() 
-    })
+    .update(updatePayload)
     .eq('id', statsId)
-    .select()
+    .select(`
+      *,
+      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name)
+    `)
     .single();
 
-  if (error) throw new Error('Failed to update fighter stats');
+  if (error) {
+     console.error('Update fighter stats error:', error);
+     throw new Error('Failed to update fighter stats');
+  }
 
   return data;
 }
@@ -171,7 +196,24 @@ export async function upsertFighterStats(personId: string, formData: FighterStat
 
 // ==================== COACH DATA ====================
 
-// ... getCoachData ...
+export async function getCoachData(personId: string): Promise<CoachData | null> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('mma_coach_data')
+    .select(`
+      *,
+      person:mma_people!inner(id, full_name:compiled_name, nationality)
+    `)
+    .eq('person_id', personId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw new Error('Failed to fetch coach data');
+  }
+
+  return data;
+}
 
 export async function getEventCoachData(eventId: string): Promise<CoachData[]> {
   const supabase = getClient();
@@ -255,14 +297,32 @@ export async function createCoachData(personId: string, formData: CoachDataFormD
 
 export async function updateCoachData(dataId: string, formData: Partial<CoachDataFormData>): Promise<CoachData> {
   const supabase = getClient();
+  
+  const allowedFields = ['uniform_size', 'shoe_size', 'height_cm', 'weight_kg'];
+  const updatePayload: any = {
+    updated_at: new Date().toISOString()
+  };
+
+  allowedFields.forEach(field => {
+    if (field in formData) {
+      updatePayload[field] = (formData as any)[field];
+    }
+  });
+
   const { data, error } = await supabase
     .from('mma_coach_data')
-    .update(formData)
+    .update(updatePayload)
     .eq('id', dataId)
-    .select()
+    .select(`
+      *,
+      person:mma_people!inner(id, full_name:compiled_name, nationality)
+    `)
     .single();
 
-  if (error) throw new Error('Failed to update coach data');
+  if (error) {
+     console.error('Update coach data error:', error);
+     throw new Error('Failed to update coach data');
+  }
 
   return data;
 }

@@ -56,27 +56,45 @@ export async function getEnrollmentById(id: string): Promise<EnrollmentWithDetai
 
 export async function createEnrollment(formData: EnrollmentFormData): Promise<Enrollment> {
   const supabase = getClient();
-  // Use upsert to handle both new and re-activating enrollments atomically
-  // We specify onConflict columns to ensure we target the unique constraint
+  
+  const allowedFields = [
+    'event_id', 'person_id', 'role_id', 'needs_flight', 'needs_visa', 
+    'needs_hotel', 'needs_transport', 'corner'
+  ];
+
+  const insertData: any = {
+    status: 'active',
+    cancelled_at: null,
+    cancellation_reason: null,
+    needs_flight: formData.needs_flight || 'none',
+    needs_visa: formData.needs_visa || false,
+    needs_hotel: formData.needs_hotel || false,
+    needs_transport: formData.needs_transport || 'none',
+  };
+
+  allowedFields.forEach(field => {
+    if (field in formData) {
+      insertData[field] = (formData as any)[field];
+    }
+  });
+
   const { data, error } = await supabase
     .from('mma_enrollments')
-    .upsert({
-      ...formData,
-      status: 'active',
-      cancelled_at: null,
-      cancellation_reason: null,
-      needs_flight: formData.needs_flight || 'none',
-      needs_visa: formData.needs_visa || false,
-      needs_hotel: formData.needs_hotel || false,
-      needs_transport: formData.needs_transport || 'none',
-    }, {
+    .upsert(insertData, {
       onConflict: 'event_id, person_id',
       ignoreDuplicates: false
     })
-    .select()
+    .select(`
+      *,
+      person:mma_people(*),
+      role:mma_roles(*)
+    `)
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Create enrollment error:', error);
+    throw error;
+  }
 
   // Sincronizar módulos relacionados e aguardar para garantir consistência antes do reload da UI
   if (data) {
@@ -88,14 +106,35 @@ export async function createEnrollment(formData: EnrollmentFormData): Promise<En
 
 export async function updateEnrollment(id: string, formData: Partial<EnrollmentFormData>): Promise<Enrollment> {
   const supabase = getClient();
+  
+  const allowedFields = [
+    'event_id', 'person_id', 'role_id', 'needs_flight', 'needs_visa', 
+    'needs_hotel', 'needs_transport', 'corner', 'status', 'event_code_seq',
+    'cancelled_at', 'cancellation_reason'
+  ];
+
+  const updatePayload: any = {};
+  allowedFields.forEach(field => {
+    if (field in formData) {
+      updatePayload[field] = (formData as any)[field];
+    }
+  });
+
   const { data, error } = await supabase
     .from('mma_enrollments')
-    .update(formData)
+    .update(updatePayload)
     .eq('id', id)
-    .select()
+    .select(`
+      *,
+      person:mma_people(*),
+      role:mma_roles(*)
+    `)
     .single()
 
-  if (error) throw error
+  if (error) {
+    console.error('Update enrollment error:', error);
+    throw error;
+  }
 
   // Sincronizar módulos relacionados e aguardar para garantir consistência
   await syncRelatedModules(data)

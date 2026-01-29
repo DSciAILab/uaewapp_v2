@@ -102,11 +102,23 @@ export async function createPerson(formData: PersonFormData): Promise<Person> {
 }
 
 export async function updatePerson(id: string, formData: Partial<PersonFormData>): Promise<Person> {
-  const normalized: any = { ...formData }
+  const allowedFields = [
+    'name', 'surname', 'compiled_name', 'event_name', 'fighter_id',
+    'gender', 'phone', 'dob', 'nationality', 'passport_number',
+    'passport_expiry', 'passport_photo', 'document_folder', 'height', 'reach'
+  ];
+
+  const normalized: any = {}
   
-  if (formData.name) normalized.name = normalizeName(formData.name)
-  if (formData.surname !== undefined) normalized.surname = formData.surname ? normalizeName(formData.surname) : null
-  if (formData.event_name) normalized.event_name = normalizeName(formData.event_name)
+  allowedFields.forEach(field => {
+    if (field in formData) {
+      normalized[field] = (formData as any)[field];
+    }
+  });
+
+  if (normalized.name) normalized.name = normalizeName(normalized.name)
+  if (normalized.surname !== undefined) normalized.surname = normalized.surname ? normalizeName(normalized.surname) : null
+  if (normalized.event_name) normalized.event_name = normalizeName(normalized.event_name)
 
   const supabase = getClient();
   const { data, error } = await supabase
