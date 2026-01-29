@@ -305,14 +305,13 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
             {sortedFighters.map((fighter) => (
               <TableRow key={fighter.person_id} className="hover:bg-muted/50">
                 <TableCell className="w-12 px-4">
-                     {/* Placeholder checkbox to match the look. Logic can be added later if bulk actions are needed here. */}
                      <div className="h-4 w-4 rounded-sm border border-primary/20" /> 
                 </TableCell>
                 <TableCell>
                   <Avatar className="h-10 w-10 border border-muted shadow-sm">
                        <AvatarImage src={getFighterPhotoUrl(fighter.person?.fighter_id)} />
                        <AvatarFallback className="text-xs font-bold bg-muted/50">
-                           {fighter.person?.full_name?.substring(0,2).toUpperCase()}
+                           {(fighter.person?.event_name || fighter.person?.full_name || '??').substring(0,2).toUpperCase()}
                        </AvatarFallback>
                   </Avatar>
                 </TableCell>
@@ -321,48 +320,59 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                         {fighter.person?.fighter_id || '-'}
                     </Badge>
                 </TableCell>
-                 <TableCell className="font-medium">
-                   <div>
-                     {fighter.person?.full_name}
-                     {fighter.person?.event_name && (
-                       <span className="text-muted-foreground ml-1">({fighter.person.event_name})</span>
-                     )}
-                   </div>
-                   <div className="text-xs text-muted-foreground italic truncate max-w-[120px]">
-                     {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}
-                   </div>
-                   {fighter.updated_at && (
-                       <div className="text-[10px] text-muted-foreground/70 mt-1">
-                           Updated: {new Date(fighter.updated_at).toLocaleDateString()} {new Date(fighter.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
-                       </div>
-                   )}
-                 </TableCell>
-
-                  {/* Corner Selection */}
-                  <TableCell className="p-1">
-                    <div className="flex flex-col gap-1 items-center">
-                        <SelectWrapper 
-                           value={fighter.corner} 
-                           options={CORNERS} 
-                           placeholder="-"
-                           onChange={(v) => saveField(fighter.person_id, fighter, 'corner', v)}
-                        />
-                        {(fighter as any)._auto_corner && (
-                            <Badge variant="secondary" className="text-[9px] h-3 px-1 py-0 leading-none bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-950 dark:text-blue-400">
-                                AUTO
-                            </Badge>
-                        )}
+                <TableCell className="font-medium">
+                  <div className="flex flex-col">
+                    <span className="text-sm font-bold">
+                        {fighter.person?.event_name || fighter.person?.full_name}
+                    </span>
+                    {fighter.person?.event_name && fighter.person.full_name && (
+                        <span className="text-[10px] text-muted-foreground line-clamp-1">
+                            {fighter.person.full_name}
+                        </span>
+                    )}
+                    <div className="text-[10px] text-muted-foreground italic mt-0.5">
+                      {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}
                     </div>
-                  </TableCell>
+                  </div>
+                </TableCell>
+
+                {/* Corner Selection */}
+                <TableCell className="p-1">
+                  <div className="flex flex-col gap-1 items-center px-2">
+                      <div className="flex items-center gap-1 w-full justify-center">
+                          <SelectWrapper 
+                             value={fighter.corner} 
+                             options={CORNERS} 
+                             placeholder="Select"
+                             onChange={(v) => saveField(fighter.person_id, fighter, 'corner', v)}
+                          />
+                      </div>
+                      <div className="flex items-center gap-1">
+                          {fighter.corner && (
+                              <Badge className={cn(
+                                  "text-[9px] h-3.5 px-1 py-0 border-none font-black uppercase text-white shadow-sm",
+                                  fighter.corner.toLowerCase() === 'red' ? "bg-red-500" : "bg-blue-600"
+                              )}>
+                                  {fighter.corner}
+                              </Badge>
+                          )}
+                          {(fighter as any)._auto_corner && (
+                              <Badge variant="outline" className="text-[9px] h-3.5 px-1 py-0 leading-none bg-blue-50/50 text-blue-600 border-blue-200 dark:bg-blue-900/20 whitespace-nowrap">
+                                  SUGGESTED
+                              </Badge>
+                          )}
+                      </div>
+                  </div>
+                </TableCell>
                  
                  {/* Fighter Uniforms */}
                  <TableCell className="p-1">
                     <SelectWrapper 
                        value={fighter.tshirt_size} 
                        options={CLOTHING_SIZES} 
-                      placeholder="-"
-                      onChange={(v) => saveField(fighter.person_id, fighter, 'tshirt_size', v)}
-                   />
+                       placeholder="-"
+                       onChange={(v) => saveField(fighter.person_id, fighter, 'tshirt_size', v)}
+                    />
                 </TableCell>
                 <TableCell className="p-1">
                    <SelectWrapper 
@@ -414,7 +424,6 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                       onChange={(v) => saveField(fighter.person_id, fighter, 'coach3_size', v)}
                    />
                 </TableCell>
-
               </TableRow>
             ))}
           </TableBody>
@@ -427,11 +436,15 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
 function SelectWrapper({ value, options, placeholder, onChange }: { value: string | null | undefined, options: string[], placeholder: string, onChange: (v: string) => void }) {
     return (
         <Select value={value || ''} onValueChange={onChange}>
-            <SelectTrigger className="h-8 w-full min-w-[50px] text-xs px-1">
+            <SelectTrigger className={cn(
+                "h-7 w-full min-w-[50px] text-[10px] px-1 font-medium",
+                value?.toLowerCase() === 'red' && "border-red-200 text-red-600",
+                value?.toLowerCase() === 'blue' && "border-blue-200 text-blue-600"
+            )}>
                 <SelectValue placeholder={placeholder} />
             </SelectTrigger>
             <SelectContent>
-                {options.map(s => <SelectItem key={s} value={s} className="text-xs">{s}</SelectItem>)}
+                {options.map(s => <SelectItem key={s} value={s} className="text-[10px]">{s}</SelectItem>)}
             </SelectContent>
         </Select>
     );

@@ -81,6 +81,7 @@ export interface Enrollment {
   needs_visa: boolean
   needs_hotel: boolean
   needs_transport: TransportNeed
+  corner: string | null
   status: EnrollmentStatus
   cancelled_at?: string
   cancelled_by?: string
