@@ -97,15 +97,23 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
             // Normalize names for comparison
             const fighterStats = fightersData.find(f => {
                 const pName = normalizeName(f.person?.full_name || '');
+                const eName = normalizeName(f.person?.event_name || '');
                 const cName = normalizeName(row.name);
-                // Exact match or partial match logic if needed
-                return pName === cName || pName.includes(cName) || cName.includes(pName);
+                
+                return pName === cName || 
+                       eName === cName || 
+                       pName.includes(cName) || 
+                       cName.includes(pName) ||
+                       eName.includes(cName) ||
+                       cName.includes(eName);
             });
 
             const enrichedFighter = {
                 ...row,
                 photoUrl: fighterStats?.person ? getFighterPhotoUrl((fighterStats.person as any).fighter_id) : '',
-                eventValues: (fighterStats?.person as any)?.event_name ? `${(fighterStats.person as any).event_name} ${(fighterStats.person as any).fighter_id}` : ''
+                eventValues: (fighterStats?.person as any)?.event_name 
+                  ? `${(fighterStats.person as any).event_name} ${(fighterStats.person as any).fighter_id}` 
+                  : ''
             };
 
             if (row.corner === 'RED') {

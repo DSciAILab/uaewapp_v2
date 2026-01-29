@@ -14,6 +14,8 @@ import { EventTask } from '@/types/task';
 import { TaskAssignment, getTaskAssignments, createAssignments, updateAssignmentStatus, deleteAssignment, getUnassignedEnrollments } from '@/lib/services/task-assignments';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getFighterPhotoUrl } from '@/lib/utils';
 
 interface TaskAssignmentsSheetProps {
   task: EventTask | null;
@@ -193,7 +195,17 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                 filteredAssignments.map((assignment) => (
                   <TableRow key={assignment.id}>
                     <TableCell className="font-medium">
-                      {assignment.enrollment?.person.full_name}
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          {assignment.enrollment?.person.fighter_id && (
+                            <AvatarImage src={getFighterPhotoUrl(assignment.enrollment.person.fighter_id)} />
+                          )}
+                          <AvatarFallback className="text-[10px]">
+                            {assignment.enrollment?.person.name?.[0]}{assignment.enrollment?.person.surname?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        {assignment.enrollment?.person.full_name}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="secondary" className="font-normal">{assignment.enrollment?.role.name}</Badge>
@@ -269,9 +281,19 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                                             else setSelectedEnrollments(prev => prev.filter(id => id !== enrollment.id));
                                         }}
                                     />
-                                    <label htmlFor={enrollment.id} className="flex-1 cursor-pointer text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        {enrollment.person.compiled_name || enrollment.person.name} 
-                                        <span className="ml-2 text-xs text-muted-foreground">({enrollment.role.name})</span>
+                                    <label htmlFor={enrollment.id} className="flex-1 cursor-pointer flex items-center gap-3 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        <Avatar className="h-6 w-6">
+                                          {enrollment.person?.fighter_id && (
+                                            <AvatarImage src={getFighterPhotoUrl(enrollment.person.fighter_id)} />
+                                          )}
+                                          <AvatarFallback className="text-[8px]">
+                                            {enrollment.person?.name?.[0]}{enrollment.person?.surname?.[0]}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex flex-col">
+                                          <span>{enrollment.person.compiled_name || enrollment.person.name}</span>
+                                          <span className="text-[10px] text-muted-foreground">{enrollment.role.name}</span>
+                                        </div>
                                     </label>
                                 </div>
                             ))}

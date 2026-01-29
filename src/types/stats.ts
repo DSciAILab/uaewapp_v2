@@ -142,6 +142,7 @@ export interface EventWeighIn {
       id: string;
       full_name: string;
       event_name?: string;
+      fighter_id?: string | number | null;
     };
     stats?: FighterStats;
     corner?: string | null;

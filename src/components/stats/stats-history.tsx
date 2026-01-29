@@ -8,7 +8,8 @@ import { Scale, History, AlertTriangle, CheckCircle } from 'lucide-react';
 import { EventWeighIn } from '@/types/stats';
 import { getEventWeighIns, kgToLbs } from '@/lib/services/stats-service';
 import { format } from 'date-fns';
-import { cn } from '@/lib/utils';
+import { cn, getDisplayName, getFighterPhotoUrl } from '@/lib/utils';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface StatsHistoryProps {
   eventId: string;
@@ -76,6 +77,7 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Fighter</TableHead>
                 <TableHead>Weight Class</TableHead>
                 <TableHead>Official Weight</TableHead>
@@ -86,6 +88,14 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
             <TableBody>
               {weighIns.map((w) => (
                 <TableRow key={w.id}>
+                  <TableCell>
+                    <Avatar className="h-8 w-8 border">
+                      <AvatarImage src={getFighterPhotoUrl(w.enrolled?.person?.fighter_id)} />
+                      <AvatarFallback className="text-[10px]">
+                        {getDisplayName(w.enrolled?.person || {}).substring(0, 2).toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-2">
                       {w.enrolled?.corner && (
@@ -94,7 +104,7 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
                           w.enrolled.corner.toLowerCase() === 'red' ? "bg-red-500 shadow-[0_0_4px_rgba(239,68,68,0.5)]" : "bg-blue-600 shadow-[0_0_4px_rgba(37,99,235,0.5)]"
                         )} title={`Corner: ${w.enrolled.corner}`} />
                       )}
-                      {w.enrolled?.person?.event_name || w.enrolled?.person?.full_name}
+                      {getDisplayName(w.enrolled?.person || {})}
                     </div>
                   </TableCell>
                   <TableCell>

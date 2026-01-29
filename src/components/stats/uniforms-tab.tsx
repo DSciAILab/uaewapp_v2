@@ -22,7 +22,7 @@ import autoTable from 'jspdf-autotable';
 import { getEventFighterStats, upsertFighterStats, getFightCardData } from '@/lib/services/stats-service';
 import { getEventById } from '@/lib/services/events';
 import { updateEnrollmentCorner } from '@/lib/services/enrollments';
-import { getFighterPhotoUrl, getDataUrl, normalizeName, cn } from '@/lib/utils';
+import { getFighterPhotoUrl, getDataUrl, normalizeName, getDisplayName, cn } from '@/lib/utils';
 import type { FighterStats } from '@/types/stats';
 import type { Event } from '@/types/database';
 
@@ -57,7 +57,7 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
     if (terms.length === 0) return true;
 
     return terms.some(term => {
-      const nameMatch = f.person?.full_name?.toLowerCase().includes(term);
+      const nameMatch = getDisplayName(f.person || {}).toLowerCase().includes(term);
       const idMatch = (f.person as any)?.fighter_id?.toString().toLowerCase().includes(term);
       const weightMatch = f.weight_class?.toLowerCase().includes(term);
       const cornerMatch = f.corner?.toLowerCase().includes(term);
@@ -171,8 +171,14 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
   };
 
   const generatePDF = async () => {
+    // Capture the current visible list to ensure consistency
+    const fightersToExport = [...sortedFighters];
+    if (fightersToExport.length === 0) {
+        toast.error('No fighters to export');
+        return;
+    }
+
     const doc = new jsPDF();
-    
     doc.setFontSize(18);
     const title = eventData ? `Uniforms - ${eventData.name}` : 'Uniforms and Equipment Report';
     doc.text(title, 14, 22);
@@ -182,28 +188,25 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
 
     const loadingToast = toast.loading('Generating PDF with photos...');
 
-    // 1. Prepare table data
-    const tableData: any[] = [];
-    const photoMap = new Map<string, string>(); // fighterId -> base64
+    try {
+        // 1. Prepare table data and pre-fetch images
+        const photoMap = new Map<string, string>(); // person_id -> base64
 
-    // 2. Pre-fetch images
-    await Promise.all(fighters.map(async (f) => {
-        const fighterId = (f.person as any)?.fighter_id;
-        const photoUrl = getFighterPhotoUrl(fighterId);
-        if (photoUrl) {
-            const base64 = await getDataUrl(photoUrl);
-            if (base64) {
-                photoMap.set(f.person_id, base64);
+        await Promise.all(fightersToExport.map(async (f) => {
+            const fighterId = (f.person as any)?.fighter_id;
+            const photoUrl = getFighterPhotoUrl(fighterId);
+            if (photoUrl) {
+                const base64 = await getDataUrl(photoUrl);
+                if (base64) {
+                    photoMap.set(f.person_id, base64);
+                }
             }
-        }
-    }));
+        }));
 
-    for (const f of fighters) {
-        // Prepare row data
-        tableData.push([
+        const tableData = fightersToExport.map(f => [
             '', // Placeholder for Photo
             (f.person as any)?.fighter_id || '-',
-            f.person?.full_name || 'Unknown',
+            getDisplayName(f.person || {}),
             f.corner || '-',
             f.tshirt_size || '-',
             f.shorts_size || '-',
@@ -213,35 +216,38 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
             f.coach2_size || '-',
             f.coach3_size || '-'
         ]);
-    }
 
-    autoTable(doc, {
-        head: [['Photo', 'ID', 'Fighter', 'Corner', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
-        body: tableData,
-        startY: 32,
-        styles: { fontSize: 8, minCellHeight: 15, valign: 'middle' },
-        headStyles: { fillColor: [41, 128, 185] },
-        didDrawCell: (data) => {
-            if (data.section === 'body' && data.column.index === 0) {
-                // Get fighter for this row
-                const fighter = fighters[data.row.index];
-                const base64 = photoMap.get(fighter.person_id);
-                
-                if (base64) {
-                     try {
-                         doc.addImage(base64, 'JPEG', data.cell.x + 2, data.cell.y + 2, 10, 10);
-                     } catch (e) {
-                         // invalid image
-                         console.warn('Failed to add image to PDF', e);
-                     }
+        autoTable(doc, {
+            head: [['Photo', 'ID', 'Fighter', 'Corner', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
+            body: tableData,
+            startY: 32,
+            styles: { fontSize: 8, minCellHeight: 15, valign: 'middle' },
+            headStyles: { fillColor: [41, 128, 185] },
+            didDrawCell: (data) => {
+                if (data.section === 'body' && data.column.index === 0) {
+                    const fighter = fightersToExport[data.row.index];
+                    if (!fighter) return;
+
+                    const base64 = photoMap.get(fighter.person_id);
+                    if (base64) {
+                         try {
+                             doc.addImage(base64, 'JPEG', data.cell.x + 2, data.cell.y + 2, 10, 10);
+                         } catch (e) {
+                             console.warn('Failed to add image to PDF', e);
+                         }
+                    }
                 }
             }
-        }
-    });
+        });
 
-    doc.save('uniforms-report.pdf');
-    toast.dismiss(loadingToast);
-    toast.success('PDF Generated successfully');
+        doc.save('uniforms-report.pdf');
+        toast.success('PDF Generated successfully');
+    } catch (err) {
+        console.error('PDF Generation error:', err);
+        toast.error('Failed to generate PDF');
+    } finally {
+        toast.dismiss(loadingToast);
+    }
   };
 
   if (loading) return <div className="text-center py-8">Loading uniform data...</div>;
@@ -328,7 +334,7 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                 <TableCell className="font-medium">
                   <div className="flex flex-col">
                     <span className="text-sm font-bold">
-                        {fighter.person?.event_name || fighter.person?.full_name}
+                        {getDisplayName(fighter.person || {})}
                     </span>
                     <div className="text-[10px] text-muted-foreground italic mt-0.5">
                       {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}

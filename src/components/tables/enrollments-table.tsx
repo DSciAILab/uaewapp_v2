@@ -20,7 +20,7 @@ import {
 import { MoreHorizontal, Pencil, X, Plane, FileText, Hotel, Car, BrainCircuit } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import type { EnrollmentWithDetails } from '@/lib/services/enrollments'
-import { getFighterPhotoUrl, cn } from '@/lib/utils'
+import { getFighterPhotoUrl, getDisplayName, cn } from '@/lib/utils'
 
 interface EnrollmentsTableProps {
   enrollments: EnrollmentWithDetails[]
@@ -88,7 +88,7 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                   )}
                 </div>
               </TableCell>
-              <TableCell className="font-medium">{enrollment.person?.event_name || enrollment.person?.compiled_name}</TableCell>
+              <TableCell className="font-medium">{getDisplayName(enrollment.person || {})}</TableCell>
               <TableCell>
                 <Badge variant={getRoleBadgeColor(enrollment.role?.code || '')}>
                   {enrollment.role?.name}

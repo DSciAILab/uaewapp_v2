@@ -19,6 +19,7 @@ export interface TaskAssignment {
       full_name: string;
       name?: string;
       surname?: string;
+      fighter_id?: string | number | null;
     };
     role: {
       name: string;
@@ -39,7 +40,7 @@ export async function getTaskAssignments(taskId: string): Promise<TaskAssignment
       *,
       enrollment:mma_enrollments!inner(
         id,
-        person:mma_people(id, full_name:compiled_name, name, surname),
+        person:mma_people(id, full_name:compiled_name, name, surname, fighter_id),
         role:mma_roles(name, code)
       )
     `)
@@ -77,7 +78,12 @@ export async function updateAssignmentStatus(
 ): Promise<void> {
   const supabase = getClient();
   
-  const payload: any = { 
+  const payload: {
+    status: 'pending' | 'completed' | 'exempt';
+    updated_at: string;
+    completed_at?: string | null;
+    notes?: string;
+  } = { 
     status,
     updated_at: new Date().toISOString()
   };

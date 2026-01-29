@@ -31,13 +31,28 @@ export function normalizeName(name: string): string {
   if (!name) return ''
   return name
     .trim()
-    // Remover caracteres não imprimíveis (como BOM e outros controles)
     .replace(/[\u0000-\u001F\u007F-\u009F\uFEFF]/g, '')
     .replace(/\s+/g, ' ')
     .split(' ')
     .filter(word => word.length > 0)
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ')
+}
+
+export function cleanName(name: string): string {
+  if (!name) return ''
+  // Remove redundant parentheses like "Name (Name)"
+  const match = name.match(/^(.*?)\s*\((.*?)\)$/)
+  if (match && match[1].trim() === match[2].trim()) {
+    return match[1].trim()
+  }
+  return name
+}
+
+export function getDisplayName(person: { event_name?: string | null, full_name?: string | null, compiled_name?: string | null }): string {
+  if (person.event_name) return person.event_name
+  const baseName = person.full_name || person.compiled_name || 'Unknown'
+  return cleanName(baseName)
 }
 
 export function getFighterPhotoUrl(fighterId: string | number | null | undefined): string {
@@ -49,7 +64,8 @@ export function getFighterPhotoUrl(fighterId: string | number | null | undefined
     return ''
   }
 
-  return `https://appadmin.uaewarriors.com/imagecdn/FighterDP?fighterId=${idStr}`
+  const remoteUrl = `https://appadmin.uaewarriors.com/imagecdn/FighterDP?fighterId=${idStr}`
+  return `/api/proxy-image?url=${encodeURIComponent(remoteUrl)}`
 }
 
 export async function getDataUrl(url: string): Promise<string | null> {

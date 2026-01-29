@@ -10,6 +10,8 @@ import { createEnrollment, getRoles } from '@/lib/services/enrollments';
 import { getActiveEvents } from '@/lib/services/events';
 import { Person, Event, Role } from '@/types/database';
 import { toast } from 'sonner';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getFighterPhotoUrl } from '@/lib/utils';
 
 interface QuickEnrollDialogProps {
   person: Person | null;
@@ -100,11 +102,21 @@ export function QuickEnrollDialog({ person, open, onOpenChange, onSuccess }: Qui
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Quick Enroll</DialogTitle>
-          <p className="text-sm text-muted-foreground">
-             Enrolling <span className="font-semibold text-foreground">{person?.compiled_name}</span>
-          </p>
+        <DialogHeader className="flex flex-row items-center gap-4">
+          <Avatar className="h-12 w-12 border">
+            {person?.fighter_id && (
+              <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />
+            )}
+            <AvatarFallback>
+              {person?.name?.[0]}{person?.surname?.[0]}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex flex-col text-left">
+            <DialogTitle>Quick Enroll</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Enrolling <span className="font-semibold text-foreground">{person?.compiled_name}</span>
+            </p>
+          </div>
         </DialogHeader>
         
         <div className="grid gap-4 py-4">
