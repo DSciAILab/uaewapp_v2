@@ -103,7 +103,11 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
         
         setFighters(prev => prev.map(f => {
             if (f.person_id === personId) {
-                return { ...f, [field]: value };
+                return { 
+                    ...f, 
+                    [field]: value,
+                    updated_at: new Date().toISOString()
+                };
             }
             return f;
         }));
@@ -233,9 +237,15 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('gloves_size')}>
                  Gloves {sortConfig?.key === 'gloves_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                </TableHead>
-               <TableHead className="text-center w-[70px] border-l bg-muted/30">C1 Size</TableHead>
-               <TableHead className="text-center w-[70px] bg-muted/30">C2 Size</TableHead>
-               <TableHead className="text-center w-[70px] bg-muted/30">C3 Size</TableHead>
+               <TableHead className="text-center w-[70px] border-l bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('coach1_size')}>
+                 C1 Size {sortConfig?.key === 'coach1_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('coach2_size')}>
+                 C2 Size {sortConfig?.key === 'coach2_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] bg-muted/30 cursor-pointer hover:bg-muted/50" onClick={() => handleSort('coach3_size')}>
+                 C3 Size {sortConfig?.key === 'coach3_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -276,6 +286,11 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                    <div className="text-xs text-muted-foreground italic truncate max-w-[120px]">
                      {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}
                    </div>
+                   {fighter.updated_at && (
+                       <div className="text-[10px] text-muted-foreground/70 mt-1">
+                           Updated: {new Date(fighter.updated_at).toLocaleDateString()} {new Date(fighter.updated_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                       </div>
+                   )}
                  </TableCell>
 
                  {/* Corner Selection */}

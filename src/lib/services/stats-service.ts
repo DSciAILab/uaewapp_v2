@@ -128,6 +128,7 @@ export async function createFighterStats(personId: string, formData: FighterStat
       fighting_style: formData.fighting_style || null,
       team_gym: formData.team_gym || null,
       nickname: formData.nickname || null,
+      updated_at: new Date().toISOString(),
     })
     .select()
     .single();
@@ -141,7 +142,10 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_fighter_stats')
-    .update(formData)
+    .update({ 
+        ...formData, 
+        updated_at: new Date().toISOString() 
+    })
     .eq('id', statsId)
     .select()
     .single();
