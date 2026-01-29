@@ -14,7 +14,7 @@ export async function getFighterStats(personId: string): Promise<FighterStats | 
     .from('mma_fighter_stats')
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id)
+      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name)
     `)
     .eq('person_id', personId)
     .single();
@@ -35,7 +35,8 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .from('mma_enrollments')
     .select(`
       person_id,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id),
+      person_id,
+      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name),
       role:mma_roles!inner(code)
     `)
     .eq('event_id', eventId)
@@ -56,7 +57,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .from('mma_fighter_stats')
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id)
+      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name)
     `)
     .in('person_id', personIds);
 
@@ -84,6 +85,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
       losses_ko: 0, losses_submission: 0, losses_decision: 0,
       height_cm: null, reach_cm: null, weight_class: null,
       fighting_style: null, team_gym: null, nickname: null,
+      corner: null,
       uniform_size: null, shoe_size: null,
       tshirt_size: null, shorts_size: null, jacket_size: null, gloves_size: null,
       coach1_size: null, coach2_size: null, coach3_size: null,
@@ -103,6 +105,7 @@ export async function createFighterStats(personId: string, formData: FighterStat
       height_cm: formData.height_cm || null,
       reach_cm: formData.reach_cm || null,
       weight_class: formData.weight_class || null,
+      corner: formData.corner || null,
       uniform_size: formData.uniform_size || null,
       shoe_size: formData.shoe_size || null,
       tshirt_size: formData.tshirt_size || null,

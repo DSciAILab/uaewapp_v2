@@ -14,25 +14,38 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [isSignUp, setIsSignUp] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
+  const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) throw error
-
-      router.push('/dashboard')
-      router.refresh()
+      if (isSignUp) {
+        // Sign Up
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/callback`,
+          },
+        })
+        if (error) throw error
+        toast.success('Cadastro iniciado! Verifique seu email para confirmar.')
+      } else {
+        // Sign In
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+        if (error) throw error
+        router.push('/dashboard')
+        router.refresh()
+      }
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login')
+      toast.error(error.message || 'Erro na autenticação')
     } finally {
       setLoading(false)
     }
@@ -62,11 +75,11 @@ export default function LoginPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl text-primary">MMA Event System</CardTitle>
           <CardDescription>
-            Faça login para acessar o sistema
+            {isSignUp ? 'Crie sua conta para acessar' : 'Faça login para acessar o sistema'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <form onSubmit={handleEmailLogin} className="space-y-4">
+          <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -90,9 +103,20 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Entrando...' : 'Entrar com Email'}
+              {loading ? (isSignUp ? 'Cadastrando...' : 'Entrando...') : (isSignUp ? 'Cadastrar' : 'Entrar com Email')}
             </Button>
           </form>
+
+          <div className="text-center text-sm">
+            <button 
+              type="button"
+              className="text-primary hover:underline"
+              onClick={() => setIsSignUp(!isSignUp)}
+              disabled={loading}
+            >
+              {isSignUp ? 'Já tem uma conta? Clique aqui para entrar' : 'Não tem uma conta? Clique aqui para cadastrar'}
+            </button>
+          </div>
 
           <div className="relative">
             <div className="absolute inset-0 flex items-center">

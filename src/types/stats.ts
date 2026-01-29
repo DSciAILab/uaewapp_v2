@@ -19,6 +19,7 @@ export interface FighterStats {
   height_cm: number | null;
   reach_cm: number | null;
   weight_class: WeightClass | null;
+  corner?: string | null;
   uniform_size?: string | null;
   shoe_size?: string | null;
   tshirt_size?: string | null;
@@ -61,6 +62,7 @@ export interface FighterStats {
     role?: string;
     nationality: string | null;
     fighter_id?: string | null;
+    event_name?: string;
   };
 }
 
@@ -68,6 +70,7 @@ export interface FighterStatsFormData {
   height_cm?: number;
   reach_cm?: number;
   weight_class?: WeightClass;
+  corner?: string;
   uniform_size?: string;
   shoe_size?: string;
   

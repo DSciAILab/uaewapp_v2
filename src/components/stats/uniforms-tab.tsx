@@ -19,11 +19,14 @@ import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 import { getEventFighterStats, upsertFighterStats } from '@/lib/services/stats-service';
-import { getFighterPhotoUrl } from '@/lib/utils';
+import { getEventById } from '@/lib/services/events';
+import { getFighterPhotoUrl, getDataUrl } from '@/lib/utils';
 import type { FighterStats } from '@/types/stats';
+import type { Event } from '@/types/database';
 
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
 const GLOVE_SIZES = ['S', 'M', 'L', 'XL']; 
+const CORNERS = ['Red', 'Blue']; 
 
 interface UniformsTabProps {
   eventId: string;
@@ -31,8 +34,42 @@ interface UniformsTabProps {
 
 export function UniformsTab({ eventId }: UniformsTabProps) {
   const [fighters, setFighters] = useState<FighterStats[]>([]);
+  const [eventData, setEventData] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingState, setSavingState] = useState<Record<string, boolean>>({});
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc';
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedFighters = [...fighters].sort((a, b) => {
+    if (!sortConfig) return 0;
+    
+    let aValue: any = '';
+    let bValue: any = '';
+
+    // Handle nested person properties
+    if (sortConfig.key === 'fighter_id') {
+      aValue = (a.person as any)?.fighter_id || '';
+      bValue = (b.person as any)?.fighter_id || '';
+    } else if (sortConfig.key === 'name') {
+      aValue = a.person?.full_name || '';
+      bValue = b.person?.full_name || '';
+    } else {
+      // Direct properties
+      aValue = (a as any)[sortConfig.key] || '';
+      bValue = (b as any)[sortConfig.key] || '';
+    }
+
+    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   useEffect(() => {
     loadData();
@@ -41,8 +78,12 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
   const loadData = async () => {
     setLoading(true);
     try {
-      const data = await getEventFighterStats(eventId);
+      const [data, event] = await Promise.all([
+        getEventFighterStats(eventId),
+        getEventById(eventId)
+      ]);
       setFighters(data);
+      setEventData(event);
     } catch (error) {
       toast.error('Failed to load fighter data');
       console.error(error);
@@ -74,18 +115,41 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
      }
   };
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     const doc = new jsPDF();
     
     doc.setFontSize(18);
-    doc.text('Uniforms and Equipment Report', 14, 22);
+    const title = eventData ? `Uniforms - ${eventData.name}` : 'Uniforms and Equipment Report';
+    doc.text(title, 14, 22);
+    
     doc.setFontSize(10);
     doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
 
-    const tableData = fighters.map(f => {
-        return [
+    const loadingToast = toast.loading('Generating PDF with photos...');
+
+    // 1. Prepare table data
+    const tableData: any[] = [];
+    const photoMap = new Map<string, string>(); // fighterId -> base64
+
+    // 2. Pre-fetch images
+    await Promise.all(fighters.map(async (f) => {
+        const fighterId = (f.person as any)?.fighter_id;
+        const photoUrl = getFighterPhotoUrl(fighterId);
+        if (photoUrl) {
+            const base64 = await getDataUrl(photoUrl);
+            if (base64) {
+                photoMap.set(f.person_id, base64);
+            }
+        }
+    }));
+
+    for (const f of fighters) {
+        // Prepare row data
+        tableData.push([
+            '', // Placeholder for Photo
             (f.person as any)?.fighter_id || '-',
             f.person?.full_name || 'Unknown',
+            f.corner || '-',
             f.tshirt_size || '-',
             f.shorts_size || '-',
             f.jacket_size || '-',
@@ -93,18 +157,36 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
             f.coach1_size || '-',
             f.coach2_size || '-',
             f.coach3_size || '-'
-        ];
-    });
+        ]);
+    }
 
     autoTable(doc, {
-        head: [['ID', 'Fighter', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
+        head: [['Photo', 'ID', 'Fighter', 'Corner', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
         body: tableData,
         startY: 32,
-        styles: { fontSize: 8 },
+        styles: { fontSize: 8, minCellHeight: 15, valign: 'middle' },
         headStyles: { fillColor: [41, 128, 185] },
+        didDrawCell: (data) => {
+            if (data.section === 'body' && data.column.index === 0) {
+                // Get fighter for this row
+                const fighter = fighters[data.row.index];
+                const base64 = photoMap.get(fighter.person_id);
+                
+                if (base64) {
+                     try {
+                         doc.addImage(base64, 'JPEG', data.cell.x + 2, data.cell.y + 2, 10, 10);
+                     } catch (e) {
+                         // invalid image
+                         console.warn('Failed to add image to PDF', e);
+                     }
+                }
+            }
+        }
     });
 
     doc.save('uniforms-report.pdf');
+    toast.dismiss(loadingToast);
+    toast.success('PDF Generated successfully');
   };
 
   if (loading) return <div className="text-center py-8">Loading uniform data...</div>;
@@ -128,29 +210,44 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
         <Table>
           <TableHeader>
              <TableRow>
-              <TableHead className="w-12 px-4"></TableHead> {/* Empty header for checkboxes visual alignment if requested, though functionality isn't there yet. Let's strictly follow the image provided by user which shows checkboxes. */}
-              <TableHead className="w-[80px]">Foto</TableHead>
-              <TableHead className="w-[100px]">Fighter ID</TableHead> {/* Renamed to match image */}
-              <TableHead className="w-[200px]">Nome</TableHead> {/* Renamed to match image */}
-              <TableHead className="text-center w-[70px]">T-Shirt</TableHead>
-              <TableHead className="text-center w-[70px]">Shorts</TableHead>
-              <TableHead className="text-center w-[70px]">Jacket</TableHead>
-              <TableHead className="text-center w-[70px]">Gloves</TableHead>
-              <TableHead className="text-center w-[70px] border-l bg-muted/30">C1 Size</TableHead>
-              <TableHead className="text-center w-[70px] bg-muted/30">C2 Size</TableHead>
-              <TableHead className="text-center w-[70px] bg-muted/30">C3 Size</TableHead>
+               <TableHead className="w-12 px-4"></TableHead> {/* Empty header for checkboxes visual alignment if requested, though functionality isn't there yet. Let's strictly follow the image provided by user which shows checkboxes. */}
+               <TableHead className="w-[80px]">Foto</TableHead>
+               <TableHead className="w-[100px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('fighter_id')}>
+                 Fighter ID {sortConfig?.key === 'fighter_id' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="w-[200px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('name')}>
+                 Nome {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('corner')}>
+                 Corner {sortConfig?.key === 'corner' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('tshirt_size')}>
+                 T-Shirt {sortConfig?.key === 'tshirt_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('shorts_size')}>
+                 Shorts {sortConfig?.key === 'shorts_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('jacket_size')}>
+                 Jacket {sortConfig?.key === 'jacket_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('gloves_size')}>
+                 Gloves {sortConfig?.key === 'gloves_size' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+               </TableHead>
+               <TableHead className="text-center w-[70px] border-l bg-muted/30">C1 Size</TableHead>
+               <TableHead className="text-center w-[70px] bg-muted/30">C2 Size</TableHead>
+               <TableHead className="text-center w-[70px] bg-muted/30">C3 Size</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {fighters.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={11} className="text-center h-24 text-muted-foreground">
+                  <TableCell colSpan={12} className="text-center h-24 text-muted-foreground">
                     No fighters enrolled.
                   </TableCell>
                 </TableRow>
             )}
             
-            {fighters.map((fighter) => (
+            {sortedFighters.map((fighter) => (
               <TableRow key={fighter.person_id} className="hover:bg-muted/50">
                 <TableCell className="w-12 px-4">
                      {/* Placeholder checkbox to match the look. Logic can be added later if bulk actions are needed here. */}
@@ -166,21 +263,36 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
                 </TableCell>
                 <TableCell>
                     <Badge variant="outline" className="font-mono text-[10px] bg-background w-fit">
-                        ID: {fighter.person?.fighter_id || '-'}
+                        {fighter.person?.fighter_id || '-'}
                     </Badge>
                 </TableCell>
-                <TableCell className="font-medium">
-                  <div>{fighter.person?.full_name}</div>
-                  <div className="text-xs text-muted-foreground italic truncate max-w-[120px]">
-                    {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}
-                  </div>
-                </TableCell>
-                
-                {/* Fighter Uniforms */}
-                <TableCell className="p-1">
-                   <SelectWrapper 
-                      value={fighter.tshirt_size} 
-                      options={CLOTHING_SIZES} 
+                 <TableCell className="font-medium">
+                   <div>
+                     {fighter.person?.full_name}
+                     {fighter.person?.event_name && (
+                       <span className="text-muted-foreground ml-1">({fighter.person.event_name})</span>
+                     )}
+                   </div>
+                   <div className="text-xs text-muted-foreground italic truncate max-w-[120px]">
+                     {fighter.weight_class ? fighter.weight_class.replace(/_/g, ' ') : '-'}
+                   </div>
+                 </TableCell>
+
+                 {/* Corner Selection */}
+                 <TableCell className="p-1">
+                    <SelectWrapper 
+                       value={fighter.corner} 
+                       options={CORNERS} 
+                       placeholder="-"
+                       onChange={(v) => saveField(fighter.person_id, fighter, 'corner', v)}
+                    />
+                 </TableCell>
+                 
+                 {/* Fighter Uniforms */}
+                 <TableCell className="p-1">
+                    <SelectWrapper 
+                       value={fighter.tshirt_size} 
+                       options={CLOTHING_SIZES} 
                       placeholder="-"
                       onChange={(v) => saveField(fighter.person_id, fighter, 'tshirt_size', v)}
                    />
