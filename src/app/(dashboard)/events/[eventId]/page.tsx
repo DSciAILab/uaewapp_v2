@@ -17,7 +17,7 @@ import { EnrollmentsTable } from '@/components/tables/enrollments-table';
 import { EnrollmentForm } from '@/components/forms/enrollment-form';
 import { EventForm } from '@/components/forms/event-form';
 
-import { Settings, Plus, LayoutDashboard, Users, Activity } from 'lucide-react';
+import { Settings, Plus, LayoutDashboard, Users, Activity, Swords } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePermissions } from '@/hooks/use-permissions';
 import { useDashboard } from '@/hooks/use-dashboard';
@@ -166,6 +166,10 @@ function EventDashboardContent({ eventId }: { eventId: string }) {
           <Button variant="outline" size="sm" onClick={() => setIsEventDrawerOpen(true)}>
             <Settings className="h-4 w-4 mr-2" />
             Config
+          </Button>
+          <Button size="sm" onClick={() => router.push(`/events/${eventId}/fight-card`)} variant="outline">
+            <Swords className="h-4 w-4 mr-2" />
+            Fight Card
           </Button>
           <Button size="sm" onClick={() => router.push(`/events/${eventId}/war-room`)} className="bg-slate-900 dark:bg-slate-50">
             <Activity className="h-4 w-4 mr-2" />
