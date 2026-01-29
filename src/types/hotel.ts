@@ -43,6 +43,8 @@ export interface Hotel {
       id: string;
       full_name: string;
       role: string;
+      fighter_id?: string | null;
+      event_name?: string;
     };
     arrival_flight?: {
       arrival_datetime: string;

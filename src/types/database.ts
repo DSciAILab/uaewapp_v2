@@ -25,10 +25,10 @@ export interface User {
 export interface Person {
   id: string
   name: string
-  surname: string
+  surname?: string | null
   compiled_name: string
   event_name?: string
-  fighter_id?: number
+  fighter_id?: string | null
   gender?: string
   phone?: string
   dob?: string
@@ -216,9 +216,9 @@ export interface PaginatedResponse<T> {
 // Form types
 export interface PersonFormData {
   name: string
-  surname: string
+  surname?: string | null
   event_name?: string | null
-  fighter_id?: number | null
+  fighter_id?: string | null
   gender?: string | null
   phone?: string | null
   dob?: string | null

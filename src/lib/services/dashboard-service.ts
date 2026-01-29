@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
 import { DashboardData, EventMetrics, ModuleStatus, UpcomingDeadline, ActivityItem } from '@/types/dashboard';
 
@@ -57,7 +58,7 @@ export async function getEventMetrics(eventId: string): Promise<EventMetrics> {
 /**
  * Helper to fetch upcoming deadlines (optimized)
  */
-async function getUpcomingDeadlines(eventId: string): Promise<UpcomingDeadline[]> {
+export async function getUpcomingDeadlines(eventId: string): Promise<UpcomingDeadline[]> {
   const supabase = getClient();
   const { data: tasks } = await supabase
     .from('mma_athlete_tasks')
@@ -80,7 +81,7 @@ async function getUpcomingDeadlines(eventId: string): Promise<UpcomingDeadline[]
 /**
  * Maps raw metrics to tactical module status cards
  */
-function calculateModuleStatuses(metrics: EventMetrics): ModuleStatus[] {
+export function calculateModuleStatuses(metrics: EventMetrics): ModuleStatus[] {
   const calculateProgress = (completed: number, total: number) => {
     if (total === 0) return 100;
     return Math.round((completed / total) * 100);

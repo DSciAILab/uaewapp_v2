@@ -40,6 +40,9 @@ const statsSchema = z.object({
   reach_cm: z.coerce.number().min(0).optional(),
   weight_class: z.string().optional(),
   
+  uniform_size: z.string().optional(),
+  shoe_size: z.string().optional(),
+  
   wins: z.coerce.number().min(0).default(0),
   losses: z.coerce.number().min(0).default(0),
   draws: z.coerce.number().min(0).default(0),
@@ -75,6 +78,8 @@ export function AthleteStatsForm({ personId, initialData, onSuccess }: AthleteSt
       height_cm: initialData?.height_cm || undefined,
       reach_cm: initialData?.reach_cm || undefined,
       weight_class: initialData?.weight_class || undefined,
+      uniform_size: initialData?.uniform_size || undefined,
+      shoe_size: initialData?.shoe_size || undefined,
       
       wins: initialData?.wins || 0,
       losses: initialData?.losses || 0,
@@ -173,6 +178,49 @@ export function AthleteStatsForm({ personId, initialData, onSuccess }: AthleteSt
                 )}
               />
             </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control as any}
+                name="uniform_size"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Uniform Size</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select size" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'].map((size) => (
+                          <SelectItem key={size} value={size}>
+                            {size}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control as any}
+                name="shoe_size"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Shoe Size (US)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="10.5" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField

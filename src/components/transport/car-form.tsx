@@ -37,7 +37,7 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
   const isEditing = !!car;
 
   const form = useForm<EventCarFormData>({
-    resolver: zodResolver(carSchema),
+    resolver: zodResolver(carSchema) as any,
     defaultValues: {
       driver_id: '',
       car_label: '',

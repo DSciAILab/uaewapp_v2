@@ -16,9 +16,10 @@ interface MusicTableProps {
   music: EntranceMusic[];
   onEdit: (music: EntranceMusic) => void;
   onRefresh: () => void;
+  onPreview: (music: EntranceMusic) => void;
 }
 
-export function MusicTable({ music, onEdit, onRefresh }: MusicTableProps) {
+export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -50,15 +51,12 @@ export function MusicTable({ music, onEdit, onRefresh }: MusicTableProps) {
 
   return (
     <>
-      <div className="rounded-md border">
+      <div className="rounded-md border overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[60px]">Order</TableHead>
               <TableHead>Fighter</TableHead>
-              <TableHead>Song</TableHead>
-              <TableHead>Artist</TableHead>
-              <TableHead>Start</TableHead>
+              <TableHead>Source Links & Start Times</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
@@ -66,30 +64,50 @@ export function MusicTable({ music, onEdit, onRefresh }: MusicTableProps) {
           <TableBody>
             {music.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
                   No entrance music found
                 </TableCell>
               </TableRow>
             ) : (
               music.map((m) => (
                 <TableRow key={m.id}>
-                  <TableCell className="font-mono">
-                    {m.walkout_order ? `#${m.walkout_order}` : '-'}
-                  </TableCell>
                   <TableCell className="font-medium">{m.enrolled?.person?.full_name}</TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      <span>{m.song_title}</span>
+                    <div className="flex flex-col gap-1.5">
                       {m.source_url && (
-                        <a href={m.source_url} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                        </a>
+                        <div className="flex items-center gap-2 group">
+                           <a href={m.source_url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                             <ExternalLink className="h-3 w-3" /> Link 1
+                           </a>
+                           <Badge variant="secondary" className="text-[10px] py-0 h-4">
+                             {formatDuration(m.start_time_seconds)}
+                           </Badge>
+                        </div>
+                      )}
+                      {m.source_url_2 && (
+                        <div className="flex items-center gap-2 group">
+                           <a href={m.source_url_2} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                             <ExternalLink className="h-3 w-3" /> Link 2
+                           </a>
+                           <Badge variant="secondary" className="text-[10px] py-0 h-4">
+                             {formatDuration(m.start_time_2)}
+                           </Badge>
+                        </div>
+                      )}
+                      {m.source_url_3 && (
+                        <div className="flex items-center gap-2 group">
+                           <a href={m.source_url_3} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs text-blue-600 hover:underline">
+                             <ExternalLink className="h-3 w-3" /> Link 3
+                           </a>
+                           <Badge variant="secondary" className="text-[10px] py-0 h-4">
+                             {formatDuration(m.start_time_3)}
+                           </Badge>
+                        </div>
+                      )}
+                      {!m.source_url && !m.source_url_2 && !m.source_url_3 && (
+                        <span className="text-xs text-muted-foreground italic">No links provided</span>
                       )}
                     </div>
-                  </TableCell>
-                  <TableCell>{m.artist}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{formatDuration(m.start_time_seconds)}</Badge>
                   </TableCell>
                   <TableCell><MusicStatusBadge status={m.status} /></TableCell>
                   <TableCell>
@@ -102,10 +120,8 @@ export function MusicTable({ music, onEdit, onRefresh }: MusicTableProps) {
                           <Pencil className="mr-2 h-4 w-4" />Edit
                         </DropdownMenuItem>
                         {m.source_url && (
-                          <DropdownMenuItem asChild>
-                            <a href={m.source_url} target="_blank" rel="noopener noreferrer">
-                              <Play className="mr-2 h-4 w-4" />Preview
-                            </a>
+                          <DropdownMenuItem onClick={() => onPreview(m)}>
+                            <Play className="mr-2 h-4 w-4" />Preview
                           </DropdownMenuItem>
                         )}
                         {m.status !== 'confirmed' && (

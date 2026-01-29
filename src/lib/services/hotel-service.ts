@@ -17,10 +17,10 @@ export async function getEventHotels(
       event_id,
       status,
       needs_hotel,
-      person:mma_people(id, compiled_name),
+      person:mma_people(id, compiled_name, fighter_id),
       role:mma_roles(name),
       flights:mma_flights(*),
-      event:mma_events(event_date, event_end_date),
+      event:mma_events(name, event_date, event_end_date),
       hotel:mma_hotels(*)
     `)
     .eq('needs_hotel', true)
@@ -56,7 +56,9 @@ export async function getEventHotels(
         person: {
           id: e.person?.id || 'unknown',
           full_name: e.person?.compiled_name || 'Unnamed Person',
-          role: (Array.isArray(e.role) ? e.role[0]?.name : e.role?.name) || 'N/A'
+          fighter_id: e.person?.fighter_id,
+          role: (Array.isArray(e.role) ? e.role[0]?.name : e.role?.name) || 'N/A',
+          event_name: e.event?.name
         },
         arrival_flight: { arrival_datetime },
         departure_flight: { departure_datetime }
@@ -97,7 +99,7 @@ export async function getEventHotels(
       updated_at: new Date().toISOString(),
       ...commonData
     } as unknown as Hotel;
-  }).filter((h): h is Hotel => h !== null);
+  }).filter((h: any): h is Hotel => h !== null);
   
   // Client-side filtering for complex fields or virtual records
   if (filters?.search) {
@@ -137,8 +139,9 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, compiled_name),
+        person:mma_people!inner(id, compiled_name, fighter_id),
         role:mma_roles(name),
+        event:mma_events(name),
         flights:mma_flights(*)
       )
     `)
@@ -168,7 +171,9 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       person: {
         id: data.enrolled.person.id,
         full_name: data.enrolled.person.compiled_name,
-        role: data.enrolled.role?.name || 'N/A'
+        fighter_id: data.enrolled.person.fighter_id,
+        role: data.enrolled.role?.name || 'N/A',
+        event_name: data.enrolled.event?.name
       },
       arrival_flight: { arrival_datetime },
       departure_flight: { departure_datetime }
@@ -528,14 +533,14 @@ export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
   const { data: hotels, error: hotelsError } = await supabase
     .from('mma_hotels')
     .select('enrollment_id')
-    .in('enrollment_id', enrolled?.map(e => e.id) || []);
+    .in('enrollment_id', enrolled?.map((e: any) => e.id) || []);
     
   // Add cache-buster
   (hotelsError as any); // just for reference
 
   if (hotelsError) throw hotelsError;
 
-  const hotelEnrolledIds = new Set(hotels?.map(h => h.enrollment_id) || []);
+  const hotelEnrolledIds = new Set(hotels?.map((h: any) => h.enrollment_id) || []);
 
   return (enrolled || []).map((e: any) => ({
     id: e.id,
@@ -545,7 +550,7 @@ export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
       role: e.role?.name || 'N/A'
     },
     flights: e.flights
-  })).filter(e => !hotelEnrolledIds.has(e.id));
+  })).filter((e: any) => !hotelEnrolledIds.has(e.id));
 }
 
 export async function getHotelStats(eventId: string): Promise<{
@@ -561,10 +566,10 @@ export async function getHotelStats(eventId: string): Promise<{
 
   return {
     total: hotels.length,
-    confirmed: hotels.filter(h => h.status === 'confirmed').length,
-    pending: hotels.filter(h => h.status === 'pending').length,
-    with_divergence: hotels.filter(h => h.has_divergence).length,
-    pending_approval: hotels.filter(h => h.has_divergence && !h.divergence_approved).length
+    confirmed: hotels.filter((h: any) => h.status === 'confirmed').length,
+    pending: hotels.filter((h: any) => h.status === 'pending').length,
+    with_divergence: hotels.filter((h: any) => h.has_divergence).length,
+    pending_approval: hotels.filter((h: any) => h.has_divergence && !h.divergence_approved).length
   };
 }
 

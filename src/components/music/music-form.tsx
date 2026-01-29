@@ -17,14 +17,14 @@ import { toast } from 'sonner';
 
 const musicSchema = z.object({
   enrolled_id: z.string().min(1, 'Please select a fighter'),
-  song_title: z.string().min(1, 'Song title is required'),
-  artist: z.string().min(1, 'Artist is required'),
   source_type: z.enum(['url', 'upload', 'spotify', 'youtube']),
   source_url: z.string().optional(),
-  start_time_seconds: z.coerce.number().min(0),
-  duration_seconds: z.coerce.number().min(1).optional(),
+  start_time_seconds: z.coerce.number().min(0).default(0),
+  source_url_2: z.string().optional(),
+  start_time_2: z.coerce.number().min(0).optional(),
+  source_url_3: z.string().optional(),
+  start_time_3: z.coerce.number().min(0).optional(),
   status: z.enum(['pending', 'confirmed', 'not_provided', 'uploaded']),
-  walkout_order: z.coerce.number().min(1).optional(),
   notes: z.string().optional(),
 });
 
@@ -50,31 +50,32 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
     resolver: zodResolver(musicSchema) as any,
     defaultValues: {
       enrolled_id: '',
-      song_title: '',
-      artist: '',
       source_type: 'url',
       source_url: '',
       start_time_seconds: 0,
-      duration_seconds: undefined,
+      source_url_2: '',
+      start_time_2: 0,
+      source_url_3: '',
+      start_time_3: 0,
       status: 'pending',
-      walkout_order: undefined,
       notes: '',
     },
   });
 
   useEffect(() => {
     if (open && !isEditing) {
-      // Fetch all enrollments, filter in component if needed or create specialized service method
       getEnrollmentsByEvent(eventId).then(enrollments => {
-        // Simple mapping for now, ideally we filter out those who already have music
-        setAvailableEnrolled(enrollments.map(e => ({
-          id: e.id,
-          person: {
-            id: e.person.id,
-            full_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
-            role: 'Participant' // Default or derive from e.role
-          }
-        })));
+        // Filter: only show those whose role code is 'F' (Fighter)
+        setAvailableEnrolled(enrollments
+          .filter(e => e.role?.code === 'F')
+          .map(e => ({
+            id: e.id,
+            person: {
+              id: e.person.id,
+              full_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
+              role: e.role?.name || 'Fighter'
+            }
+          })));
       }).catch(console.error);
     }
   }, [open, eventId, isEditing]);
@@ -83,36 +84,36 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
     if (music) {
       form.reset({
         enrolled_id: music.enrolled_id,
-        song_title: music.song_title,
-        artist: music.artist,
         source_type: music.source_type,
         source_url: music.source_url || '',
-        start_time_seconds: music.start_time_seconds,
-        duration_seconds: music.duration_seconds || undefined,
+        start_time_seconds: music.start_time_seconds || 0,
+        source_url_2: music.source_url_2 || '',
+        start_time_2: music.start_time_2 || 0,
+        source_url_3: music.source_url_3 || '',
+        start_time_3: music.start_time_3 || 0,
         status: music.status,
-        walkout_order: music.walkout_order || undefined,
         notes: music.notes || '',
       });
     } else {
       form.reset({
         enrolled_id: '',
-        song_title: '',
-        artist: '',
         source_type: 'url',
         source_url: '',
         start_time_seconds: 0,
-        duration_seconds: undefined,
+        source_url_2: '',
+        start_time_2: 0,
+        source_url_3: '',
+        start_time_3: 0,
         status: 'pending',
-        walkout_order: undefined,
         notes: '',
       });
     }
-  }, [music, form]);
+  }, [music, form, open]);
 
   const onSubmit = async (data: EntranceMusicFormData) => {
     setIsLoading(true);
     try {
-      if (isEditing) {
+      if (isEditing && music) {
         await updateAthleteMusic(music.id, data);
         toast.success('Music updated');
       } else {
@@ -121,19 +122,13 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
       }
       onSuccess();
       onOpenChange(false);
-    } catch (_error) {
+    } catch (error) {
+      console.error('Submit error:', error);
       toast.error('Failed to save entrance music');
     } finally {
       setIsLoading(false);
     }
   };
-
-  const sourceTypes: { value: MusicSource; label: string }[] = [
-    { value: 'url', label: 'URL Link' },
-    { value: 'spotify', label: 'Spotify' },
-    { value: 'youtube', label: 'YouTube' },
-    { value: 'upload', label: 'File Upload' },
-  ];
 
   const statusOptions: { value: MusicStatus; label: string }[] = [
     { value: 'pending', label: 'Pending' },
@@ -144,7 +139,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditing ? 'Edit Entrance Music' : 'Add Entrance Music'}</DialogTitle>
         </DialogHeader>
@@ -157,16 +152,13 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                 name="enrolled_id"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Fighter *</FormLabel>
+                    <FormLabel>Fighter (Enrolled) *</FormLabel>
                     <Select onValueChange={field.onChange} value={field.value}>
                       <FormControl><SelectTrigger><SelectValue placeholder="Select fighter" /></SelectTrigger></FormControl>
                       <SelectContent>
-                        {availableEnrolled.map((e) => {
-                          const personName = e.person.full_name;
-                          return (
-                            <SelectItem key={e.id} value={e.id}>{personName || 'Unknown'}</SelectItem>
-                          );
-                        })}
+                        {availableEnrolled.map((e) => (
+                          <SelectItem key={e.id} value={e.id}>{e.person.full_name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -176,49 +168,6 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="song_title"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Song Title *</FormLabel>
-                    <FormControl><Input placeholder="Enter song title" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="artist"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Artist *</FormLabel>
-                    <FormControl><Input placeholder="Enter artist name" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="source_type"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Source Type</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                      <SelectContent>
-                        {sourceTypes.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
               <FormField
                 control={form.control}
                 name="status"
@@ -237,55 +186,109 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                   </FormItem>
                 )}
               />
+               <FormField
+                control={form.control}
+                name="source_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Type (Global)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="url">URL Link</SelectItem>
+                        <SelectItem value="spotify">Spotify</SelectItem>
+                        <SelectItem value="youtube">YouTube</SelectItem>
+                        <SelectItem value="upload">Upload</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <FormField
-              control={form.control}
-              name="source_url"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Source URL</FormLabel>
-                  <FormControl><Input placeholder="https://..." {...field} /></FormControl>
-                  <FormDescription>Link to the music (Spotify, YouTube, etc.)</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
+              <h3 className="text-sm font-semibold">Source Link 1</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="source_url"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl><Input placeholder="URL 1" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="start_time_seconds"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl><Input type="number" placeholder="Start (s)" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
 
-            <div className="grid grid-cols-3 gap-4">
-              <FormField
-                control={form.control}
-                name="start_time_seconds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Time (sec)</FormLabel>
-                    <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="duration_seconds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Duration (sec)</FormLabel>
-                    <FormControl><Input type="number" min={1} placeholder="Auto" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="walkout_order"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Walkout Order</FormLabel>
-                    <FormControl><Input type="number" min={1} placeholder="#" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
+              <h3 className="text-sm font-semibold">Source Link 2</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="source_url_2"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl><Input placeholder="URL 2" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="start_time_2"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl><Input type="number" placeholder="Start (s)" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
+              <h3 className="text-sm font-semibold">Source Link 3</h3>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2">
+                  <FormField
+                    control={form.control}
+                    name="source_url_3"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormControl><Input placeholder="URL 3" {...field} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <FormField
+                  control={form.control}
+                  name="start_time_3"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormControl><Input type="number" placeholder="Start (s)" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <FormField
@@ -294,13 +297,13 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
-                  <FormControl><Textarea placeholder="Additional notes..." {...field} /></FormControl>
+                  <FormControl><Textarea placeholder="Instructions..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="flex justify-end gap-2 pt-4">
+            <div className="flex justify-end gap-2 pt-4 sticky bottom-0 bg-background py-2 border-t">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
                 Cancel
               </Button>

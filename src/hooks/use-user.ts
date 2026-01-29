@@ -10,46 +10,55 @@ export function useUser() {
   const supabase = createClient()
 
   useEffect(() => {
-    async function getUser() {
+    let mounted = true;
+
+    async function getUserData(userId: string) {
+      if (!mounted) return;
       try {
-        const { data: { user: authUser } } = await supabase.auth.getUser()
+        const { data, error } = await supabase
+          .from('mma_users')
+          .select('*')
+          .eq('id', userId)
+          .single();
         
-        if (authUser) {
-          const { data } = await supabase
-            .from('mma_users')
-            .select('*')
-            .eq('id', authUser.id)
-            .single()
-          
-          setUser(data)
+        if (mounted && data) {
+          setUser(data);
         }
       } catch (error) {
-        console.error('Error fetching user:', error)
+        console.error('Error fetching user:', error);
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false);
       }
     }
 
-    getUser()
+    // Initialize session
+    supabase.auth.getSession().then(({ data: { session } }: { data: { session: any } }) => {
+      if (session?.user) {
+        getUserData(session.user.id);
+      } else {
+        setLoading(false);
+      }
+    });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (event: string, session: any) => {
+        if (!mounted) return;
+
         if (event === 'SIGNED_OUT') {
-          setUser(null)
+          setUser(null);
+          setLoading(false);
         } else if (session?.user) {
-          const { data } = await supabase
-            .from('mma_users')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          
-          setUser(data)
+          getUserData(session.user.id);
+        } else {
+          setLoading(false);
         }
-        setLoading(false)
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    }
   }, [supabase])
 
   return { user, loading }

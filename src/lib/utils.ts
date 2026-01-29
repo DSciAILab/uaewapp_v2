@@ -40,8 +40,16 @@ export function normalizeName(name: string): string {
     .join(' ')
 }
 
-export function getFighterPhotoUrl(fighterId: number): string {
-  return `https://appadmin.uaewarriors.com/imagecdn/FighterDP?fighterId=${fighterId}`
+export function getFighterPhotoUrl(fighterId: string | number | null | undefined): string {
+  if (!fighterId) return ''
+  const idStr = String(fighterId).trim()
+  
+  // If company number (starts with PS) or contains any other letters, don't build photo link
+  if (idStr.toUpperCase().startsWith('PS') || /[a-zA-Z]/.test(idStr)) {
+    return ''
+  }
+
+  return `https://appadmin.uaewarriors.com/imagecdn/FighterDP?fighterId=${idStr}`
 }
 
 export function generateEventCode(roleCode: string, sequence: number): string {

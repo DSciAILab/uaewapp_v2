@@ -16,6 +16,8 @@ import { personSchema, type PersonSchema } from '@/lib/validations/person'
 import type { Person } from '@/types/database'
 import { getFighterPhotoUrl } from '@/lib/utils'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { User, UserRound, HelpCircle } from 'lucide-react'
 
 interface PersonFormProps {
   person?: Person | null
@@ -66,11 +68,11 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {(fighterId !== null && fighterId !== undefined) && (
+      {(fighterId !== null && fighterId !== undefined && fighterId !== '') && (
         <div className="flex justify-center">
           <Avatar className="h-24 w-24">
-            <AvatarImage src={getFighterPhotoUrl(Number(fighterId))} alt={`${name} ${surname}`} />
-            <AvatarFallback>{name?.[0]}{surname?.[0]}</AvatarFallback>
+            <AvatarImage src={getFighterPhotoUrl(fighterId)} alt={`${name} ${surname || ''}`} />
+            <AvatarFallback>{name?.[0]}{(surname || '')[0]}</AvatarFallback>
           </Avatar>
         </div>
       )}
@@ -84,9 +86,8 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="surname">Sobrenome *</Label>
+            <Label htmlFor="surname">Sobrenome</Label>
             <Input id="surname" {...register('surname')} placeholder="Silva" />
-            {errors.surname && <p className="text-sm text-red-500">{errors.surname.message}</p>}
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -96,18 +97,28 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
           </div>
           <div className="space-y-2">
             <Label htmlFor="fighter_id">Fighter ID</Label>
-            <Input id="fighter_id" type="number" {...register('fighter_id')} placeholder="595" />
+            <Input id="fighter_id" {...register('fighter_id')} placeholder="595 ou PS1234" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="gender">Gênero</Label>
-            <Select value={watch('gender') || ''} onValueChange={(value) => setValue('gender', value)}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-              <SelectContent>
-                {GENDERS.map((g) => (<SelectItem key={g} value={g}>{g}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <ToggleGroup 
+              type="single" 
+              variant="segmented" 
+              value={watch('gender') || ''} 
+              onValueChange={(value) => value && setValue('gender', value)}
+            >
+              <ToggleGroupItem value="Male" className="text-xs gap-2">
+                <User className="h-3.5 w-3.5" /> Masculino
+              </ToggleGroupItem>
+              <ToggleGroupItem value="Female" className="text-xs gap-2">
+                <UserRound className="h-3.5 w-3.5" /> Feminino
+              </ToggleGroupItem>
+              <ToggleGroupItem value="Other" className="text-xs gap-2">
+                <HelpCircle className="h-3.5 w-3.5" /> Outro
+              </ToggleGroupItem>
+            </ToggleGroup>
           </div>
           <div className="space-y-2">
             <Label htmlFor="phone">Telefone</Label>

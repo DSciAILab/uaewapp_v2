@@ -238,7 +238,7 @@ export async function getAvailablePeopleForEvent(eventId: string): Promise<Perso
     .eq('event_id', eventId)
     .eq('status', 'active')
 
-  const enrolledIds = enrolled?.map(e => e.person_id) || []
+  const enrolledIds = enrolled?.map((e: any) => e.person_id) || []
 
   let query = supabase
     .from('mma_people')
@@ -342,4 +342,50 @@ export async function getEnrollmentStats(eventId: string) {
   }
 
   return stats
+}
+
+export async function bulkCreateEnrollments(
+  eventId: string,
+  peopleIds: string[],
+  baseData: Partial<EnrollmentFormData>
+): Promise<{ success: number; errors: string[] }> {
+  const supabase = createClient();
+  console.log(`[bulkCreateEnrollments] Starting for ${peopleIds.length} people`);
+  let successCount = 0;
+  const errors: string[] = [];
+
+  for (const personId of peopleIds) {
+    try {
+      const { data, error } = await supabase
+        .from('mma_enrollments')
+        .upsert({
+          event_id: eventId,
+          person_id: personId,
+          role_id: baseData.role_id || '',
+          needs_flight: baseData.needs_flight || 'none',
+          needs_visa: baseData.needs_visa || false,
+          needs_hotel: baseData.needs_hotel || false,
+          needs_transport: baseData.needs_transport || 'none',
+          status: 'active',
+          cancelled_at: null,
+          cancellation_reason: null,
+        }, {
+          onConflict: 'event_id, person_id',
+          ignoreDuplicates: false
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      if (data) {
+        await syncRelatedModules(data);
+        successCount++;
+      }
+    } catch (err: any) {
+      console.error(`Error enrolling person ${personId}:`, err);
+      errors.push(personId);
+    }
+  }
+
+  return { success: successCount, errors };
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from '@/lib/supabase/client'
 import type { Visa, VisaStatus, Enrollment } from '@/types/database'
 

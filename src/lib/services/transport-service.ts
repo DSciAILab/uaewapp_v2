@@ -96,7 +96,7 @@ export async function getEventCars(eventId: string): Promise<EventCar[]> {
             person:mma_people(id, compiled_name),
             role:mma_roles(name)
         ),
-        flight:mma_flights(id, flight_number, arrival_date, arrival_time, departure_date, departure_time)
+        flight:mma_flights(id, arrival_flight_number, departure_flight_number, arrival_date, arrival_time, departure_date, departure_time)
       )
     `)
     .eq('event_id', eventId)
@@ -117,7 +117,10 @@ export async function getEventCars(eventId: string): Promise<EventCar[]> {
                 role: p.enrolled.role?.name || 'N/A'
             }
           },
-          flight: p.flight
+          flight: p.flight ? {
+            ...p.flight,
+            flight_number: p.transport_type === 'arrival' ? p.flight.arrival_flight_number : p.flight.departure_flight_number
+          } : null
       }))
   }));
 }
@@ -224,7 +227,8 @@ export async function getUnassignedPassengers(eventId: string) {
             id, 
             needs_transport, 
             status,
-            person:mma_people(id, compiled_name, role),
+            person:mma_people(id, compiled_name),
+            role:mma_roles(*),
             flights:mma_flights(*)
         `)
         .eq('event_id', eventId)
@@ -235,10 +239,10 @@ export async function getUnassignedPassengers(eventId: string) {
     const { data: assignments } = await supabase
         .from('mma_car_passengers')
         .select('enrolled_id, transport_type')
-        .in('enrolled_id', (enrollments || []).map(e => e.id));
+        .in('enrolled_id', (enrollments || []).map((e: any) => e.id));
         
     const assignedSet = new Set<string>();
-    assignments?.forEach(a => assignedSet.add(`${a.enrolled_id}_${a.transport_type}`));
+    assignments?.forEach((a: any) => assignedSet.add(`${a.enrolled_id}_${a.transport_type}`));
     
     // 3. Filter
     const unassigned: any[] = [];
@@ -282,8 +286,8 @@ export async function getTransportStats(eventId: string) {
   if (carsError) throw new Error('Failed to fetch transport stats: ' + carsError.message);
 
   const totalCars = cars?.length || 0;
-  const assignedCars = cars?.filter(c => c.passengers && c.passengers.length > 0).length || 0; 
-  const totalCapacity = cars?.reduce((sum, c) => sum + (c.capacity || 0), 0) || 0;
+  const assignedCars = cars?.filter((c: any) => c.passengers && c.passengers.length > 0).length || 0; 
+  const totalCapacity = cars?.reduce((sum: number, c: any) => sum + (c.capacity || 0), 0) || 0;
 
   // 2. Get drivers stats
   const { data: drivers, error: driversError } = await supabase
@@ -293,7 +297,7 @@ export async function getTransportStats(eventId: string) {
   if (driversError) throw new Error('Failed to fetch driver stats: ' + driversError.message);
 
   const totalDrivers = drivers?.length || 0;
-  const activeDrivers = drivers?.filter(d => d.is_active).length || 0;
+  const activeDrivers = drivers?.filter((d: any) => d.is_active).length || 0;
 
   return {
     total_cars: totalCars,

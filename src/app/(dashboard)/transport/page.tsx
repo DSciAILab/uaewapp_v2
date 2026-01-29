@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Header } from '@/components/layout/header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +13,7 @@ import {
   getUnassignedPassengers
 } from '@/lib/services/transport-service';
 import { getFlightsByEvent } from '@/lib/services/flights';
+import { getActiveEvents } from '@/lib/services/events';
 import { DriverTable } from '@/components/transport/driver-table';
 import { CarTable } from '@/components/transport/car-table';
 import { FlightGroupingView } from '@/components/transport/flight-grouping-view';
@@ -23,18 +24,15 @@ import { toast } from 'sonner';
 import { Driver, EventCar, FlightGroup } from '@/types/transport';
 import { usePermissions } from '@/hooks/use-permissions';
 
-// Let's verify if there is an event context or if we should use the URL params.
-// Checking "flights" page: src/app/(dashboard)/flights/page.tsx
-
-export default function TransportPage() {
+function TransportContent() {
     const searchParams = useSearchParams();
     const [activeTab, setActiveTab] = useState('overview');
     const [drivers, setDrivers] = useState<Driver[]>([]);
     const [cars, setCars] = useState<EventCar[]>([]);
     const [flightGroups, setFlightGroups] = useState<FlightGroup[]>([]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [stats, setStats] = useState<any | null>(null);
     const [loading, setLoading] = useState(true);
+    const [eventId, setEventId] = useState<string | null>(searchParams.get('eventId'));
 
     // Dialog states
     const [driverFormOpen, setDriverFormOpen] = useState(false);
@@ -42,28 +40,21 @@ export default function TransportPage() {
     const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
     const [selectedCar, setSelectedCar] = useState<EventCar | null>(null);
 
-    // Hardcoded event ID fallback or from search params
-    // In a real implementation, we should have an event selector.
-    // Assuming we can get it from query params or local storage if implemented.
-    // For now, let's try to fetch "active" event or just use the first one if not provided.
-    // I'll skip the complex event selector logic here and focus on the Transport UI.
-    const eventId = searchParams.get('eventId') || 'e8824106-9572-4ceb-8d62-1262ca83b70c'; // Default or need selector
-
     const { canEdit, loading: authLoading } = usePermissions();
 
-    const loadData = async () => {
+    const loadData = async (targetEventId: string) => {
         setLoading(true);
         try {
             const [driversData, carsData, statsData] = await Promise.all([
                 getDrivers(),
-                getEventCars(eventId),
-                getTransportStats(eventId)
+                getEventCars(targetEventId),
+                getTransportStats(targetEventId)
             ]);
             
             // Build Flight Groups
-            const unassigned = await getUnassignedPassengers(eventId);
+            const unassigned = await getUnassignedPassengers(targetEventId);
             // We also need flights to group them
-            const flights = await getFlightsByEvent(eventId);
+            const flights = await getFlightsByEvent(targetEventId);
             
             // Group logic
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -127,10 +118,23 @@ export default function TransportPage() {
     };
 
     useEffect(() => {
-        if (!authLoading && eventId) {
-            loadData();
-        }
-    }, [authLoading, eventId]);
+        const init = async () => {
+            if (!authLoading) {
+                let currentId = eventId;
+                if (!currentId) {
+                    const activeEvents = await getActiveEvents();
+                    if (activeEvents.length > 0) {
+                        currentId = activeEvents[0].id;
+                        setEventId(currentId);
+                    }
+                }
+                if (currentId) {
+                    loadData(currentId);
+                }
+            }
+        };
+        init();
+    }, [authLoading]);
 
     const handleEditDriver = (driver: Driver) => {
         setSelectedDriver(driver);
@@ -178,7 +182,7 @@ export default function TransportPage() {
                         <TabsTrigger value="drivers" className="flex items-center gap-2"><User className="h-4 w-4"/> Drivers Database</TabsTrigger>
                     </TabsList>
                     <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={loadData} disabled={loading}>
+                        <Button variant="outline" size="sm" onClick={() => eventId && loadData(eventId)} disabled={loading}>
                             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                             Refresh
                         </Button>
@@ -201,7 +205,7 @@ export default function TransportPage() {
                     <FlightGroupingView 
                         groups={flightGroups} 
                         cars={cars} 
-                        onRefresh={loadData} 
+                        onRefresh={() => eventId && loadData(eventId)} 
                     />
                 </TabsContent>
 
@@ -209,7 +213,7 @@ export default function TransportPage() {
                     <CarTable 
                         cars={cars} 
                         onEdit={handleEditCar} 
-                        onRefresh={loadData} 
+                        onRefresh={() => eventId && loadData(eventId)} 
                         onManagePassengers={(car) => {
                             // TODO: Open passenger assignment dialog
                             console.log('Manage passengers for car', car.id);
@@ -222,7 +226,7 @@ export default function TransportPage() {
                     <DriverTable 
                         drivers={drivers} 
                         onEdit={handleEditDriver} 
-                        onRefresh={loadData} 
+                        onRefresh={() => eventId && loadData(eventId)} 
                     />
                 </TabsContent>
             </Tabs>
@@ -231,17 +235,29 @@ export default function TransportPage() {
                 driver={selectedDriver}
                 open={driverFormOpen}
                 onOpenChange={setDriverFormOpen}
-                onSuccess={loadData}
+                onSuccess={() => eventId && loadData(eventId)}
             />
 
             <CarForm
-                eventId={eventId}
+                eventId={eventId || ''}
                 car={selectedCar}
                 drivers={drivers}
                 open={carFormOpen}
                 onOpenChange={setCarFormOpen}
-                onSuccess={loadData}
+                onSuccess={() => eventId && loadData(eventId)}
             />
         </div>
     );
+}
+
+export default function TransportPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full">
+        <RefreshCw className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <TransportContent />
+    </Suspense>
+  );
 }

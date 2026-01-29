@@ -30,7 +30,8 @@ import { PeopleTable } from '@/components/tables/people-table'
 import { PersonForm } from '@/components/forms/person-form'
 import { CSVImport } from '@/components/forms/csv-import'
 import { QuickEnrollDialog } from '@/components/forms/quick-enroll-dialog'
-import { Plus, Upload, Search, X } from 'lucide-react'
+import { PeopleBatchEnrollment } from '@/components/forms/people-batch-enrollment'
+import { Plus, Upload, Search, X, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -46,6 +47,9 @@ import {
   getNationalities,
   importPeopleFromCSV,
 } from '@/lib/services/people'
+import { getActiveEvents } from '@/lib/services/events'
+import { getEnrollmentsByEvent } from '@/lib/services/enrollments'
+import type { Event } from '@/types/database'
 
 export default function PeoplePage() {
   const [people, setPeople] = useState<Person[]>([])
@@ -58,12 +62,16 @@ export default function PeoplePage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  // Changed from Set<string> to Map<string, Person> to persist full objects
+  const [selectedPeople, setSelectedPeople] = useState<Map<string, Person>>(new Map())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
   const [bulkDeleteDialogOpen, setBulkDeleteDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [enrollDialogOpen, setEnrollDialogOpen] = useState(false)
+  const [isBulkEnrolling, setIsBulkEnrolling] = useState(false)
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
+  const [activeEvent, setActiveEvent] = useState<Event | null>(null)
+  const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
 
   const { canEdit, isAdmin, loading: permissionsLoading } = usePermissions()
   const canEditPeople = canEdit('people')
@@ -79,7 +87,6 @@ export default function PeoplePage() {
       toast.error(error.message || 'Erro ao carregar pessoas')
     } finally {
       setLoading(false)
-      setSelectedIds(new Set())
     }
   }
 
@@ -92,12 +99,30 @@ export default function PeoplePage() {
     }
   }
 
+  const fetchActiveEventEnrollments = async () => {
+    try {
+      const events = await getActiveEvents();
+      if (events.length > 0) {
+        const currentEvent = events[0];
+        setActiveEvent(currentEvent);
+        const enrollments = await getEnrollmentsByEvent(currentEvent.id);
+        setEnrolledIds(new Set(enrollments.map(e => e.person_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching enrollments:', error);
+    }
+  }
+
   useEffect(() => { 
     if (!permissionsLoading) {
       fetchPeople() 
     }
   }, [filters, permissionsLoading])
-  useEffect(() => { fetchNationalities() }, [])
+  
+  useEffect(() => { 
+    fetchNationalities();
+    fetchActiveEventEnrollments();
+  }, [])
 
   const handleCreate = () => {
     setSelectedPerson(null)
@@ -138,6 +163,31 @@ export default function PeoplePage() {
     }
   }
 
+  const handleToggleRow = (person: Person) => {
+    setSelectedPeople(prev => {
+        const next = new Map(prev)
+        if (next.has(person.id)) {
+            next.delete(person.id)
+        } else {
+            next.set(person.id, person)
+        }
+        return next
+    })
+  }
+
+  const handleToggleAll = (active: boolean) => {
+    if (!active) {
+        setSelectedPeople(new Map())
+    } else {
+        // Only select what is currently visible, merging with existing
+        setSelectedPeople(prev => {
+            const next = new Map(prev)
+            people.forEach(p => next.set(p.id, p))
+            return next
+        })
+    }
+  }
+
   const confirmDelete = async () => {
     if (!selectedPerson) return
     setFormLoading(true)
@@ -145,11 +195,13 @@ export default function PeoplePage() {
       await deletePerson(selectedPerson.id)
       toast.success('Pessoa excluída com sucesso')
       setDeleteDialogOpen(false)
-      setSelectedIds(prev => {
-        const next = new Set(prev)
+      setDeleteDialogOpen(false)
+      setSelectedPeople(prev => {
+        const next = new Map(prev)
         next.delete(selectedPerson.id)
         return next
       })
+      fetchPeople()
       fetchPeople()
     } catch (error: any) {
       toast.error(error.message || 'Erro ao excluir pessoa')
@@ -159,13 +211,13 @@ export default function PeoplePage() {
   }
 
   const handleBulkDelete = async () => {
-    if (selectedIds.size === 0) return
+    if (selectedPeople.size === 0) return
     setIsBulkDeleting(true)
     try {
-      await bulkDeletePeople(Array.from(selectedIds))
-      toast.success(`${selectedIds.size} pessoas excluídas com sucesso`)
+      await bulkDeletePeople(Array.from(selectedPeople.keys()))
+      toast.success(`${selectedPeople.size} pessoas excluídas com sucesso`)
       setBulkDeleteDialogOpen(false)
-      setSelectedIds(new Set())
+      setSelectedPeople(new Map())
       fetchPeople()
     } catch (error: any) {
       toast.error(error.message || 'Erro ao excluir pessoas')
@@ -174,8 +226,8 @@ export default function PeoplePage() {
     }
   }
 
-  const handleCSVImport = async (data: any[], onProgress?: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean) => {
-    return await importPeopleFromCSV(data, onProgress, checkDuplicates)
+  const handleCSVImport = async (data: any[], onProgress?: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>) => {
+    return await importPeopleFromCSV(data, onProgress, checkDuplicates, mapping)
   }
 
   const handleCSVComplete = () => {
@@ -240,22 +292,35 @@ export default function PeoplePage() {
             <p className="text-sm text-muted-foreground">
               Mostrando {people.length} de {totalCount} registros
             </p>
-            {selectedIds.size > 0 && isAdmin && (
+            {selectedPeople.size > 0 && (
               <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
-                <Badge variant="secondary" className="h-6">{selectedIds.size} selecionados</Badge>
+                <Badge variant="secondary" className="h-6">{selectedPeople.size} selecionados</Badge>
+                
                 <Button 
-                  variant="destructive" 
+                  variant="default" 
                   size="sm" 
-                  className="h-8"
-                  onClick={() => setBulkDeleteDialogOpen(true)}
+                  className="h-8 bg-green-600 hover:bg-green-700 text-white"
+                  onClick={() => setIsBulkEnrolling(true)}
                 >
-                  <X className="mr-2 h-4 w-4" />Excluir Selecionados
+                  <Users className="mr-2 h-4 w-4" />Batch Enroll
                 </Button>
+
+                {isAdmin && (
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="h-8"
+                    onClick={() => setBulkDeleteDialogOpen(true)}
+                  >
+                    <X className="mr-2 h-4 w-4" />Excluir
+                  </Button>
+                )}
+                
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   className="h-8"
-                  onClick={() => setSelectedIds(new Set())}
+                  onClick={() => setSelectedPeople(new Map())}
                 >
                   Limpar
                 </Button>
@@ -294,8 +359,10 @@ export default function PeoplePage() {
             ) : (
               <PeopleTable
                 people={people}
-                selectedIds={selectedIds}
-                onSelectionChange={setSelectedIds}
+                selectedIds={new Set(selectedPeople.keys())}
+                onToggleRow={handleToggleRow}
+                onToggleAll={handleToggleAll}
+                enrolledIds={enrolledIds}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onEnroll={handleEnroll}
@@ -394,7 +461,7 @@ export default function PeoplePage() {
           <DialogHeader>
             <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir as {selectedIds.size} pessoas selecionadas?
+              Tem certeza que deseja excluir as {selectedPeople.size} pessoas selecionadas?
               Esta ação não pode ser desfeita e removerá permanentemente os registros.
             </DialogDescription>
           </DialogHeader>
@@ -412,10 +479,33 @@ export default function PeoplePage() {
         open={enrollDialogOpen}
         onOpenChange={setEnrollDialogOpen}
         onSuccess={() => {
-            // Optional: refresh something? Usually enrollment doesn't change person list directly, but maybe updates visual indicators if we had any
+            fetchActiveEventEnrollments();
             toast.success('Enrollment complete');
         }}
       />
+
+      {isBulkEnrolling && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="w-full max-w-5xl h-[90vh]">
+            <PeopleBatchEnrollment 
+              selectedPeople={Array.from(selectedPeople.values())}
+              onCancel={() => setIsBulkEnrolling(false)}
+              onRemovePerson={(id) => {
+                  const next = new Map(selectedPeople);
+                  next.delete(id);
+                  setSelectedPeople(next);
+                  if (next.size === 0) setIsBulkEnrolling(false);
+              }}
+              onSuccess={() => {
+                  setIsBulkEnrolling(false);
+                  setSelectedPeople(new Map());
+                  fetchActiveEventEnrollments();
+                  fetchPeople();
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

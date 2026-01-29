@@ -12,18 +12,21 @@ export function usePermissions() {
   const supabase = createClient()
 
   useEffect(() => {
+    let mounted = true;
+
     async function fetchPermissions() {
       if (userLoading) return
+      if (!mounted) return;
 
       if (!user) {
         setPermissions([])
-        setLoading(false)
+        if (mounted) setLoading(false)
         return
       }
 
       // Admin tem acesso total
       if (user.user_type === 'admin') {
-        setLoading(false)
+        if (mounted) setLoading(false)
         return
       }
 
@@ -36,15 +39,17 @@ export function usePermissions() {
           `)
           .eq('user_id', user.id)
 
-        setPermissions(data || [])
+        if (mounted) setPermissions(data || [])
       } catch (error) {
         console.error('Error fetching permissions:', error)
       } finally {
-        setLoading(false)
+        if (mounted) setLoading(false)
       }
     }
 
     fetchPermissions()
+
+    return () => { mounted = false }
   }, [user, userLoading, supabase])
 
   const hasPermission = (areaCode: string, level: PermissionLevel = 'view'): boolean => {

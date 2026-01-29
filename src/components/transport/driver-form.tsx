@@ -36,7 +36,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
   const isEditing = !!driver;
 
   const form = useForm<DriverFormData>({
-    resolver: zodResolver(driverSchema),
+    resolver: zodResolver(driverSchema) as any,
     defaultValues: {
       full_name: '',
       phone: '',

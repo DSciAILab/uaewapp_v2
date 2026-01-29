@@ -5,13 +5,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Pencil, Trash2, Play, CheckCircle, XCircle } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Play, CheckCircle, XCircle, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { EventTask, TaskStatus, TASK_CATEGORY_LABELS } from '@/types/task';
 import { TaskStatusBadge, TaskPriorityBadge } from './task-status-badge';
 import { deleteEventTask, updateTaskStatus } from '@/lib/services/task-service';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { TaskAssignmentsSheet } from './task-assignments-sheet';
+import { useParams } from 'next/navigation';
 
 interface TaskTableProps {
   tasks: EventTask[];
@@ -22,6 +24,9 @@ interface TaskTableProps {
 export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [assignmentTask, setAssignmentTask] = useState<EventTask | null>(null);
+  const params = useParams();
+  const eventId = params.eventId as string;
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -80,7 +85,10 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                 return (
                   <TableRow key={task.id} className={isOverdue ? 'bg-red-50' : ''}>
                     <TableCell>
-                      <div>
+                      <div 
+                        className="cursor-pointer hover:underline" 
+                        onClick={() => setAssignmentTask(task)}
+                      >
                         <p className="font-medium">{task.name}</p>
                         {task.description && (
                           <p className="text-sm text-muted-foreground line-clamp-1">{task.description}</p>
@@ -142,6 +150,10 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                           <DropdownMenuItem className="text-destructive" onClick={() => setDeleteId(task.id)}>
                             <Trash2 className="mr-2 h-4 w-4" />Delete
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => setAssignmentTask(task)}>
+                              <Users className="mr-2 h-4 w-4" />Manage People
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -152,6 +164,13 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
           </TableBody>
         </Table>
       </div>
+
+      <TaskAssignmentsSheet 
+        task={assignmentTask} 
+        open={!!assignmentTask} 
+        onOpenChange={(open) => !open && setAssignmentTask(null)}
+        eventId={eventId}
+      />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

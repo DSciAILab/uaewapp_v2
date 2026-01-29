@@ -73,13 +73,13 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                   <Avatar className="h-9 w-9 border-2 border-slate-100 dark:border-slate-800">
                     {enrollment.person?.fighter_id ? (
                        <AvatarImage 
-                         src={getFighterPhotoUrl(Number(enrollment.person.fighter_id))} 
+                         src={getFighterPhotoUrl(enrollment.person.fighter_id)} 
                          alt={enrollment.person.compiled_name} 
                          className="object-cover"
                        />
                     ) : null}
                     <AvatarFallback className="text-xs bg-slate-200 dark:bg-slate-700">
-                      {enrollment.person?.name?.[0]}{enrollment.person?.surname?.[0]}
+                      {enrollment.person?.name?.[0]}{(enrollment.person?.surname || '')[0]}
                     </AvatarFallback>
                   </Avatar>
                   {enrollment.role?.code === 'F' && (

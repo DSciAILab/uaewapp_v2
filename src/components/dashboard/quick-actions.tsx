@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Users, Plane, Hotel, CheckSquare, Zap } from 'lucide-react';
+import { Plus, Users, Plane, Hotel, CheckSquare, Zap, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 
 interface QuickActionsProps {
@@ -34,6 +34,12 @@ export function QuickActions({ eventId }: QuickActionsProps) {
       href: `/events/${eventId}/tasks?add=true`,
       icon: CheckSquare,
       color: 'bg-amber-500 hover:bg-amber-600',
+    },
+    {
+      label: 'Fighter Stats',
+      href: `/events/${eventId}/stats`,
+      icon: BarChart3,
+      color: 'bg-red-500 hover:bg-red-600',
     }
   ];
 

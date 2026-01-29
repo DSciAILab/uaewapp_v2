@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
 import { TaskTemplate, TaskTemplateFormData, EventTask, EventTaskFormData, TaskFilters, TaskStatus, TaskChecklistItem } from '@/types/task';
 

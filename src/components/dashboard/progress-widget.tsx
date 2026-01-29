@@ -50,7 +50,6 @@ export function ProgressWidget({ modules }: ProgressWidgetProps) {
             <Progress 
               value={module.progress} 
               className="h-1.5 bg-slate-100" 
-              indicatorClassName={getProgressColor(module.status)}
             />
             <div className="flex justify-between text-[10px] text-slate-400 font-mono">
               <span>DONE: {module.completed}</span>

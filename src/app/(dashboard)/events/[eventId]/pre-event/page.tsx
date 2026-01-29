@@ -9,6 +9,10 @@ import { PreEventSummaryStats } from '@/components/pre-event/pre-event-summary';
 import { ClearanceStatusCard } from '@/components/pre-event/clearance-status-card';
 import { BloodTestTable } from '@/components/pre-event/blood-test-table';
 import { BloodTestForm } from '@/components/pre-event/blood-test-form';
+import { MedicalExamTable } from '@/components/pre-event/medical-exam-table';
+import { MedicalExamForm } from '@/components/pre-event/medical-exam-form';
+import { DocumentsTable } from '@/components/pre-event/documents-table';
+import { DocumentForm } from '@/components/pre-event/document-form';
 import { BloodTest, MedicalExam, RequiredDocument, PreEventSummary } from '@/types/pre-event';
 import { 
   getEventBloodTests, 
@@ -39,8 +43,18 @@ export default function PreEventPage() {
   });
   const [enrolledList, setEnrolledList] = useState<Array<{ id: string; person: { full_name: string } }>>([]);
   
+  // Blood Test state
   const [editingBloodTest, setEditingBloodTest] = useState<BloodTest | null>(null);
   const [isBloodTestFormOpen, setIsBloodTestFormOpen] = useState(false);
+  
+  // Medical Exam state
+  const [editingMedicalExam, setEditingMedicalExam] = useState<MedicalExam | null>(null);
+  const [isMedicalExamFormOpen, setIsMedicalExamFormOpen] = useState(false);
+  
+  // Document state
+  const [editingDocument, setEditingDocument] = useState<RequiredDocument | null>(null);
+  const [isDocumentFormOpen, setIsDocumentFormOpen] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
@@ -76,6 +90,7 @@ export default function PreEventPage() {
     loadData();
   }, [loadData]);
 
+  // Blood Test handlers
   const handleEditBloodTest = (test: BloodTest) => {
     setEditingBloodTest(test);
     setIsBloodTestFormOpen(true);
@@ -84,6 +99,28 @@ export default function PreEventPage() {
   const handleBloodTestFormClose = () => {
     setIsBloodTestFormOpen(false);
     setEditingBloodTest(null);
+  };
+
+  // Medical Exam handlers
+  const handleEditMedicalExam = (exam: MedicalExam) => {
+    setEditingMedicalExam(exam);
+    setIsMedicalExamFormOpen(true);
+  };
+
+  const handleMedicalExamFormClose = () => {
+    setIsMedicalExamFormOpen(false);
+    setEditingMedicalExam(null);
+  };
+
+  // Document handlers
+  const handleEditDocument = (doc: RequiredDocument) => {
+    setEditingDocument(doc);
+    setIsDocumentFormOpen(true);
+  };
+
+  const handleDocumentFormClose = () => {
+    setIsDocumentFormOpen(false);
+    setEditingDocument(null);
   };
 
   return (
@@ -150,15 +187,37 @@ export default function PreEventPage() {
         </TabsContent>
 
         <TabsContent value="medical" className="mt-4">
-          <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
-            Medical exams management coming soon...
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => setIsMedicalExamFormOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />Add Medical Exam
+            </Button>
           </div>
+          {isLoading ? (
+            <div className="text-center py-8">Loading...</div>
+          ) : (
+            <MedicalExamTable 
+              medicalExams={medicalExams} 
+              onEdit={handleEditMedicalExam} 
+              onRefresh={loadData} 
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="documents" className="mt-4">
-          <div className="text-center py-8 text-muted-foreground border rounded-lg bg-muted/20">
-            Documents management coming soon...
+          <div className="flex justify-end mb-4">
+            <Button onClick={() => setIsDocumentFormOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />Add Document
+            </Button>
           </div>
+          {isLoading ? (
+            <div className="text-center py-8">Loading...</div>
+          ) : (
+            <DocumentsTable 
+              documents={documents} 
+              onEdit={handleEditDocument} 
+              onRefresh={loadData} 
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -169,6 +228,26 @@ export default function PreEventPage() {
         bloodTest={editingBloodTest}
         open={isBloodTestFormOpen}
         onOpenChange={handleBloodTestFormClose}
+        onSuccess={loadData}
+      />
+
+      {/* Medical Exam Form */}
+      <MedicalExamForm
+        eventId={eventId}
+        enrolledList={enrolledList}
+        medicalExam={editingMedicalExam}
+        open={isMedicalExamFormOpen}
+        onOpenChange={handleMedicalExamFormClose}
+        onSuccess={loadData}
+      />
+
+      {/* Document Form */}
+      <DocumentForm
+        eventId={eventId}
+        enrolledList={enrolledList}
+        document={editingDocument}
+        open={isDocumentFormOpen}
+        onOpenChange={handleDocumentFormClose}
         onSuccess={loadData}
       />
     </div>

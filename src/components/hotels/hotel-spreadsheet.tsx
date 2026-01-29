@@ -63,13 +63,18 @@ export function HotelSpreadsheet({ hotels, onRefresh }: HotelSpreadsheetProps) {
             <TableHead className="w-[150px]">Status</TableHead>
             <TableHead className="w-[100px]">Room</TableHead>
             <TableHead className="w-[100px]">Type</TableHead>
-            {/* Future: Dates columns */}
+            <TableHead className="w-[150px]">Check-in Date</TableHead>
+            <TableHead className="w-[150px]">Check-out Date</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {hotels.map((hotel) => {
             const isLoading = loadingMap[hotel.id];
             
+            // Format dates for input (YYYY-MM-DD)
+            const checkinVal = hotel.actual_checkin ? format(parseISO(hotel.actual_checkin), 'yyyy-MM-dd') : '';
+            const checkoutVal = hotel.actual_checkout ? format(parseISO(hotel.actual_checkout), 'yyyy-MM-dd') : '';
+
             return (
               <TableRow key={hotel.id} className="hover:bg-muted/50">
                  <TableCell>
@@ -131,6 +136,32 @@ export function HotelSpreadsheet({ hotels, onRefresh }: HotelSpreadsheetProps) {
                       onBlur={(e) => {
                           if (e.target.value !== (hotel.room_type || '')) {
                               handleUpdate(hotel.id, 'room_type', e.target.value);
+                          }
+                      }}
+                   />
+                </TableCell>
+
+                <TableCell className="p-1">
+                   <Input 
+                      type="date"
+                      defaultValue={checkinVal}
+                      className="h-8 border-transparent hover:border-input focus:border-input bg-transparent text-xs"
+                      onBlur={(e) => {
+                          if (e.target.value && e.target.value !== checkinVal) {
+                              handleUpdate(hotel.id, 'actual_checkin', e.target.value);
+                          }
+                      }}
+                   />
+                </TableCell>
+
+                <TableCell className="p-1">
+                   <Input 
+                      type="date"
+                      defaultValue={checkoutVal}
+                      className="h-8 border-transparent hover:border-input focus:border-input bg-transparent text-xs"
+                      onBlur={(e) => {
+                          if (e.target.value && e.target.value !== checkoutVal) {
+                              handleUpdate(hotel.id, 'actual_checkout', e.target.value);
                           }
                       }}
                    />

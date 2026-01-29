@@ -67,7 +67,7 @@ export function useRealtime({
       );
     });
 
-    channel.subscribe((status) => {
+    channel.subscribe((status: string) => {
       if (status === 'SUBSCRIBED') {
         setIsConnected(true);
         setError(null);

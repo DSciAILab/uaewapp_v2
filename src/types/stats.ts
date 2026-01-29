@@ -19,6 +19,16 @@ export interface FighterStats {
   height_cm: number | null;
   reach_cm: number | null;
   weight_class: WeightClass | null;
+  uniform_size?: string | null;
+  shoe_size?: string | null;
+  tshirt_size?: string | null;
+  shorts_size?: string | null;
+  jacket_size?: string | null;
+  gloves_size?: string | null;
+  coach1_size?: string | null;
+  coach2_size?: string | null;
+  coach3_size?: string | null;
+
   
   // Fight record
   wins: number;
@@ -48,8 +58,9 @@ export interface FighterStats {
   person?: {
     id: string;
     full_name: string;
-    role: string;
+    role?: string;
     nationality: string | null;
+    fighter_id?: string | null;
   };
 }
 
@@ -57,6 +68,9 @@ export interface FighterStatsFormData {
   height_cm?: number;
   reach_cm?: number;
   weight_class?: WeightClass;
+  uniform_size?: string;
+  shoe_size?: string;
+  
   wins: number;
   losses: number;
   draws: number;
@@ -70,6 +84,34 @@ export interface FighterStatsFormData {
   fighting_style?: string;
   team_gym?: string;
   nickname?: string;
+}
+
+export interface CoachData {
+  id: string;
+  person_id: string;
+  
+  uniform_size: string | null;
+  shoe_size: string | null;
+  height_cm: number | null;
+  weight_kg: number | null;
+  
+  created_at: string;
+  updated_at: string;
+  
+  // Joined data
+  person?: {
+    id: string;
+    full_name: string;
+    role?: string;
+    nationality: string | null;
+  };
+}
+
+export interface CoachDataFormData {
+  uniform_size?: string;
+  shoe_size?: string;
+  height_cm?: number;
+  weight_kg?: number;
 }
 
 // Event-specific weigh-in stats

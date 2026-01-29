@@ -7,7 +7,6 @@ import { Loader2 } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { AthleteStatsForm } from '@/components/operations/athlete-stats-form';
-import { MusicForm } from '@/components/operations/music-form';
 import { TasksList } from '@/components/operations/tasks-list';
 
 // This would typically fetch data based on a selected athlete/event
@@ -15,7 +14,7 @@ import { TasksList } from '@/components/operations/tasks-list';
 // However, the request asked for "Operations Page"
 // Use placeholder ID or fetch param
 
-export default function OperationsPage() {
+function OperationsContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('eventId') || 'default-event-id';
   const personId = searchParams.get('personId');
@@ -40,7 +39,6 @@ export default function OperationsPage() {
       <Tabs defaultValue="stats" className="space-y-4">
         <TabsList>
           <TabsTrigger value="stats">Athlete Stats</TabsTrigger>
-          <TabsTrigger value="music">Entrance Music</TabsTrigger>
           <TabsTrigger value="tasks">Operational Tasks</TabsTrigger>
         </TabsList>
         
@@ -48,14 +46,6 @@ export default function OperationsPage() {
             <AthleteStatsForm 
               personId={personId} 
               // initialData would be fetched here or inside the component
-            />
-        </TabsContent>
-        
-        <TabsContent value="music">
-            <MusicForm 
-              eventId={eventId} 
-              enrolledId={enrolledId}
-              // initialData fetch logic handled inside or via parent
             />
         </TabsContent>
         
@@ -73,5 +63,17 @@ export default function OperationsPage() {
         
       </Tabs>
     </div>
+  );
+}
+
+export default function OperationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-full">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    }>
+      <OperationsContent />
+    </Suspense>
   );
 }

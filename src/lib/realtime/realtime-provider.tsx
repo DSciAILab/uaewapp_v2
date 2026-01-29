@@ -72,13 +72,13 @@ export function RealtimeProvider({ eventId, children }: RealtimeProviderProps) {
         
         setActiveUsers(onlineUsers); // Changed from setPresenceState to setActiveUsers
       })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
+      .on('presence', { event: 'join' }, ({ key, newPresences }: { key: string; newPresences: any }) => {
         console.log('User joined:', key, newPresences);
       })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
+      .on('presence', { event: 'leave' }, ({ key, leftPresences }: { key: string; leftPresences: any }) => {
         console.log('User left:', key, leftPresences);
       })
-      .subscribe(async (status) => {
+      .subscribe(async (status: string) => {
         if (status === 'SUBSCRIBED') {
           setIsConnected(true);
           await channel.track({

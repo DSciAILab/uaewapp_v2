@@ -43,14 +43,16 @@ export async function getEventBatches(eventId: string, filters?: BatchFilters): 
 
   if (error) throw new Error('Failed to fetch batches');
 
-  let results = (data || []).map(batch => ({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let results = (data || []).map((batch: any) => ({
     ...batch,
     participant_count: batch.participants?.[0]?.count || 0,
   }));
 
   if (filters?.search) {
     const searchLower = filters.search.toLowerCase();
-    results = results.filter(batch =>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    results = results.filter((batch: any) =>
       (batch.name || '').toLowerCase().includes(searchLower) ||
       (batch.location || '').toLowerCase().includes(searchLower)
     );
@@ -370,14 +372,15 @@ export async function getAvailableEnrolledForBatch(
 
   if (assignedError) throw assignedError;
 
-  const assignedIds = new Set(assigned?.map(a => a.enrolled_id) || []);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const assignedIds = new Set(assigned?.map((a: any) => a.enrolled_id) || []);
 
   return (enrolled || [])
     .map((e: any) => ({
       id: e.id,
       person: Array.isArray(e.person) ? e.person[0] : e.person
     }))
-    .filter(e => !assignedIds.has(e.id));
+    .filter((e: any) => !assignedIds.has(e.id));
 }
 
 export async function getBatchStats(eventId: string): Promise<{
@@ -414,7 +417,9 @@ export async function getBatchStats(eventId: string): Promise<{
     by_type: byType as Record<BatchType, number>,
     by_status: byStatus,
     total_participants: allParticipants.length,
-    checked_in: allParticipants.filter(p => p.status === 'checked_in' || p.status === 'completed').length,
-    completed: allParticipants.filter(p => p.status === 'completed').length,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    checked_in: allParticipants.filter((p: any) => p.status === 'checked_in' || p.status === 'completed').length,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    completed: allParticipants.filter((p: any) => p.status === 'completed').length,
   };
 }

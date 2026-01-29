@@ -19,6 +19,7 @@ import type { FlightType } from '@/types/database';
 import { formatDate } from '@/lib/utils';
 import { updateFlight } from '@/lib/services/flights';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface FlightBatchGridProps {
   flights: FlightWithEnrollment[];
@@ -75,16 +76,18 @@ export function FlightBatchGrid({ flights, onRefresh }: FlightBatchGridProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[200px]">Person</TableHead>
-            <TableHead className="w-[100px]">Type</TableHead>
-            <TableHead className="w-[140px]">Arr. Date</TableHead>
-            <TableHead className="w-[100px]">Arr. Time</TableHead>
-            <TableHead className="w-[120px]">Arr. Flight</TableHead>
-            <TableHead className="w-[140px]">Dep. Date</TableHead>
-            <TableHead className="w-[100px]">Dep. Time</TableHead>
-            <TableHead className="w-[120px]">Dep. Flight</TableHead>
-            <TableHead className="w-[120px]">Status</TableHead>
-            <TableHead className="w-[80px]">Action</TableHead>
+            <TableHead className="w-[140px]">Person</TableHead>
+            <TableHead className="w-[80px]">Type</TableHead>
+            <TableHead className="w-[110px]">Arr. Flight</TableHead>
+            <TableHead className="w-[120px]">Arr. Date</TableHead>
+            <TableHead className="w-[90px]">Arr. Time</TableHead>
+            <TableHead className="w-[120px]">Arr. Airport</TableHead>
+            <TableHead className="w-[110px]">Dep. Flight</TableHead>
+            <TableHead className="w-[120px]">Dep. Date</TableHead>
+            <TableHead className="w-[90px]">Dep. Time</TableHead>
+            <TableHead className="w-[120px]">Dep. Airport</TableHead>
+            <TableHead className="w-[100px]">Status</TableHead>
+            <TableHead className="w-[60px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -118,18 +121,33 @@ export function FlightBatchGrid({ flights, onRefresh }: FlightBatchGridProps) {
                     )}
                 </TableCell>
                 
-                {/* Arrival Fields */}
+                {/* Arrival Fields: Flight, Date, Time, Airport */}
+                 <TableCell>
+                    {isEditing ? (
+                        <Input 
+                            className="h-8 font-mono font-bold uppercase" 
+                            value={details.arrival_flight_number}
+                            placeholder="QR123" 
+                            onChange={(e) => handleChange('arrival_flight_number', e.target.value.toUpperCase().replace(/\s/g, ''))}
+                            disabled={details.type === 'departure_only'}
+                        />
+                    ) : (
+                        <span className="font-mono font-bold text-xs text-primary">
+                            {flight.arrival_flight_number?.toUpperCase().replace(/\s/g, '') || '-'}
+                        </span>
+                    )}
+                </TableCell>
                 <TableCell>
                     {isEditing ? (
                         <Input 
                             type="date" 
-                            className="h-8" 
+                            className="h-8 text-xs" 
                             value={details.arrival_date} 
                             onChange={(e) => handleChange('arrival_date', e.target.value)}
                             disabled={details.type === 'departure_only'}
                         />
                     ) : (
-                        <span className={!flight.arrival_date ? "text-muted-foreground/30" : ""}>
+                        <span className={cn("text-xs font-medium", !flight.arrival_date && "text-muted-foreground/30")}>
                             {flight.arrival_date ? formatDate(flight.arrival_date) : '-'}
                         </span>
                     )}
@@ -138,41 +156,56 @@ export function FlightBatchGrid({ flights, onRefresh }: FlightBatchGridProps) {
                     {isEditing ? (
                         <Input 
                             type="time" 
-                            className="h-8" 
+                            className="h-8 text-xs" 
                             value={details.arrival_time} 
                             onChange={(e) => handleChange('arrival_time', e.target.value)}
                             disabled={details.type === 'departure_only'}
                         />
                     ) : (
-                        flight.arrival_time || '-'
+                        <span className="text-xs">{flight.arrival_time || '-'}</span>
                     )}
                 </TableCell>
-                 <TableCell>
+                <TableCell>
                     {isEditing ? (
                         <Input 
-                            className="h-8 font-mono uppercase" 
-                            value={details.arrival_flight_number}
-                            placeholder="QR123" 
-                            onChange={(e) => handleChange('arrival_flight_number', e.target.value)}
+                            className="h-8 text-xs uppercase" 
+                            value={details.arrival_airport}
+                            placeholder="DXB-T3" 
+                            onChange={(e) => handleChange('arrival_airport', e.target.value.toUpperCase())}
                             disabled={details.type === 'departure_only'}
                         />
                     ) : (
-                        <span className="font-mono">{flight.arrival_flight_number || '-'}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{flight.arrival_airport || '-'}</span>
                     )}
                 </TableCell>
 
-                {/* Departure Fields */}
+                {/* Departure Fields: Flight, Date, Time, Airport */}
+                 <TableCell>
+                    {isEditing ? (
+                        <Input 
+                            className="h-8 font-mono font-bold uppercase" 
+                            value={details.departure_flight_number} 
+                             placeholder="QR124"
+                            onChange={(e) => handleChange('departure_flight_number', e.target.value.toUpperCase().replace(/\s/g, ''))}
+                            disabled={details.type === 'arrival_only'}
+                        />
+                    ) : (
+                         <span className="font-mono font-bold text-xs text-primary">
+                            {flight.departure_flight_number?.toUpperCase().replace(/\s/g, '') || '-'}
+                         </span>
+                    )}
+                </TableCell>
                  <TableCell>
                     {isEditing ? (
                         <Input 
                             type="date" 
-                            className="h-8" 
+                            className="h-8 text-xs" 
                             value={details.departure_date} 
                             onChange={(e) => handleChange('departure_date', e.target.value)}
                             disabled={details.type === 'arrival_only'}
                         />
                     ) : (
-                       <span className={!flight.departure_date ? "text-muted-foreground/30" : ""}>
+                       <span className={cn("text-xs font-medium", !flight.departure_date && "text-muted-foreground/30")}>
                             {flight.departure_date ? formatDate(flight.departure_date) : '-'}
                         </span>
                     )}
@@ -181,26 +214,26 @@ export function FlightBatchGrid({ flights, onRefresh }: FlightBatchGridProps) {
                     {isEditing ? (
                         <Input 
                             type="time" 
-                            className="h-8" 
+                            className="h-8 text-xs" 
                             value={details.departure_time} 
                             onChange={(e) => handleChange('departure_time', e.target.value)}
                             disabled={details.type === 'arrival_only'}
                         />
                     ) : (
-                        flight.departure_time || '-'
+                        <span className="text-xs">{flight.departure_time || '-'}</span>
                     )}
                 </TableCell>
-                 <TableCell>
+                <TableCell>
                     {isEditing ? (
                         <Input 
-                            className="h-8 font-mono uppercase" 
-                            value={details.departure_flight_number} 
-                             placeholder="QR124"
-                            onChange={(e) => handleChange('departure_flight_number', e.target.value)}
+                            className="h-8 text-xs uppercase" 
+                            value={details.departure_airport}
+                            placeholder="DXB-T3" 
+                            onChange={(e) => handleChange('departure_airport', e.target.value.toUpperCase())}
                             disabled={details.type === 'arrival_only'}
                         />
                     ) : (
-                         <span className="font-mono">{flight.departure_flight_number || '-'}</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase">{flight.departure_airport || '-'}</span>
                     )}
                 </TableCell>
 

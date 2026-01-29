@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -32,7 +33,8 @@ import {
   PlaneLanding,
   PlaneTakeoff,
   AlertCircle,
-  FileCheck
+  FileCheck,
+  ArrowUpDown
 } from 'lucide-react'
 import type { FlightWithEnrollment } from '@/lib/services/flights'
 import { getFighterPhotoUrl, formatDate, formatTime } from '@/lib/utils'
@@ -72,23 +74,87 @@ export function FlightsTable({
   canEdit = true,
   canDelete = false,
 }: FlightsTableProps) {
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+
+  const handleSort = (key: string) => {
+    let direction: 'asc' | 'desc' = 'asc'
+    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
+
+  const sortedFlights = useMemo(() => {
+    if (!sortConfig) return flights
+
+    return [...flights].sort((a, b) => {
+      let aValue: any = ''
+      let bValue: any = ''
+
+      switch (sortConfig.key) {
+        case 'id':
+          aValue = a.enrollment?.person?.fighter_id || a.enrollment?.event_code || ''
+          bValue = b.enrollment?.person?.fighter_id || b.enrollment?.event_code || ''
+          break
+        case 'passenger':
+          aValue = a.enrollment?.person?.compiled_name || ''
+          bValue = b.enrollment?.person?.compiled_name || ''
+          break
+        case 'type':
+          aValue = a.type || ''
+          bValue = b.type || ''
+          break
+        case 'arrival':
+          aValue = a.arrival_date || ''
+          bValue = b.arrival_date || ''
+          break
+        case 'departure':
+          aValue = a.departure_date || ''
+          bValue = b.departure_date || ''
+          break
+        case 'status':
+          aValue = a.status || ''
+          bValue = b.status || ''
+          break
+        default:
+          return 0
+      }
+
+      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
+      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
+      return 0
+    })
+  }, [flights, sortConfig])
+
   return (
     <TooltipProvider>
       <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[80px]">ID</TableHead>
-              <TableHead className="min-w-[200px]">Passenger</TableHead>
-              <TableHead className="text-center w-[80px]">Type</TableHead>
-              <TableHead className="min-w-[180px]">Arrival</TableHead>
-              <TableHead className="min-w-[180px]">Departure</TableHead>
-              <TableHead className="text-center w-[120px]">Status</TableHead>
+              <TableHead className="w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('id')}>
+                <div className="flex items-center gap-2">ID <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
+              <TableHead className="min-w-[200px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('passenger')}>
+                <div className="flex items-center gap-2">Passenger <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
+              <TableHead className="text-center w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('type')}>
+                <div className="flex items-center gap-2 justify-center">Type <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
+              <TableHead className="min-w-[180px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('arrival')}>
+                <div className="flex items-center gap-2">Arrival <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
+              <TableHead className="min-w-[180px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('departure')}>
+                <div className="flex items-center gap-2">Departure <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
+              <TableHead className="text-center w-[120px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
+                <div className="flex items-center gap-2 justify-center">Status <ArrowUpDown className="h-3 w-3" /></div>
+              </TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {flights.length === 0 ? (
+            {sortedFlights.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
@@ -98,7 +164,7 @@ export function FlightsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              flights.map((flight) => {
+              sortedFlights.map((flight: any) => {
                 const TypeIcon = TYPE_ICONS[flight.type] || Plane
                 const statusStyle = STATUS_CONFIG[flight.status] || { color: 'bg-gray-100 text-gray-500 border-gray-200', label: flight.status }
                 
@@ -154,26 +220,32 @@ export function FlightsTable({
                     </TableCell>
                     <TableCell>
                       {flight.arrival_date ? (
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col">
+                            {flight.arrival_flight_number && (
+                                <span className="font-mono font-bold text-xs text-primary leading-tight">
+                                    {flight.arrival_flight_number.toUpperCase().replace(/\s/g, '')}
+                                </span>
+                            )}
                             <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm tabular-nums text-foreground">
+                                <span className="font-medium text-sm tabular-nums text-foreground leading-tight">
                                     {formatDate(flight.arrival_date)}
                                 </span>
                                 {flight.arrival_time && (
-                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded tabular-nums">
+                                    <span className="text-xs text-muted-foreground tabular-nums">
                                         {formatTime(flight.arrival_time)}
                                     </span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                {flight.arrival_flight_number && <span className="font-mono font-medium text-foreground">{flight.arrival_flight_number}</span>}
-                                {flight.arrival_airport && <span>• {flight.arrival_airport}</span>}
-                            </div>
-                             {flight.arrival_ticket_link && (
-                                <a href={flight.arrival_ticket_link} target="_blank" className="text-[10px] flex items-center gap-1 text-blue-500 hover:text-blue-600 mt-0.5 w-fit hover:underline">
+                            {flight.arrival_airport && (
+                                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-tight">
+                                    {flight.arrival_airport}
+                                </span>
+                            )}
+                            {flight.arrival_ticket_link && (
+                                <a href={flight.arrival_ticket_link} target="_blank" className="text-[10px] flex items-center gap-1 text-blue-500 hover:text-blue-600 mt-1 w-fit hover:underline">
                                     <FileCheck className="h-3 w-3" /> View Ticket
                                 </a>
-                             )}
+                            )}
                         </div>
                       ) : (
                         <span className="text-muted-foreground/30 text-xs italic">No arrival info</span>
@@ -181,26 +253,32 @@ export function FlightsTable({
                     </TableCell>
                     <TableCell>
                       {flight.departure_date ? (
-                        <div className="flex flex-col gap-0.5">
+                        <div className="flex flex-col">
+                            {flight.departure_flight_number && (
+                                <span className="font-mono font-bold text-xs text-primary leading-tight">
+                                    {flight.departure_flight_number.toUpperCase().replace(/\s/g, '')}
+                                </span>
+                            )}
                             <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm tabular-nums text-foreground">
+                                <span className="font-medium text-sm tabular-nums text-foreground leading-tight">
                                     {formatDate(flight.departure_date)}
                                 </span>
                                 {flight.departure_time && (
-                                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded tabular-nums">
+                                    <span className="text-xs text-muted-foreground tabular-nums">
                                         {formatTime(flight.departure_time)}
                                     </span>
                                 )}
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                {flight.departure_flight_number && <span className="font-mono font-medium text-foreground">{flight.departure_flight_number}</span>}
-                                {flight.departure_airport && <span>• {flight.departure_airport}</span>}
-                            </div>
-                             {flight.departure_ticket_link && (
-                                <a href={flight.departure_ticket_link} target="_blank" className="text-[10px] flex items-center gap-1 text-blue-500 hover:text-blue-600 mt-0.5 w-fit hover:underline">
+                            {flight.departure_airport && (
+                                <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-tight">
+                                    {flight.departure_airport}
+                                </span>
+                            )}
+                            {flight.departure_ticket_link && (
+                                <a href={flight.departure_ticket_link} target="_blank" className="text-[10px] flex items-center gap-1 text-blue-500 hover:text-blue-600 mt-1 w-fit hover:underline">
                                     <FileCheck className="h-3 w-3" /> View Ticket
                                 </a>
-                             )}
+                            )}
                         </div>
                       ) : (
                         <span className="text-muted-foreground/30 text-xs italic">No departure info</span>

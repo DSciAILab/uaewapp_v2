@@ -21,13 +21,14 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
-import { Upload, AlertCircle, CheckCircle2, Loader2, Copy } from 'lucide-react'
+import { Upload, AlertCircle, CheckCircle2, Loader2, Copy, Download, FileText, FileSpreadsheet } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Progress } from '@/components/ui/progress'
 import type { CSVMapping, PersonFormData } from '@/types/database'
+import type { ImportError } from '@/lib/services/people'
 
 interface CSVImportProps {
-  onImport: (data: PersonFormData[], onProgress: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean) => Promise<{ success: number; errors: string[]; duplicates: string[] }>
+  onImport: (data: PersonFormData[], onProgress: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>) => Promise<{ success: number; errors: ImportError[]; duplicates: string[] }>
   onCancel: () => void
 }
 
@@ -56,7 +57,7 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
   const [mappings, setMappings] = useState<CSVMapping[]>([])
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0, message: '' })
-  const [result, setResult] = useState<{ success: number; errors: string[]; duplicates: string[] } | null>(null)
+  const [result, setResult] = useState<{ success: number; errors: ImportError[]; duplicates: string[] } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [checkDuplicates, setCheckDuplicates] = useState(true)
 
@@ -191,7 +192,9 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
              return
           }
 
-          if (m.dbField === 'fighter_id' || m.dbField === 'height' || m.dbField === 'reach') {
+          if (m.dbField === 'fighter_id') {
+            (transformed as any)[m.dbField] = value
+          } else if (m.dbField === 'height' || m.dbField === 'reach') {
             // Remove non-numeric chars except dot/comma
             const numericValue = value.replace(/[^\d.,-]/g, '').replace(',', '.')
             if (numericValue) {
@@ -201,18 +204,49 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
             }
           } else if (m.dbField === 'dob' || m.dbField === 'passport_expiry') {
             // Date Parsing Logic
-            // Try to handle DD/MM/YYYY or DD-MM-YYYY
             if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(value)) {
-              const [day, month, year] = value.split(/[\/\-]/).map(Number)
-              // Create date object and format as YYYY-MM-DD
+              // Handle DD/MM/YYYY or MM/DD/YYYY
+              const parts = value.split(/[\/\-]/).map(Number)
+              // Assume DD/MM/YYYY format (European)
+              const [day, month, year] = parts
               const formattedDate = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
               ;(transformed as any)[m.dbField] = formattedDate
+            } else if (/^\d+(\.\d+)?$/.test(value)) {
+              // Handle Excel Serial Date (e.g. "47278" or "47278.5")
+              const serial = parseFloat(value)
+              
+              // Excel's epoch is December 30, 1899 (not January 1, 1900)
+              // This accounts for Excel's leap year bug where 1900 is incorrectly treated as a leap year
+              const excelEpoch = new Date(Date.UTC(1899, 11, 30))
+              const milliseconds = serial * 86400 * 1000
+              const date = new Date(excelEpoch.getTime() + milliseconds)
+              
+              if (!isNaN(date.getTime()) && serial > 0 && serial < 100000) {
+                // Format as YYYY-MM-DD
+                const year = date.getUTCFullYear()
+                const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+                const day = String(date.getUTCDate()).padStart(2, '0')
+                const formatted = `${year}-${month}-${day}`
+                ;(transformed as any)[m.dbField] = formatted
+              } else {
+                // Invalid serial number, set to null
+                ;(transformed as any)[m.dbField] = null
+              }
+            } else if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+              // Already in YYYY-MM-DD format
+              ;(transformed as any)[m.dbField] = value
             } else {
-              // Assume it might be YYYY-MM-DD or attempt basic parsing
-               (transformed as any)[m.dbField] = value
+              // Try to parse as ISO date or set to null
+              const attemptDate = new Date(value)
+              if (!isNaN(attemptDate.getTime())) {
+                const formatted = attemptDate.toISOString().split('T')[0]
+                ;(transformed as any)[m.dbField] = formatted
+              } else {
+                ;(transformed as any)[m.dbField] = null
+              }
             }
           } else {
-            (transformed as any)[m.dbField] = value
+            (transformed as any)[m.dbField] = String(value)
           }
         }
       })
@@ -224,9 +258,16 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
     setLoading(true)
     try {
       const data = transformData()
+      
+      // Build mapping from dbField to csvColumn title
+      const mapping: Record<string, string> = {}
+      mappings.forEach(m => {
+        if (m.dbField !== 'skip') mapping[m.dbField.toString()] = m.csvColumn
+      })
+
       const res = await onImport(data, (current, total, message) => {
         setProgress({ current, total, message: message || '' })
-      }, checkDuplicates)
+      }, checkDuplicates, mapping)
       setResult(res)
       setStep('result')
     } finally {
@@ -477,6 +518,57 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
     )
   }
 
+  const downloadReport = (format: 'csv' | 'md') => {
+    if (!result) return;
+
+    const now = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `import-report-${now}.${format}`;
+    let content = '';
+
+    if (format === 'csv') {
+      content = 'People Full Name,Coluna Planilha,Erro,Mensagem\n';
+      result.errors.forEach(e => {
+        content += `"${e.fullName.replace(/"/g, '""')}","${(e.csvColumnTitle || e.column).replace(/"/g, '""')}","${e.errorType.replace(/"/g, '""')}","${e.message.replace(/"/g, '""')}"\n`;
+      });
+      
+      // Duplicates also as errors for full coverage
+      result.duplicates.forEach(d => {
+        content += `"${d.replace(/"/g, '""')}",Surname/Name,Duplicado,"Este registro já existe no banco de dados"\n`;
+      });
+    } else {
+      content = `# Relatório de Importação - ${new Date().toLocaleString()}\n\n`;
+      content += `## Resumo\n`;
+      content += `- **Sucesso:** ${result.success}\n`;
+      content += `- **Duplicados:** ${result.duplicates.length}\n`;
+      content += `- **Erros:** ${result.errors.length}\n\n`;
+      
+      if (result.errors.length > 0) {
+        content += `## Erros Encontrados\n`;
+        content += `| Atleta | Coluna Planilha | Tipo Erro | Mensagem |\n`;
+        content += `| :--- | :--- | :--- | :--- |\n`;
+        result.errors.forEach(e => {
+          content += `| ${e.fullName} | ${e.csvColumnTitle || e.column} | ${e.errorType} | ${e.message} |\n`;
+        });
+        content += `\n`;
+      }
+      
+      if (result.duplicates.length > 0) {
+        content += `## Registros Duplicados\n`;
+        result.duplicates.forEach(d => content += `- ${d}\n`);
+      }
+    }
+
+    const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <Card className="border-none shadow-none">
       <CardHeader className="px-0 pt-0"><CardTitle>Resultado da Importação</CardTitle></CardHeader>
@@ -501,6 +593,29 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
           </div>
         </div>
 
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1 gap-2" 
+            onClick={() => downloadReport('csv')}
+            disabled={!result}
+          >
+            <FileSpreadsheet className="h-4 w-4" />
+            Baixar CSV
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="flex-1 gap-2" 
+            onClick={() => downloadReport('md')}
+            disabled={!result}
+          >
+            <FileText className="h-4 w-4" />
+            Baixar Markdown
+          </Button>
+        </div>
+
         {(result?.duplicates.length || 0) > 0 && (
           <div className="space-y-2">
             <p className="text-sm font-bold flex items-center gap-2">
@@ -521,10 +636,27 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
               <AlertCircle className="h-4 w-4" />
               Detalhes dos Erros
             </p>
-            <div className="bg-red-500/5 rounded-lg p-3 max-h-32 overflow-y-auto border border-red-500/10 text-xs">
-              <ul className="list-disc list-inside space-y-1 text-red-600/80">
-                {result?.errors.map((e, i) => <li key={i}>{e}</li>)}
-              </ul>
+            <div className="bg-red-500/5 rounded-lg p-3 max-h-48 overflow-y-auto border border-red-500/10 text-[10px]">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-transparent border-red-500/10">
+                    <TableHead className="h-6 text-red-600 font-bold uppercase py-1">Atleta</TableHead>
+                    <TableHead className="h-6 text-red-600 font-bold uppercase py-1">Coluna CSV</TableHead>
+                    <TableHead className="h-6 text-red-600 font-bold uppercase py-1">Mensagem</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result?.errors.map((e, i) => (
+                    <TableRow key={i} className="border-red-500/5">
+                      <TableCell className="py-1 line-clamp-1">{e.fullName}</TableCell>
+                      <TableCell className="py-1 font-mono text-[9px]">{e.csvColumnTitle || e.column}</TableCell>
+                      <TableCell className="py-1 text-red-600/70 font-medium">
+                        {e.message}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
             </div>
           </div>
         )}

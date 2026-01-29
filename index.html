@@ -1,0 +1,1321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>School Issues Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .nav-item.active { background-color: #F3F4F6; color: #2563EB; }
+        .nav-item.active svg { color: #2563EB; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+
+    <!-- Login Page -->
+    <div id="page-login" class="page active min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-sm border border-gray-200 w-full max-w-md">
+            <div class="text-center mb-8">
+                <div class="w-12 h-12 bg-blue-600 rounded-lg mx-auto mb-4 flex items-center justify-center">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                    </svg>
+                </div>
+                <h1 class="text-2xl font-semibold">School Issues Tracker</h1>
+                <p class="text-gray-500 mt-2">Sign in to your account</p>
+            </div>
+            <form onsubmit="handleLogin(event)">
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="you@example.com" required>
+                </div>
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="••••••••" required>
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition font-medium">Sign in</button>
+                <p class="text-center mt-4">
+                    <a href="#" class="text-sm text-blue-600 hover:underline">Forgot password?</a>
+                </p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App Layout -->
+    <div id="app-layout" class="hidden min-h-screen flex">
+        
+        <!-- Sidebar -->
+        <aside class="w-60 bg-white border-r border-gray-200 flex flex-col fixed h-full">
+            <div class="p-4 border-b border-gray-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                        </svg>
+                    </div>
+                    <span class="font-semibold">Issues Tracker</span>
+                </div>
+            </div>
+            
+            <nav class="flex-1 p-4">
+                <ul class="space-y-1">
+                    <li>
+                        <a href="#" onclick="showPage('dashboard')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="dashboard">
+                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                            </svg>
+                            Dashboard
+                        </a>
+                    </li>
+                    <li>
+                        <div class="px-3 py-2">
+                            <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">School Issues</span>
+                        </div>
+                        <ul class="ml-4 space-y-1">
+                            <li>
+                                <a href="#" onclick="showPage('issues')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="issues">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                                    </svg>
+                                    Issues List
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="showPage('export')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="export">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                    </svg>
+                                    Export
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="#" onclick="showPage('schools')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="schools">
+                            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                            </svg>
+                            Schools
+                        </a>
+                    </li>
+                    
+                    <!-- Settings (Super-admin only) -->
+                    <li id="settings-menu">
+                        <div class="px-3 py-2 mt-4">
+                            <span class="text-xs font-medium text-gray-400 uppercase tracking-wider">Settings</span>
+                        </div>
+                        <ul class="ml-4 space-y-1">
+                            <li>
+                                <a href="#" onclick="showPage('settings-schools')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="settings-schools">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                                    </svg>
+                                    Schools
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="showPage('settings-coaches')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="settings-coaches">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                                    </svg>
+                                    Coaches
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" onclick="showPage('settings-supervisors')" class="nav-item flex items-center gap-3 px-3 py-2 rounded-lg text-gray-700 hover:bg-gray-100 transition" data-page="settings-supervisors">
+                                    <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path>
+                                    </svg>
+                                    Supervisors
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </nav>
+            
+            <!-- User -->
+            <div class="p-4 border-t border-gray-200">
+                <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center">
+                        <span class="text-sm font-medium text-gray-600">JD</span>
+                    </div>
+                    <div class="flex-1">
+                        <p class="text-sm font-medium">John Doe</p>
+                        <p class="text-xs text-gray-500">Super Admin</p>
+                    </div>
+                    <button onclick="handleLogout()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Main Content -->
+        <main class="flex-1 ml-60">
+            
+            <!-- Dashboard Page -->
+            <div id="page-dashboard" class="page p-8">
+                <div class="mb-8">
+                    <h1 class="text-2xl font-semibold">Dashboard</h1>
+                    <p class="text-gray-500">Overview of school issues</p>
+                </div>
+                
+                <!-- Metrics -->
+                <div class="grid grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <p class="text-sm text-gray-500 mb-1">Total Issues</p>
+                        <p class="text-3xl font-semibold">47</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <p class="text-sm text-gray-500 mb-1">Open Issues</p>
+                        <p class="text-3xl font-semibold text-amber-500">12</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <p class="text-sm text-gray-500 mb-1">Resolved This Month</p>
+                        <p class="text-3xl font-semibold text-green-500">8</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <p class="text-sm text-gray-500 mb-1">Avg. Days to Resolve</p>
+                        <p class="text-3xl font-semibold">14</p>
+                    </div>
+                </div>
+                
+                <!-- Charts -->
+                <div class="grid grid-cols-2 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 class="font-medium mb-4">Issues by Status</h3>
+                        <div class="flex items-center justify-center h-48">
+                            <div class="relative w-32 h-32">
+                                <svg viewBox="0 0 36 36" class="w-full h-full">
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#10B981" stroke-width="3" stroke-dasharray="40, 100" stroke-dashoffset="25"></path>
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#3B82F6" stroke-width="3" stroke-dasharray="25, 100" stroke-dashoffset="85"></path>
+                                    <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#F59E0B" stroke-width="3" stroke-dasharray="35, 100" stroke-dashoffset="60"></path>
+                                </svg>
+                            </div>
+                            <div class="ml-6 space-y-2">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+                                    <span class="text-sm">Open (12)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                    <span class="text-sm">In Progress (8)</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                                    <span class="text-sm">Resolved (27)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <h3 class="font-medium mb-4">Issues by Priority</h3>
+                        <div class="space-y-4 mt-8">
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>High</span>
+                                    <span>8</span>
+                                </div>
+                                <div class="h-4 bg-gray-100 rounded-full">
+                                    <div class="h-4 bg-red-500 rounded-full" style="width: 40%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Medium</span>
+                                    <span>12</span>
+                                </div>
+                                <div class="h-4 bg-gray-100 rounded-full">
+                                    <div class="h-4 bg-amber-500 rounded-full" style="width: 60%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-sm mb-1">
+                                    <span>Low</span>
+                                    <span>27</span>
+                                </div>
+                                <div class="h-4 bg-gray-100 rounded-full">
+                                    <div class="h-4 bg-gray-400 rounded-full" style="width: 100%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Overdue Issues -->
+                <div class="bg-white rounded-lg border border-gray-200">
+                    <div class="p-4 border-b border-gray-200 flex justify-between items-center">
+                        <h3 class="font-medium">Issues Overdue (&gt; 30 days)</h3>
+                        <a href="#" onclick="showPage('issues')" class="text-sm text-blue-600 hover:underline">View all</a>
+                    </div>
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">School</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Challenge</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Open</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr>
+                                <td class="px-4 py-3 text-sm">Al Maha School</td>
+                                <td class="px-4 py-3 text-sm">Infrastructure maintenance delay</td>
+                                <td class="px-4 py-3 text-sm text-red-500 font-medium">45</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">High</span></td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 text-sm">Al Reem School</td>
+                                <td class="px-4 py-3 text-sm">Staff training incomplete</td>
+                                <td class="px-4 py-3 text-sm text-red-500 font-medium">38</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Medium</span></td>
+                            </tr>
+                            <tr>
+                                <td class="px-4 py-3 text-sm">Al Ittihad School</td>
+                                <td class="px-4 py-3 text-sm">Equipment shortage</td>
+                                <td class="px-4 py-3 text-sm text-red-500 font-medium">32</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">High</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Issues List Page -->
+            <div id="page-issues" class="page p-8">
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-semibold">School Issues</h1>
+                        <p class="text-gray-500">Manage and track school issues</p>
+                    </div>
+                    <button onclick="openModal('modal-issue')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        New Issue
+                    </button>
+                </div>
+                
+                <!-- Filters -->
+                <div class="bg-white p-4 rounded-lg border border-gray-200 mb-6 flex gap-4 flex-wrap">
+                    <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>January 2026</option>
+                        <option>December 2025</option>
+                        <option>November 2025</option>
+                    </select>
+                    <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>All Schools</option>
+                        <option>Al Maha School</option>
+                        <option>Al Reem School</option>
+                        <option>Al Ittihad School</option>
+                    </select>
+                    <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>All Status</option>
+                        <option>Open</option>
+                        <option>In Progress</option>
+                        <option>Resolved</option>
+                    </select>
+                    <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>All Priorities</option>
+                        <option>High</option>
+                        <option>Medium</option>
+                        <option>Low</option>
+                    </select>
+                    <select class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>All Coaches</option>
+                        <option>Ahmed Al-Rashid</option>
+                        <option>Sara Mohammed</option>
+                    </select>
+                </div>
+                
+                <!-- Table -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">School</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coach</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Challenge</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Open</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Al Maha School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3 text-sm">Infrastructure maintenance delay</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">High</span></td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Open</span></td>
+                                <td class="px-4 py-3 text-sm text-red-500 font-medium">45</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-issue')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Al Reem School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Sara Mohammed</td>
+                                <td class="px-4 py-3 text-sm">Staff training incomplete</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Medium</span></td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">In Progress</span></td>
+                                <td class="px-4 py-3 text-sm text-red-500 font-medium">38</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-issue')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Al Ittihad School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3 text-sm">Equipment shortage</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">High</span></td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Open</span></td>
+                                <td class="px-4 py-3 text-sm text-red-500 font-medium">32</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-issue')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Al Hosn School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Sara Mohammed</td>
+                                <td class="px-4 py-3 text-sm">Curriculum alignment</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-700 rounded-full">Low</span></td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">Resolved</span></td>
+                                <td class="px-4 py-3 text-sm text-gray-500">-</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-issue')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Al Khatim School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3 text-sm">Parent communication issues</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Medium</span></td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Open</span></td>
+                                <td class="px-4 py-3 text-sm">12</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-issue')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <div class="px-4 py-3 border-t border-gray-200 flex justify-between items-center">
+                        <span class="text-sm text-gray-500">Showing 1-5 of 47</span>
+                        <div class="flex gap-2">
+                            <button class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50 disabled:opacity-50" disabled>Previous</button>
+                            <button class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-50">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Export Page -->
+            <div id="page-export" class="page p-8">
+                <div class="mb-8">
+                    <h1 class="text-2xl font-semibold">Export Issues</h1>
+                    <p class="text-gray-500">Download or generate reports</p>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-6">
+                    <!-- CSV Export -->
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-medium">CSV Export</h3>
+                                <p class="text-sm text-gray-500">Download raw data in CSV format</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option>January 2026</option>
+                                        <option>December 2025</option>
+                                        <option>November 2025</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option>January 2026</option>
+                                        <option>December 2025</option>
+                                        <option>November 2025</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <option>All Status</option>
+                                    <option>Open</option>
+                                    <option>In Progress</option>
+                                    <option>Resolved</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">School</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <option>All Schools</option>
+                                    <option>Al Maha School</option>
+                                    <option>Al Reem School</option>
+                                </select>
+                            </div>
+                            <button class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                </svg>
+                                Download CSV
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- HTML Dashboard -->
+                    <div class="bg-white p-6 rounded-lg border border-gray-200">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                                <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-medium">HTML Dashboard</h3>
+                                <p class="text-sm text-gray-500">Generate interactive HTML report</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">From</label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option>January 2026</option>
+                                        <option>December 2025</option>
+                                        <option>November 2025</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">To</label>
+                                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                        <option>January 2026</option>
+                                        <option>December 2025</option>
+                                        <option>November 2025</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <option>All Status</option>
+                                    <option>Open</option>
+                                    <option>In Progress</option>
+                                    <option>Resolved</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">School</label>
+                                <select class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    <option>All Schools</option>
+                                    <option>Al Maha School</option>
+                                    <option>Al Reem School</option>
+                                </select>
+                            </div>
+                            <div class="flex gap-2">
+                                <button class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition">Generate</button>
+                                <button class="flex-1 border border-gray-300 py-2 px-4 rounded-lg hover:bg-gray-50 transition flex items-center justify-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                                    </svg>
+                                    Download
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Schools Page -->
+            <div id="page-schools" class="page p-8">
+                <div class="mb-6">
+                    <h1 class="text-2xl font-semibold">Schools</h1>
+                    <p class="text-gray-500">Schools assigned to you</p>
+                </div>
+                
+                <!-- Search -->
+                <div class="mb-6">
+                    <div class="relative max-w-md">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" placeholder="Search schools..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Table -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">School Code</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">School Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Gender</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Cycle</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coach</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Open Issues</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="openModal('modal-school-detail')">
+                                <td class="px-4 py-3 text-sm">1397</td>
+                                <td class="px-4 py-3 text-sm font-medium">Abdul Jaleel Al Fahim School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Male</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">C3</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">2</span></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="openModal('modal-school-detail')">
+                                <td class="px-4 py-3 text-sm">489</td>
+                                <td class="px-4 py-3 text-sm font-medium">Al Maha School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Female</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">C3</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Sara Mohammed</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">5</span></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="openModal('modal-school-detail')">
+                                <td class="px-4 py-3 text-sm">641</td>
+                                <td class="px-4 py-3 text-sm font-medium">Al Reem School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Female</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">C2</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">0</span></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="openModal('modal-school-detail')">
+                                <td class="px-4 py-3 text-sm">387</td>
+                                <td class="px-4 py-3 text-sm font-medium">Al Ittihad School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Male</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">C3</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Sara Mohammed</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">1</span></td>
+                            </tr>
+                            <tr class="hover:bg-gray-50 cursor-pointer" onclick="openModal('modal-school-detail')">
+                                <td class="px-4 py-3 text-sm">518</td>
+                                <td class="px-4 py-3 text-sm font-medium">Al Hosn School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Male</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">C3</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-700 rounded-full">0</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Settings - Schools Page -->
+            <div id="page-settings-schools" class="page p-8">
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-semibold">Manage Schools</h1>
+                        <p class="text-gray-500">Add, edit or remove schools</p>
+                    </div>
+                    <button onclick="openModal('modal-add-school')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Add School
+                    </button>
+                </div>
+                
+                <!-- Search -->
+                <div class="mb-6">
+                    <div class="relative max-w-md">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" placeholder="Search schools..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Table -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">School Code</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">School Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Region</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supervisor</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coach</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm">1397</td>
+                                <td class="px-4 py-3 text-sm font-medium">Abdul Jaleel Al Fahim School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">John Doe</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-add-school')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm">489</td>
+                                <td class="px-4 py-3 text-sm font-medium">Al Maha School</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Abu Dhabi</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">John Doe</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">Sara Mohammed</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-add-school')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Settings - Coaches Page -->
+            <div id="page-settings-coaches" class="page p-8">
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-semibold">Manage Coaches</h1>
+                        <p class="text-gray-500">Add, edit or remove coaches</p>
+                    </div>
+                    <button onclick="openModal('modal-add-coach')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Add Coach
+                    </button>
+                </div>
+                
+                <!-- Search -->
+                <div class="mb-6">
+                    <div class="relative max-w-md">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" placeholder="Search coaches..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Table -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Supervisor</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schools Assigned</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Ahmed Al-Rashid</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">ahmed@example.com</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">John Doe</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">12</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-add-coach')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Sara Mohammed</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">sara@example.com</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">John Doe</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">8</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-add-coach')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Settings - Supervisors Page -->
+            <div id="page-settings-supervisors" class="page p-8">
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h1 class="text-2xl font-semibold">Manage Supervisors</h1>
+                        <p class="text-gray-500">Add, edit or remove supervisors</p>
+                    </div>
+                    <button onclick="openModal('modal-add-supervisor')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Add Supervisor
+                    </button>
+                </div>
+                
+                <!-- Search -->
+                <div class="mb-6">
+                    <div class="relative max-w-md">
+                        <svg class="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        <input type="text" placeholder="Search supervisors..." class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                
+                <!-- Table -->
+                <div class="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Email</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schools</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Coaches</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200">
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">John Doe</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">john@example.com</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-700 rounded-full">Super Admin</span></td>
+                                <td class="px-4 py-3 text-sm text-gray-500">All</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">All</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-add-supervisor')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-amber-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 text-sm font-medium">Jane Smith</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">jane@example.com</td>
+                                <td class="px-4 py-3"><span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">Supervisor</span></td>
+                                <td class="px-4 py-3 text-sm text-gray-500">15</td>
+                                <td class="px-4 py-3 text-sm text-gray-500">3</td>
+                                <td class="px-4 py-3">
+                                    <div class="flex gap-2">
+                                        <button onclick="openModal('modal-add-supervisor')" class="text-gray-400 hover:text-blue-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-amber-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                                            </svg>
+                                        </button>
+                                        <button class="text-gray-400 hover:text-red-600">
+                                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+    
+    <!-- Modals -->
+    
+    <!-- Modal: New/Edit Issue -->
+    <div id="modal-issue" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">New Issue</h2>
+                <button onclick="closeModal('modal-issue')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">School *</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option value="">Select school</option>
+                        <option>Al Maha School</option>
+                        <option>Al Reem School</option>
+                        <option>Al Ittihad School</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Coach</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>Ahmed Al-Rashid</option>
+                        <option>Sara Mohammed</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>January 2026</option>
+                        <option>December 2025</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Challenge *</label>
+                    <textarea rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Describe the issue..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>High</option>
+                        <option>Medium</option>
+                        <option>Low</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Action Taken</label>
+                    <textarea rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="What action was taken..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Result</label>
+                    <textarea rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="What was the result..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>Open</option>
+                        <option>In Progress</option>
+                        <option>Resolved</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeModal('modal-issue')" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Save Issue</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: School Detail -->
+    <div id="modal-school-detail" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg w-full max-w-lg mx-4">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">Al Maha School</h2>
+                <button onclick="closeModal('modal-school-detail')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">Project</p>
+                        <p class="text-sm font-medium">MOE</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">Region</p>
+                        <p class="text-sm font-medium">Abu Dhabi</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">System ID</p>
+                        <p class="text-sm font-medium">355</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">School Code</p>
+                        <p class="text-sm font-medium">489</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">Gender</p>
+                        <p class="text-sm font-medium">Female</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-gray-500 uppercase">Cycle</p>
+                        <p class="text-sm font-medium">C3</p>
+                    </div>
+                </div>
+                <div class="mb-6">
+                    <p class="text-xs text-gray-500 uppercase mb-1">Coach</p>
+                    <p class="text-sm font-medium">Sara Mohammed</p>
+                </div>
+                <div>
+                    <p class="text-xs text-gray-500 uppercase mb-2">Recent Issues</p>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                            <span class="text-sm">Infrastructure maintenance delay</span>
+                            <span class="px-2 py-1 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">Open</span>
+                        </div>
+                        <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                            <span class="text-sm">Staff training incomplete</span>
+                            <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-700 rounded-full">In Progress</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200">
+                <button onclick="closeModal('modal-school-detail'); showPage('issues');" class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">View All Issues</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Add/Edit School -->
+    <div id="modal-add-school" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">Add School</h2>
+                <button onclick="closeModal('modal-add-school')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Project</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="MOE">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Region</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Abu Dhabi">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">System ID</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">School Code</label>
+                        <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">School Name *</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option>Male</option>
+                            <option>Female</option>
+                            <option>Mixed</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Cycle</label>
+                        <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option>C1</option>
+                            <option>C2</option>
+                            <option>C3</option>
+                            <option>CC</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>John Doe</option>
+                        <option>Jane Smith</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Coach</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>Ahmed Al-Rashid</option>
+                        <option>Sara Mohammed</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeModal('modal-add-school')" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Add/Edit Coach -->
+    <div id="modal-add-coach" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg w-full max-w-md mx-4">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">Add Coach</h2>
+                <button onclick="closeModal('modal-add-coach')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Supervisor</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>John Doe</option>
+                        <option>Jane Smith</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeModal('modal-add-coach')" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Save</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal: Add/Edit Supervisor -->
+    <div id="modal-add-supervisor" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+        <div class="bg-white rounded-lg w-full max-w-md mx-4">
+            <div class="p-6 border-b border-gray-200 flex justify-between items-center">
+                <h2 class="text-lg font-semibold">Add Supervisor</h2>
+                <button onclick="closeModal('modal-add-supervisor')" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                    <input type="text" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input type="email" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                    <input type="password" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                    <select class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <option>Supervisor</option>
+                        <option>Super Admin</option>
+                    </select>
+                </div>
+            </div>
+            <div class="p-6 border-t border-gray-200 flex justify-end gap-3">
+                <button onclick="closeModal('modal-add-supervisor')" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Handle Login
+        function handleLogin(e) {
+            e.preventDefault();
+            document.getElementById('page-login').classList.remove('active');
+            document.getElementById('app-layout').classList.remove('hidden');
+            showPage('dashboard');
+        }
+        
+        // Handle Logout
+        function handleLogout() {
+            document.getElementById('app-layout').classList.add('hidden');
+            document.getElementById('page-login').classList.add('active');
+        }
+        
+        // Show Page
+        function showPage(pageName) {
+            // Hide all pages
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.remove('active');
+            });
+            
+            // Show selected page
+            const targetPage = document.getElementById('page-' + pageName);
+            if (targetPage) {
+                targetPage.classList.add('active');
+            }
+            
+            // Update nav items
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+                if (item.dataset.page === pageName) {
+                    item.classList.add('active');
+                }
+            });
+        }
+        
+        // Open Modal
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+        
+        // Close Modal
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+        
+        // Close modal on backdrop click
+        document.querySelectorAll('[id^="modal-"]').forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            });
+        });
+    </script>
+
+</body>
+</html>

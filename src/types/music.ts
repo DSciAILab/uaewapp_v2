@@ -7,24 +7,19 @@ export interface EntranceMusic {
   event_id: string;
   enrolled_id: string;
   
-  // Music info
-  song_title: string;
-  artist: string;
-  
-  // Source
+  // Primary Source
   source_type: MusicSource;
-  source_url: string | null;       // URL for streaming services
-  file_path: string | null;        // Path for uploaded files
-  
-  // Playback
-  start_time_seconds: number;      // Where to start playing (default 0)
-  duration_seconds: number | null; // How long to play
+  source_url: string | null;
+  start_time_seconds: number;
+
+  // Additional Sources
+  source_url_2: string | null;
+  start_time_2: number | null;
+  source_url_3: string | null;
+  start_time_3: number | null;
   
   // Status
   status: MusicStatus;
-  
-  // Order
-  walkout_order: number | null;    // Order in the event
   
   notes: string | null;
   
@@ -43,14 +38,14 @@ export interface EntranceMusic {
 
 export interface EntranceMusicFormData {
   enrolled_id: string;
-  song_title: string;
-  artist: string;
   source_type: MusicSource;
   source_url?: string;
   start_time_seconds: number;
-  duration_seconds?: number;
+  source_url_2?: string;
+  start_time_2?: number;
+  source_url_3?: string;
+  start_time_3?: number;
   status: MusicStatus;
-  walkout_order?: number;
   notes?: string;
 }
 

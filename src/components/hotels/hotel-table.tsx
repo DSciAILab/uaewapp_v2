@@ -16,6 +16,9 @@ import { calculateNights } from '@/lib/utils/hotel-calculations';
 import { deleteHotel, updateHotelStatus, updateHotelBatch, checkInGuest, checkOutGuest } from '@/lib/services/hotel-service';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { getFighterPhotoUrl } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 interface HotelTableProps {
   hotels: Hotel[];
@@ -180,23 +183,26 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         onCheckedChange={(checked) => handleSelectAll(!!checked)}
                     />
                 </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('guest')}>
+                <TableHead className="w-[60px]">Photo</TableHead>
+                <TableHead className="w-[120px]">Fighter ID</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50 min-w-[200px]" onClick={() => handleSort('guest')}>
                     <div className="flex items-center gap-2">
                         Guest <ArrowUpDown className="h-3 w-3" />
                     </div>
                 </TableHead>
-                {/* Hotel Column Removed */}
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('room')}>
+                <TableHead className="min-w-[150px]">Event</TableHead>
+                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('dates')}>
                     <div className="flex items-center gap-2">
-                        Room <ArrowUpDown className="h-3 w-3" />
+                        Check-in <ArrowUpDown className="h-3 w-3" />
                     </div>
                 </TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('dates')}>
                     <div className="flex items-center gap-2">
-                        Dates <ArrowUpDown className="h-3 w-3" />
+                        Check-out <ArrowUpDown className="h-3 w-3" />
                     </div>
                 </TableHead>
                 <TableHead>Nights</TableHead>
+                <TableHead>Res. Number</TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
                     <div className="flex items-center gap-2">
                         Status <ArrowUpDown className="h-3 w-3" />
@@ -232,43 +238,72 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                             />
                         </TableCell>
                         <TableCell>
-                        <div className="flex items-center gap-2">
-                            <div>
-                                <p className="font-medium flex items-center gap-2">
-                                    {hotel.enrolled?.person?.full_name}
-                                    {hotel.checked_in_at && (
-                                        <Badge variant="secondary" className="h-5 px-1 bg-green-100 text-green-700 hover:bg-green-100 gap-1 rounded-full">
-                                            <CheckCircle className="w-3 h-3" />
-                                            <span className="text-[10px] font-bold">IN</span>
-                                        </Badge>
-                                    )}
-                                </p>
-                                <p className="text-sm text-muted-foreground">{hotel.enrolled?.person?.role}</p>
-                            </div>
-                        </div>
-                        </TableCell>
-                        {/* Hotel Cell Removed */}
-                        <TableCell>
-                            {hotel.room_number ? (
-                                <div className="flex items-center gap-1 font-mono text-sm">
-                                    <Key className="w-3 h-3 text-muted-foreground" />
-                                    {hotel.room_number}
-                                </div>
-                            ) : <span className="text-xs text-muted-foreground">-</span>}
+                          <Avatar className="h-10 w-10 border border-muted shadow-sm">
+                            {hotel.enrolled?.person.fighter_id && (
+                              <AvatarImage 
+                                src={getFighterPhotoUrl(hotel.enrolled.person.fighter_id)} 
+                                alt={hotel.enrolled.person.full_name} 
+                              />
+                            )}
+                            <AvatarFallback className="text-xs font-bold bg-muted/50">
+                              {hotel.enrolled?.person.full_name?.[0]}
+                            </AvatarFallback>
+                          </Avatar>
                         </TableCell>
                         <TableCell>
-                        <div className="text-sm">
-                            {hotel.actual_checkin ? (
-                                <p><span className="text-muted-foreground mr-1">In:</span> {format(new Date(hotel.actual_checkin), 'MMM dd')}</p>
-                            ) : <span className="text-xs text-muted-foreground italic">TBD</span>}
-                            {hotel.actual_checkout ? (
-                                <p><span className="text-muted-foreground mr-1">Out:</span> {format(new Date(hotel.actual_checkout), 'MMM dd')}</p>
-                            ) : <span className="text-xs text-muted-foreground italic">TBD</span>}
-                        </div>
+                           {hotel.enrolled?.person.fighter_id ? (
+                            <Badge variant="outline" className="font-mono text-[10px] bg-background">
+                              ID: {hotel.enrolled.person.fighter_id}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs font-mono">-</span>
+                          )}
                         </TableCell>
-                        <TableCell>{nights}</TableCell>
                         <TableCell>
-                        <Badge variant="outline" className={statusConfig[hotel.status]?.className || 'bg-gray-100'}>
+                          <div className="flex flex-col">
+                              <p className="font-semibold flex items-center gap-2">
+                                  {hotel.enrolled?.person?.full_name}
+                                  {hotel.checked_in_at && (
+                                      <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-[10px] h-4 px-1">
+                                          IN
+                                      </Badge>
+                                  )}
+                              </p>
+                              <p className="text-xs text-muted-foreground uppercase tracking-tight">{hotel.enrolled?.person?.role}</p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                           <span className="text-xs font-medium text-muted-foreground">{hotel.enrolled?.person.event_name || '-'}</span>
+                        </TableCell>
+                        <TableCell>
+                           <div className="flex flex-col">
+                              <span className="text-sm font-medium">
+                                {hotel.actual_checkin ? format(new Date(hotel.actual_checkin), 'MMM dd, yyyy') : <span className="text-muted-foreground italic">TBD</span>}
+                              </span>
+                              {hotel.room_number && (
+                                <span className="text-[10px] text-primary flex items-center gap-1">
+                                  <Key className="w-2.5 h-2.5" /> Room: {hotel.room_number}
+                                </span>
+                              )}
+                           </div>
+                        </TableCell>
+                        <TableCell>
+                           <span className="text-sm font-medium">
+                            {hotel.actual_checkout ? format(new Date(hotel.actual_checkout), 'MMM dd, yyyy') : <span className="text-muted-foreground italic">TBD</span>}
+                           </span>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="font-bold text-xs">
+                             {nights}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                           <span className="text-xs font-mono bg-muted/30 px-2 py-1 rounded border">
+                              {hotel.confirmation_number || '-'}
+                           </span>
+                        </TableCell>
+                        <TableCell>
+                        <Badge variant="outline" className={cn("font-bold text-[10px] uppercase", statusConfig[hotel.status]?.className || 'bg-gray-100')}>
                             {hotel.status === 'pending' && (hotel.hotel_name === 'Pending Booking' || hotel.hotel_name === 'TBD') 
                                 ? 'Action Needed' 
                                 : statusConfig[hotel.status]?.label || hotel.status}

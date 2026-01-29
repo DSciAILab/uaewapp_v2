@@ -13,12 +13,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { XCircle } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Combobox } from '@/components/ui/combobox'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { enrollmentSchema, type EnrollmentSchema } from '@/lib/validations/event'
 import { getAvailablePeopleForEvent, getRoles } from '@/lib/services/enrollments'
 import { getFighterPhotoUrl } from '@/lib/utils'
 import type { Person, Role, Enrollment } from '@/types/database'
+import { Plane, PlaneLanding, PlaneTakeoff, Car, Bus, Users, ShieldCheck, UserCircle, Briefcase } from 'lucide-react'
 
 interface EnrollmentFormProps {
   eventId: string
@@ -29,17 +32,17 @@ interface EnrollmentFormProps {
 }
 
 const FLIGHT_OPTIONS = [
-  { value: 'none', label: 'Não precisa' },
-  { value: 'arrival_only', label: 'Apenas chegada' },
-  { value: 'departure_only', label: 'Apenas partida' },
-  { value: 'full', label: 'Ida e volta' },
+  { value: 'none', label: 'Não precisa', icon: XCircle },
+  { value: 'arrival_only', label: 'Chegada', icon: PlaneLanding },
+  { value: 'departure_only', label: 'Partida', icon: PlaneTakeoff },
+  { value: 'full', label: 'Ida e Volta', icon: Plane },
 ]
 
 const TRANSPORT_OPTIONS = [
-  { value: 'none', label: 'Não precisa' },
-  { value: 'arrival', label: 'Apenas chegada' },
-  { value: 'departure', label: 'Apenas partida' },
-  { value: 'both', label: 'Chegada e partida' },
+  { value: 'none', label: 'Não precisa', icon: XCircle },
+  { value: 'arrival', label: 'Chegada', icon: Car },
+  { value: 'departure', label: 'Partida', icon: Car },
+  { value: 'both', label: 'Ambos', icon: Bus },
 ]
 
 export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loading }: EnrollmentFormProps) {
@@ -108,7 +111,10 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       <div className="flex items-center gap-2">
         <Avatar className="h-6 w-6">
           {person.fighter_id && <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />}
-          <AvatarFallback className="text-xs">{person.name[0]}{person.surname[0]}</AvatarFallback>
+          <AvatarFallback className="text-xs">
+            {person.name?.[0]?.toUpperCase()}
+            {person.surname ? person.surname[0].toUpperCase() : ''}
+          </AvatarFallback>
         </Avatar>
         <span>{person.compiled_name || `${person.name} ${person.surname}`}</span>
       </div>
@@ -136,7 +142,10 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
           <div className="flex justify-center p-4 bg-muted rounded-lg">
             <Avatar className="h-20 w-20">
               <AvatarImage src={getFighterPhotoUrl(selectedPerson.fighter_id)} />
-              <AvatarFallback>{selectedPerson.name[0]}{selectedPerson.surname[0]}</AvatarFallback>
+              <AvatarFallback>
+                {selectedPerson.name?.[0]?.toUpperCase()}
+                {selectedPerson.surname ? selectedPerson.surname[0].toUpperCase() : ''}
+              </AvatarFallback>
             </Avatar>
           </div>
         )}
@@ -145,20 +154,23 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Função</h3>
         <div className="space-y-2">
-          <Label>Selecionar Função *</Label>
-          <Select value={watch('role_id')} onValueChange={(v) => setValue('role_id', v)} disabled={!!enrollment}>
-            <SelectTrigger><SelectValue placeholder="Selecione uma função" /></SelectTrigger>
-            <SelectContent>
-              {roles.map((role) => (
-                <SelectItem key={role.id} value={role.id}>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs bg-primary/10 px-1.5 py-0.5 rounded">{role.code}</span>
-                    <span>{role.name}</span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <ToggleGroup 
+            type="single" 
+            variant="segmented" 
+            className="flex-wrap"
+            value={watch('role_id')} 
+            onValueChange={(v) => v && setValue('role_id', v)}
+            disabled={!!enrollment}
+          >
+            {roles.map((role) => (
+              <ToggleGroupItem key={role.id} value={role.id} className="text-[10px] sm:text-xs">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="font-bold">{role.code}</span>
+                  <span className="opacity-70 whitespace-nowrap">{role.name}</span>
+                </div>
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </div>
       </div>
 
@@ -166,13 +178,22 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Necessidades</h3>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label>Aéreo</Label>
-            <Select value={watch('needs_flight') || 'none'} onValueChange={(v: any) => setValue('needs_flight', v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {FLIGHT_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Logística Aérea</Label>
+            <ToggleGroup 
+              type="single" 
+              variant="segmented" 
+              value={watch('needs_flight') || 'none'} 
+              onValueChange={(v) => v && setValue('needs_flight', v as any)}
+            >
+              {FLIGHT_OPTIONS.map((opt) => (
+                <ToggleGroupItem key={opt.value} value={opt.value} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <opt.icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{opt.label}</span>
+                  </div>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center space-x-2">
@@ -185,13 +206,22 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Transporte Terrestre</Label>
-            <Select value={watch('needs_transport') || 'none'} onValueChange={(v: any) => setValue('needs_transport', v)}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {TRANSPORT_OPTIONS.map((opt) => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
+            <Label className="text-xs">Transporte Terrestre</Label>
+            <ToggleGroup 
+              type="single" 
+              variant="segmented" 
+              value={watch('needs_transport') || 'none'} 
+              onValueChange={(v) => v && setValue('needs_transport', v as any)}
+            >
+              {TRANSPORT_OPTIONS.map((opt) => (
+                <ToggleGroupItem key={opt.value} value={opt.value} className="text-xs">
+                  <div className="flex items-center gap-2">
+                    <opt.icon className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">{opt.label}</span>
+                  </div>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
           </div>
         </div>
       </div>

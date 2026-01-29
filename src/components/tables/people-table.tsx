@@ -25,10 +25,12 @@ import { getFighterPhotoUrl, formatDate, cn } from '@/lib/utils'
 interface PeopleTableProps {
   people: Person[]
   selectedIds?: Set<string>
-  onSelectionChange?: (ids: Set<string>) => void
+  onToggleRow?: (person: Person) => void
+  onToggleAll?: (selected: boolean) => void
   onEdit: (person: Person) => void
   onDelete: (person: Person) => void
   onEnroll?: (person: Person) => void
+  enrolledIds?: Set<string>
   canEdit?: boolean
   canDelete?: boolean
 }
@@ -36,10 +38,12 @@ interface PeopleTableProps {
 export function PeopleTable({
   people,
   selectedIds = new Set(),
-  onSelectionChange,
+  onToggleRow,
+  onToggleAll,
   onEdit,
   onDelete,
   onEnroll,
+  enrolledIds = new Set(),
   canEdit = true,
   canDelete = false,
 }: PeopleTableProps) {
@@ -55,36 +59,24 @@ export function PeopleTable({
     return new Date(expiry) < sixMonths && new Date(expiry) >= new Date()
   }
 
-  const toggleAll = () => {
-    if (!onSelectionChange) return
-    if (selectedIds.size === people.length) {
-      onSelectionChange(new Set())
-    } else {
-      onSelectionChange(new Set(people.map(p => p.id)))
-    }
+  const handleSelectAll = (checked: boolean) => {
+    if (onToggleAll) onToggleAll(checked)
   }
 
-  const toggleOne = (id: string, e: React.MouseEvent) => {
+  const handleSelectOne = (person: Person, e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!onSelectionChange) return
-    const next = new Set(selectedIds)
-    if (next.has(id)) {
-      next.delete(id)
-    } else {
-      next.add(id)
-    }
-    onSelectionChange(next)
+    if (onToggleRow) onToggleRow(person)
   }
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          {onSelectionChange && (
+          {onToggleAll && (
             <TableHead className="w-12 px-4">
               <Checkbox 
-                checked={people.length > 0 && selectedIds.size === people.length}
-                onCheckedChange={toggleAll}
+                checked={people.length > 0 && people.every(p => selectedIds.has(p.id))}
+                onCheckedChange={handleSelectAll}
               />
             </TableHead>
           )}
@@ -101,7 +93,7 @@ export function PeopleTable({
       <TableBody>
         {people.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={onSelectionChange ? 9 : 8} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={onToggleRow ? 9 : 8} className="text-center py-8 text-muted-foreground">
               Nenhuma pessoa encontrada
             </TableCell>
           </TableRow>
@@ -115,18 +107,12 @@ export function PeopleTable({
               )}
               onClick={() => onEdit(person)}
             >
-              {onSelectionChange && (
+              {onToggleRow && (
                 <TableCell className="w-12 px-4" onClick={(e) => e.stopPropagation()}>
                   <Checkbox 
                     checked={selectedIds.has(person.id)}
                     onCheckedChange={() => {
-                      const next = new Set(selectedIds)
-                      if (next.has(person.id)) {
-                        next.delete(person.id)
-                      } else {
-                        next.add(person.id)
-                      }
-                      onSelectionChange(next)
+                        if (onToggleRow) onToggleRow(person);
                     }}
                   />
                 </TableCell>
@@ -137,21 +123,32 @@ export function PeopleTable({
                     <AvatarImage 
                       src={getFighterPhotoUrl(person.fighter_id)} 
                       alt={person.compiled_name} 
+                      className={cn(enrolledIds.has(person.id) && "border-2 border-green-500 rounded-full")}
                     />
                   ) : null}
-                  <AvatarFallback className="text-xs font-bold bg-muted/50">
-                    {person.name?.[0]}{person.surname?.[0]}
+                  <AvatarFallback className={cn(
+                    "text-xs font-bold bg-muted/50",
+                    enrolledIds.has(person.id) && "border-2 border-green-500"
+                  )}>
+                    {person.name?.[0]}{(person.surname || '')[0]}
                   </AvatarFallback>
                 </Avatar>
               </TableCell>
               <TableCell>
-                {person.fighter_id !== null && person.fighter_id !== undefined ? (
-                  <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                    ID: {person.fighter_id}
-                  </Badge>
-                ) : (
-                  <span className="text-muted-foreground text-xs font-mono">-</span>
-                )}
+                <div className="flex flex-col gap-1">
+                  {person.fighter_id !== null && person.fighter_id !== undefined ? (
+                    <Badge variant="outline" className="font-mono text-[10px] bg-background w-fit">
+                      ID: {person.fighter_id}
+                    </Badge>
+                  ) : (
+                    <span className="text-muted-foreground text-xs font-mono">-</span>
+                  )}
+                  {enrolledIds.has(person.id) && (
+                    <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-[10px] h-4 px-1 w-fit">
+                      ENROLLED
+                    </Badge>
+                  )}
+                </div>
               </TableCell>
               <TableCell className="font-semibold">{person.compiled_name}</TableCell>
               <TableCell className="text-muted-foreground italic text-sm">
