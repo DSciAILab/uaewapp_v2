@@ -32,15 +32,23 @@ const CORNERS = ['Red', 'Blue'];
 
 interface UniformsTabProps {
   eventId: string;
+  externalSearchQuery?: string;
 }
 
-export function UniformsTab({ eventId }: UniformsTabProps) {
+export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) {
   const [fighters, setFighters] = useState<FighterStats[]>([]);
   const [eventData, setEventData] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingState, setSavingState] = useState<Record<string, boolean>>({});
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(externalSearchQuery || '');
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'name', direction: 'asc' });
+
+  // Sync internal search with external search
+  useEffect(() => {
+    if (externalSearchQuery !== undefined) {
+      setSearchQuery(externalSearchQuery);
+    }
+  }, [externalSearchQuery]);
 
   const handleSort = (key: string) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -262,23 +270,6 @@ export function UniformsTab({ eventId }: UniformsTabProps) {
              </p>
          </div>
          <div className="flex items-center gap-2">
-            <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                    placeholder="Search name, ID, corner..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9 text-sm"
-                />
-                {searchQuery && (
-                    <button 
-                        onClick={() => setSearchQuery('')}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                    >
-                        <X className="h-3 w-3" />
-                    </button>
-                )}
-            </div>
             <Button onClick={generatePDF} variant="outline" size="sm" className="gap-2 h-9">
                 <Download className="w-4 h-4" />
                 Export PDF
