@@ -54,18 +54,35 @@ export function getFighterPhotoUrl(fighterId: string | number | null | undefined
 
 export async function getDataUrl(url: string): Promise<string | null> {
   try {
-    const response = await fetch(url);
-    const blob = await response.blob();
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.warn('Failed to load image for PDF:', url);
-    return null;
-  }
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+    try {
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            console.warn(`Failed to load image: ${url} (Status: ${response.status})`);
+            return null;
+        }
+
+        const blob = await response.blob();
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        if ((error as Error).name === 'AbortError') {
+             console.warn('Image load timed out:', url);
+        } else {
+             console.warn('Failed to load image for PDF:', url);
+        }
+        return null;
+    } finally {
+        clearTimeout(timeoutId);
+    }
 }
 
 export function generateEventCode(roleCode: string, sequence: number): string {

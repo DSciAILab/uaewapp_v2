@@ -166,16 +166,16 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
          for (const m of matches) {
              tableData.push([
                  m.matchNumber,
+                 { content: m.red?.name || 'TBA', styles: { fontStyle: 'bold', textColor: [220, 38, 38], halign: 'right' } }, // Red Name
                  '', // Red Photo Placeholder
-                 { content: m.red?.name || 'TBA', styles: { fontStyle: 'bold', textColor: [220, 38, 38] } }, // Red Name
                  m.division,
-                 { content: m.blue?.name || 'TBA', styles: { fontStyle: 'bold', textColor: [37, 99, 235] } }, // Blue Name
-                 ''  // Blue Photo Placeholder
+                 '',  // Blue Photo Placeholder
+                 { content: m.blue?.name || 'TBA', styles: { fontStyle: 'bold', textColor: [37, 99, 235], halign: 'left' } } // Blue Name
              ]);
          }
  
          autoTable(doc, {
-             head: [['#', '', 'Red Corner', 'Division', 'Blue Corner', '']],
+             head: [['#', 'Red Corner', '', 'Division', '', 'Blue Corner']],
              body: tableData,
              startY: 35,
              styles: { 
@@ -187,19 +187,19 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
              },
              columnStyles: {
                  0: { cellWidth: 15, fontStyle: 'bold' },
-                 1: { cellWidth: 25 }, // Red Photo
-                 2: { halign: 'left' }, // Red Name
+                 1: { halign: 'right' }, // Red Name
+                 2: { cellWidth: 25 }, // Red Photo
                  3: { cellWidth: 40, fontStyle: 'italic', textColor: [100, 100, 100] },
-                 4: { halign: 'right' }, // Blue Name
-                 5: { cellWidth: 25 } // Blue Photo
+                 4: { cellWidth: 25 }, // Blue Photo
+                 5: { halign: 'left' } // Blue Name
              },
              headStyles: { fillColor: [30, 41, 59] },
              didDrawCell: (data) => {
                  if (data.section === 'body') {
                      const match = matches[data.row.index];
                      
-                     // Red Corner Photo (Col 1)
-                     if (data.column.index === 1 && match.red?.photoUrl) {
+                     // Red Corner Photo (Col 2 -> index 2)
+                     if (data.column.index === 2 && match.red?.photoUrl) {
                          const base64 = photoMap.get(match.red.photoUrl);
                          if (base64) {
                              const dim = data.cell.height - 4;
@@ -213,8 +213,8 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                          }
                      }
  
-                     // Blue Corner Photo (Col 5)
-                     if (data.column.index === 5 && match.blue?.photoUrl) {
+                     // Blue Corner Photo (Col 4 -> index 4)
+                     if (data.column.index === 4 && match.blue?.photoUrl) {
                          const base64 = photoMap.get(match.blue.photoUrl);
                          if (base64) {
                              const dim = data.cell.height - 4;
@@ -281,34 +281,25 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                             <div className="flex flex-col md:flex-row items-stretch min-h-[140px]">
                                 
                                 {/* Red Corner */}
-                                <div className="flex-1 bg-gradient-to-r from-red-500/10 to-transparent p-4 flex items-center justify-start gap-4 border-b md:border-b-0 md:border-r border-muted/50">
-                                    <div className="relative">
-                                        <div className="absolute -inset-1 rounded-full bg-red-500/20 blur-sm"></div>
-                                        <Avatar className="h-20 w-20 border-2 border-red-500/50 shadow-sm relative">
-                                            <AvatarImage src={match.red?.photoUrl} className="object-cover" />
-                                            <AvatarFallback className="text-lg font-bold bg-background text-red-600">
-                                                {match.red?.name?.substring(0,2).toUpperCase()}
-                                            </AvatarFallback>
-                                        </Avatar>
-                                    </div>
-                                    <div className="flex flex-col">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">
-                                                {match.red?.name}
-                                            </span>
+                                <div className="flex-1 bg-gradient-to-r from-red-500/10 to-transparent p-4 flex items-center justify-end gap-4 border-b md:border-b-0 md:border-r border-muted/50">
+                                    <div className="flex flex-col items-end text-right">
+                                        <div className="flex items-center gap-2 justify-end">
                                             {match.red?.record && (
                                                 <Badge variant="secondary" className="text-[10px] h-5 px-1.5 font-mono text-muted-foreground">
                                                     {match.red.record}
                                                 </Badge>
                                             )}
+                                            <span className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">
+                                                {match.red?.name}
+                                            </span>
                                         </div>
                                         {match.red?.nickname && (
                                             <span className="text-sm font-medium text-red-600/80 italic -mt-1 mb-1">
                                                 "{match.red.nickname}"
                                             </span>
                                         )}
-                                        <div className="flex flex-col gap-0.5 mt-auto">
-                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                        <div className="flex flex-col gap-0.5 mt-auto items-end">
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1 justify-end">
                                                 <span className="font-semibold text-slate-600 dark:text-slate-400">NPC:</span> 
                                                 {match.red?.nationality || 'N/A'}
                                             </span>
@@ -318,6 +309,15 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                                                  </span>
                                             )}
                                         </div>
+                                    </div>
+                                    <div className="relative">
+                                        <div className="absolute -inset-1 rounded-full bg-red-500/20 blur-sm"></div>
+                                        <Avatar className="h-20 w-20 border-2 border-red-500/50 shadow-sm relative">
+                                            <AvatarImage src={match.red?.photoUrl} className="object-cover" />
+                                            <AvatarFallback className="text-lg font-bold bg-background text-red-600">
+                                                {match.red?.name?.substring(0,2).toUpperCase()}
+                                            </AvatarFallback>
+                                        </Avatar>
                                     </div>
                                 </div>
 
@@ -335,7 +335,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                                 </div>
 
                                 {/* Blue Corner */}
-                                <div className="flex-1 bg-gradient-to-l from-blue-500/10 to-transparent p-4 flex items-center justify-end gap-4 flex-row-reverse border-t md:border-t-0 md:border-l border-muted/50">
+                                <div className="flex-1 bg-gradient-to-l from-blue-500/10 to-transparent p-4 flex items-center justify-start gap-4 border-t md:border-t-0 md:border-l border-muted/50">
                                     <div className="relative">
                                         <div className="absolute -inset-1 rounded-full bg-blue-500/20 blur-sm"></div>
                                         <Avatar className="h-20 w-20 border-2 border-blue-500/50 shadow-sm relative">
@@ -345,8 +345,8 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                                             </AvatarFallback>
                                         </Avatar>
                                     </div>
-                                    <div className="flex flex-col items-end text-right">
-                                        <div className="flex items-center gap-2 flex-row-reverse">
+                                    <div className="flex flex-col items-start text-left">
+                                        <div className="flex items-center gap-2">
                                             <span className="text-2xl font-black uppercase text-slate-800 dark:text-slate-100 tracking-tight">
                                                 {match.blue?.name}
                                             </span>
@@ -361,8 +361,8 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                                                 "{match.blue.nickname}"
                                             </span>
                                         )}
-                                        <div className="flex flex-col gap-0.5 mt-auto items-end">
-                                            <span className="text-xs text-muted-foreground flex items-center gap-1 flex-row-reverse">
+                                        <div className="flex flex-col gap-0.5 mt-auto items-start">
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
                                                 <span className="font-semibold text-slate-600 dark:text-slate-400">NPC:</span> 
                                                 {match.blue?.nationality || 'N/A'}
                                             </span>
