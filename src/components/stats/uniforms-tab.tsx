@@ -9,12 +9,13 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Download, Search, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Download, Search, X, ArrowUpDown, ArrowUp, ArrowDown, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -85,6 +86,9 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
     if (sortConfig.key === 'fighter_id') {
       aValue = (a.person as any)?.fighter_id || '';
       bValue = (b.person as any)?.fighter_id || '';
+    } else if (sortConfig.key === 'matchNumber') {
+      aValue = (a as any).matchNumber || 999;
+      bValue = (b as any).matchNumber || 999;
     } else if (sortConfig.key === 'name') {
       aValue = a.person?.full_name || '';
       bValue = b.person?.full_name || '';
@@ -130,8 +134,9 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
             return { 
               ...f, 
               corner: (match.corner.charAt(0).toUpperCase() + match.corner.slice(1).toLowerCase()) as any,
+              matchNumber: match.matchNumber,
               _auto_corner: true // Internal flag for UI hint
-            } as FighterStats & { _auto_corner?: boolean };
+            } as FighterStats & { _auto_corner?: boolean; matchNumber?: number };
           }
         }
         return f;
@@ -211,6 +216,57 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
             }
         }));
 
+        // 2. Add Summary Sections to PDF
+        let currentY = 32;
+        const summaryRows: any[] = [];
+        ['Red', 'Blue'].forEach(corner => {
+            const counts: Record<string, number> = {};
+            const cornerLower = corner.toLowerCase();
+            fightersToExport.forEach(f => {
+                if (f.corner?.toLowerCase() === cornerLower) {
+                    [f.tshirt_size, f.coach1_size, f.coach2_size, f.coach3_size].forEach(size => {
+                        if (size && size !== 'none') {
+                            counts[size] = (counts[size] || 0) + 1;
+                        }
+                    });
+                }
+            });
+
+            const rowData = CLOTHING_SIZES.filter(s => counts[s] > 0).map(s => `${s}: ${counts[s]}`).join('   |   ');
+            if (rowData) {
+                summaryRows.push([
+                    { 
+                        content: `${corner.toUpperCase()} CORNER`, 
+                        styles: { 
+                            fontStyle: 'bold', 
+                            textColor: cornerLower === 'red' ? [185, 28, 28] : [29, 78, 216],
+                            fillColor: cornerLower === 'red' ? [254, 242, 242] : [239, 246, 255]
+                        } 
+                    },
+                    { 
+                        content: rowData,
+                        styles: {
+                            fillColor: cornerLower === 'red' ? [254, 242, 242] : [239, 246, 255]
+                        }
+                    }
+                ]);
+            }
+        });
+
+        if (summaryRows.length > 0) {
+            autoTable(doc, {
+                body: summaryRows,
+                startY: currentY,
+                theme: 'grid',
+                styles: { fontSize: 8, cellPadding: 2 },
+                columnStyles: { 0: { cellWidth: 35 } },
+                margin: { left: 14, right: 14 }
+            });
+            // @ts-ignore
+            currentY = doc.lastAutoTable.finalY + 8;
+        }
+
+        // 3. Prepare and add main table
         const tableData = fightersToExport.map(f => [
             '', // Placeholder for Photo
             (f.person as any)?.fighter_id || '-',
@@ -228,7 +284,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         autoTable(doc, {
             head: [['Photo', 'ID', 'Fighter', 'Corner', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
             body: tableData,
-            startY: 32,
+            startY: currentY,
             styles: { fontSize: 8, minCellHeight: 15, valign: 'middle' },
             headStyles: { fillColor: [41, 128, 185] },
             didDrawCell: (data) => {
@@ -239,7 +295,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                     const base64 = photoMap.get(fighter.person_id);
                     if (base64) {
                          try {
-                             doc.addImage(base64, 'JPEG', data.cell.x + 2, data.cell.y + 2, 10, 10);
+                             doc.addImage(base64, 'JPEG', data.cell.x + 2, data.cell.y + 2, 11, 11);
                          } catch (e) {
                              console.warn('Failed to add image to PDF', e);
                          }
@@ -249,10 +305,120 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         });
 
         doc.save('uniforms-report.pdf');
-        toast.success('PDF Generated successfully');
+    toast.success('PDF Generated successfully');
+  } catch (err) {
+    console.error('PDF Generation error:', err);
+    toast.error('Failed to generate PDF');
+  } finally {
+    toast.dismiss(loadingToast);
+  }
+};
+
+  const generateCollectionPDF = async () => {
+    const fightersToExport = [...sortedFighters];
+    if (fightersToExport.length === 0) {
+        toast.error('No fighters to export');
+        return;
+    }
+
+    const loadingToast = toast.loading('Generating Template with photos...');
+
+    try {
+        const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+        
+        // Pre-fetch photos
+        const photoMap = new Map<string, string>(); // person_id -> base64
+        await Promise.all(fightersToExport.map(async (f) => {
+            const fighterId = (f.person as any)?.fighter_id;
+            const photoUrl = getFighterPhotoUrl(fighterId);
+            if (photoUrl) {
+                const base64 = await getDataUrl(photoUrl);
+                if (base64) {
+                    photoMap.set(f.person_id, base64);
+                }
+            }
+        }));
+
+        doc.setFontSize(16);
+        const title = eventData ? `COLLECTION TEMPLATE - ${eventData.name}` : 'UNIFORM COLLECTION TEMPLATE';
+        doc.text(title, 14, 15);
+        
+        doc.setFontSize(8);
+        doc.text(`Generated: ${new Date().toLocaleString()} | Total: ${fightersToExport.length} Fighters`, 14, 20);
+
+        const clothingSizesStr = CLOTHING_SIZES.join('    ');
+        const gloveSizesStr = GLOVE_SIZES.join('    ');
+
+        const tableData = fightersToExport.map(f => [
+            '', // Photo
+            (f as any).matchNumber || '-',
+            `${getDisplayName(f.person || {})} \n(${f.corner || '-'})`,
+            clothingSizesStr, // T-Shirt
+            clothingSizesStr, // Shorts
+            gloveSizesStr,    // Gloves
+            clothingSizesStr, // Coach 1
+            clothingSizesStr, // Coach 2
+            clothingSizesStr  // Coach 3
+        ]);
+
+        autoTable(doc, {
+            head: [['Photo', '#', 'Fighter', 'T-Shirt', 'Shorts', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
+            body: tableData,
+            startY: 25,
+            theme: 'grid',
+            styles: { 
+                fontSize: 7, 
+                cellPadding: 1, 
+                minCellHeight: 20, 
+                valign: 'middle', 
+                halign: 'center',
+                lineWidth: 0.1,
+                lineColor: [200, 200, 200]
+            },
+            headStyles: { 
+                fillColor: [51, 65, 85], 
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            columnStyles: {
+                0: { cellWidth: 22 },
+                1: { cellWidth: 12 },
+                2: { cellWidth: 40, halign: 'left' },
+                3: { cellWidth: 32 },
+                4: { cellWidth: 32 },
+                5: { cellWidth: 25 },
+                6: { cellWidth: 32 },
+                7: { cellWidth: 32 },
+                8: { cellWidth: 32 }
+            },
+            didDrawCell: (data) => {
+                if (data.section === 'body' && data.column.index === 0) {
+                    const fighter = fightersToExport[data.row.index];
+                    if (!fighter) return;
+
+                    const base64 = photoMap.get(fighter.person_id);
+                    if (base64) {
+                         try {
+                             // Center image in the cell
+                             const imgSize = 18;
+                             const x = data.cell.x + (data.cell.width - imgSize) / 2;
+                             const y = data.cell.y + (data.cell.height - imgSize) / 2;
+                             doc.addImage(base64, 'JPEG', x, y, imgSize, imgSize);
+                         } catch (e) {
+                             console.warn('Failed to add image to PDF', e);
+                         }
+                    }
+                }
+            }
+        });
+
+        const filename = `collection-template-${eventData?.name || 'uniforms'}.pdf`.toLowerCase().replace(/\s+/g, '-');
+        doc.save(filename);
+        toast.success('Collection template generated');
     } catch (err) {
-        console.error('PDF Generation error:', err);
-        toast.error('Failed to generate PDF');
+        console.error('Template Generation error:', err);
+        toast.error('Failed to generate template');
     } finally {
         toast.dismiss(loadingToast);
     }
@@ -270,11 +436,69 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
              </p>
          </div>
          <div className="flex items-center gap-2">
+            <Button onClick={generateCollectionPDF} variant="outline" size="sm" className="gap-2 h-9 bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">
+                <FileText className="w-4 h-4 text-slate-500" />
+                Download Template
+            </Button>
             <Button onClick={generatePDF} variant="outline" size="sm" className="gap-2 h-9">
                 <Download className="w-4 h-4" />
-                Export PDF
+                Export Results
             </Button>
          </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {['Red', 'Blue'].map(corner => {
+              const cornerLower = corner.toLowerCase();
+              const counts = fighters.reduce((acc, f) => {
+                  if (f.corner?.toLowerCase() === cornerLower) {
+                      [f.tshirt_size, f.coach1_size, f.coach2_size, f.coach3_size].forEach(size => {
+                          if (size && size !== 'none') {
+                              acc[size] = (acc[size] || 0) + 1;
+                          }
+                      });
+                  }
+                  return acc;
+              }, {} as Record<string, number>);
+
+              const totalCount = Object.values(counts).reduce((a, b) => a + b, 0);
+
+              if (totalCount === 0) return null;
+
+              return (
+                  <Card key={corner} className={cn(
+                      "border-none shadow-sm overflow-hidden",
+                      cornerLower === 'red' ? "bg-red-50/50 dark:bg-red-950/10" : "bg-blue-50/50 dark:bg-blue-950/10"
+                  )}>
+                      <div className={cn(
+                          "px-4 py-2 flex items-center justify-between border-b",
+                          cornerLower === 'red' ? "bg-red-500/10 border-red-200/50" : "bg-blue-500/10 border-blue-200/50"
+                      )}>
+                          <div className="flex items-center gap-2">
+                              <div className={cn("w-2 h-2 rounded-full", cornerLower === 'red' ? "bg-red-500" : "bg-blue-600")} />
+                              <span className="text-xs font-bold uppercase tracking-wider">{corner} Corner Summary</span>
+                          </div>
+                          <Badge variant="outline" className="bg-background/50 border-none font-mono text-[10px]">
+                              Total: {totalCount} items
+                          </Badge>
+                      </div>
+                      <CardContent className="p-4">
+                          <div className="flex flex-wrap gap-2">
+                              {CLOTHING_SIZES.map(size => {
+                                  const count = counts[size] || 0;
+                                  if (count === 0) return null;
+                                  return (
+                                      <div key={size} className="flex flex-col items-center min-w-[45px] p-2 rounded-md bg-background/60 shadow-xs border border-muted/20">
+                                          <span className="text-[10px] text-muted-foreground font-medium uppercase">{size}</span>
+                                          <span className="text-sm font-bold">{count}</span>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </CardContent>
+                  </Card>
+              );
+          })}
       </div>
 
       <div className="rounded-md border bg-card">
@@ -283,6 +507,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
              <TableRow>
                <TableHead className="w-12 px-4"></TableHead>
                <TableHead className="w-[80px]">Foto</TableHead>
+               <SortableHeader label="Luta #" sortKey="matchNumber" currentSort={sortConfig} onSort={handleSort} className="w-[80px]" />
                <SortableHeader label="Fighter ID" sortKey="fighter_id" currentSort={sortConfig} onSort={handleSort} />
                <SortableHeader label="Nome" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
                <SortableHeader label="Corner" sortKey="corner" currentSort={sortConfig} onSort={handleSort} className="text-center" />
@@ -318,6 +543,11 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                   </Avatar>
                 </TableCell>
                 <TableCell>
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-black">
+                        {(fighter as any).matchNumber || '-'}
+                    </div>
+                </TableCell>
+                <TableCell>
                     <Badge variant="outline" className="font-mono text-[10px] bg-background w-fit">
                         {fighter.person?.fighter_id || '-'}
                     </Badge>
@@ -344,7 +574,9 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                                 {fighter.corner}
                             </Badge>
                         ) : (
-                            <span className="text-[10px] text-muted-foreground italic">Not set</span>
+                            <div className="h-5 w-[60px] rounded-full bg-muted/20 border border-muted/30 flex items-center justify-center opacity-40">
+                                <span className="text-[9px] text-muted-foreground font-medium uppercase">None</span>
+                            </div>
                         )}
                     </div>
                 </TableCell>
@@ -418,12 +650,15 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
 }
 
 function SelectWrapper({ value, options, placeholder, onChange }: { value: string | null | undefined, options: string[], placeholder: string, onChange: (v: string) => void }) {
+    const isEmpty = !value || value === 'none';
+    
     return (
         <Select value={value || 'none'} onValueChange={(v) => onChange(v === 'none' ? '' : v)}>
             <SelectTrigger className={cn(
-                "h-7 w-full min-w-[50px] text-[10px] px-1 font-medium",
-                value?.toLowerCase() === 'red' && "border-red-200 text-red-600",
-                value?.toLowerCase() === 'blue' && "border-blue-200 text-blue-600"
+                "h-7 w-full min-w-[50px] text-[10px] px-1 font-medium transition-all duration-200",
+                isEmpty ? "bg-muted/10 border-muted/20 text-muted-foreground/40 opacity-50 hover:opacity-100 hover:bg-muted/20" : "bg-background border-input text-foreground font-bold",
+                value?.toLowerCase() === 'red' && "border-red-200 text-red-600 bg-red-50/30",
+                value?.toLowerCase() === 'blue' && "border-blue-200 text-blue-600 bg-blue-50/30"
             )}>
                 <SelectValue placeholder={placeholder} />
             </SelectTrigger>

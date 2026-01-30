@@ -14,6 +14,10 @@ import { getEventFighterStats } from '@/lib/services/stats-service';
 import { getFighterPhotoUrl, normalizeName, getDataUrl } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { FileText } from 'lucide-react';
+
+const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
+const GLOVE_SIZES = ['S', 'M', 'L', 'XL'];
 
 interface FighterCSV {
   matchNumber: number;
@@ -250,6 +254,60 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
      }
   };
 
+  const handleDownloadCollectionTemplate = async () => {
+    if (matches.length === 0) {
+        toast.error('No matches to export');
+        return;
+    }
+
+    const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+    doc.setFontSize(16);
+    const title = event ? `COLLECTION TEMPLATE - ${event.name}` : 'UNIFORM COLLECTION TEMPLATE';
+    doc.text(title, 14, 15);
+    
+    doc.setFontSize(8);
+    const totalFighters = matches.length * 2;
+    doc.text(`Generated: ${new Date().toLocaleString()} | ${matches.length} matches | ${totalFighters} Fighters`, 14, 20);
+
+    // Flatten matches to fighters list
+    const fightersToExport: any[] = [];
+    matches.forEach(m => {
+        if (m.red) fightersToExport.push(m.red);
+        if (m.blue) fightersToExport.push(m.blue);
+    });
+
+    const tableData = fightersToExport.map(f => [
+        f.matchNumber || '-',
+        f.name || '-',
+        f.corner || '-',
+        CLOTHING_SIZES.map(s => `${s} [ ]`).join('  '), // T-Shirt
+        CLOTHING_SIZES.map(s => `${s} [ ]`).join('  '), // Shorts
+        GLOVE_SIZES.map(s => `${s} [ ]`).join('  '),    // Gloves
+        CLOTHING_SIZES.slice(1, -2).map(s => `${s} [ ]`).join('  ') // Coach (Simplified)
+    ]);
+
+    autoTable(doc, {
+        head: [['#', 'Fighter', 'Crn', 'T-Shirt Sizes', 'Shorts Sizes', 'Gloves', 'Coach Size']],
+        body: tableData,
+        startY: 25,
+        styles: { fontSize: 7, cellPadding: 2, minCellHeight: 10, valign: 'middle' },
+        headStyles: { fillColor: [51, 65, 85] },
+        columnStyles: {
+            0: { cellWidth: 8, halign: 'center' },
+            1: { cellWidth: 40 },
+            2: { cellWidth: 12, halign: 'center' },
+            3: { cellWidth: 70 },
+            4: { cellWidth: 70 },
+            5: { cellWidth: 35 },
+            6: { cellWidth: 40 }
+        }
+    });
+
+    const filename = `collection-template-${event?.name || 'uniforms'}.pdf`.toLowerCase().replace(/\s+/g, '-');
+    doc.save(filename);
+    toast.success('Collection template generated');
+  };
+
   if (loading) {
      return (
         <div className="flex h-screen items-center justify-center">
@@ -268,10 +326,14 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Event
              </Button>
-             <Button variant="outline" size="sm" onClick={handleExportPDF}>
-                <Download className="mr-2 h-4 w-4" />
-                Export PDF
-             </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadCollectionTemplate} className="bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">
+                 <FileText className="mr-2 h-4 w-4 text-slate-500" />
+                 Collection Template
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleExportPDF}>
+                 <Download className="mr-2 h-4 w-4" />
+                 Export PDF
+              </Button>
         </Header>
 
         <main className="flex-1 p-6 max-w-[1200px] mx-auto w-full space-y-6">
