@@ -150,7 +150,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                 <TableHead>Fighter</TableHead>
                                 <TableHead className="text-center w-[60px]">Status</TableHead> {/* Completed? */}
                                 <TableHead className="text-center w-[80px] hidden sm:table-cell">Bus</TableHead>
-                                <TableHead className="text-center w-[150px] hidden md:table-cell">Checks</TableHead>
+                                <TableHead className="text-right hidden md:table-cell min-w-[300px]">Checks</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -206,26 +206,19 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                         ) : <span className="text-muted-foreground">-</span>}
                                     </TableCell>
                                     <TableCell className="hidden md:table-cell align-middle">
-                                        <div className="flex flex-col gap-2 w-full min-w-[180px]">
-                                            {/* Row 1: Physical Checks - Distributed Wide */}
-                                            <div className="flex justify-between items-center px-1">
-                                                <StatusBadge label="Nail" status={row.nails_status} />
-                                                <StatusBadge label="Cup" status={row.cup_status} />
-                                                <StatusBadge label="Mth" status={row.mouthguard_status} />
-                                            </div>
+                                        <div className="flex flex-wrap items-center justify-end gap-1.5 w-full">
+                                            <StatusBadge label="Nail" status={row.nails_status} />
+                                            <StatusBadge label="Cup" status={row.cup_status} />
+                                            <StatusBadge label="Mth" status={row.mouthguard_status} />
+                                            <div className="w-px h-4 bg-border mx-1 hidden lg:block" /> {/* Separator */}
+                                            <StatusBadge label="Pass" status={row.passport_status} />
+                                            <StatusBadge label="Uni" status={row.uniform_status || 'pending'} />
                                             
-                                            {/* Row 2: Admin Checks - Distributed Wide */}
-                                            <div className="flex justify-between items-center px-1">
-                                                <StatusBadge label="Pass" status={row.passport_status} />
-                                                <StatusBadge label="Uni" status={row.uniform_status || 'pending'} />
-                                                <div className="min-w-[40px] flex justify-end">
-                                                    {(row.coaches_with_bus_count > 0 || row.coaches_credentials_given > 0) && (
-                                                        <Badge variant="secondary" className="text-[10px] h-5 px-1 bg-slate-100 text-slate-600 border-slate-200 whitespace-nowrap">
-                                                            {row.coaches_credentials_given}/{row.coaches_with_bus_count} C
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            {(row.coaches_with_bus_count > 0 || row.coaches_credentials_given > 0) && (
+                                                <Badge variant="secondary" className="text-[10px] h-5 px-1 bg-slate-100 text-slate-600 border-slate-200 whitespace-nowrap ml-1">
+                                                    {row.coaches_credentials_given}/{row.coaches_with_bus_count} C
+                                                </Badge>
+                                            )}
                                         </div>
                                     </TableCell>
                                 </TableRow>
