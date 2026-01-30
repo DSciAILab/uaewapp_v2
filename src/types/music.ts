@@ -28,10 +28,15 @@ export interface EntranceMusic {
   
   // Joined data
   enrolled?: {
+    id: string;
+    corner?: string; 
+    corner_color?: string; // Fallback
     person: {
       id: string;
       full_name: string;
-      role: string;
+      fighter_id?: string; 
+      event_name?: string;
+      role?: string;
     };
   };
 }

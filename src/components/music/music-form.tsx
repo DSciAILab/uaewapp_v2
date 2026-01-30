@@ -40,7 +40,8 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
   const [isLoading, setIsLoading] = useState(false);
   const [availableEnrolled, setAvailableEnrolled] = useState<Array<{
     id: string;
-    person: { id: string; full_name: string; role: string };
+    corner?: string;
+    person: { id: string; full_name: string; role: string; fighter_id?: string; event_name?: string };
   }>>([]);
 
   const isEditing = !!music;
@@ -70,10 +71,13 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
           .filter(e => e.role?.code === 'F')
           .map(e => ({
             id: e.id,
+            corner: e.corner || undefined,
             person: {
               id: e.person.id,
               full_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
-              role: e.role?.name || 'Fighter'
+              role: e.role?.name || 'Fighter',
+              fighter_id: e.person.fighter_id || undefined,
+              event_name: e.person.event_name || undefined
             }
           })));
       }).catch(console.error);
@@ -136,6 +140,70 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
     { value: 'not_provided', label: 'Not Provided' },
     { value: 'uploaded', label: 'Uploaded' },
   ];
+
+  const handleDownload = async (url: string | undefined, index: number) => {
+    if (!url) return;
+    try {
+      setIsLoading(true);
+      toast.info('Starting download... check your downloads folder');
+      
+      const res = await fetch('/api/public/music/convert', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, action: 'download' })
+      });
+
+      if (!res.ok) {
+         const data = await res.json();
+         throw new Error(data.error || 'Download failed');
+      }
+
+      // Create blob link to trigger download
+      const blob = await res.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = downloadUrl;
+
+      // Custom Filename Construction
+      let filename = 'audio.mp3';
+      
+      const enrolledId = form.getValues('enrolled_id');
+      const selectedEnrolled = availableEnrolled.find(e => e.id === enrolledId);
+      
+      if (selectedEnrolled) {
+        const corner = selectedEnrolled.corner || 'Corner';
+        const fighterId = selectedEnrolled.person.fighter_id || 'ID';
+        const eventName = selectedEnrolled.person.event_name || 'Event';
+        const name = selectedEnrolled.person.full_name || 'Fighter';
+        
+        const clean = (str: string) => str.replace(/[^a-z0-9\s_-]/gi, '').trim().replace(/\s+/g, '_');
+        
+        filename = `${clean(corner)}_${clean(name)}_Track-${index}.mp3`;
+      } else if (music && music.enrolled) {
+         const corner = music.enrolled.corner || 'Corner';
+         const p = music.enrolled.person as any;
+         const fighterId = p?.fighter_id || 'ID';
+         const eventName = p?.event_name || 'Event';
+         const name = p?.full_name || 'Fighter';
+         
+         const clean = (str: string) => str.replace(/[^a-z0-9\s_-]/gi, '').trim().replace(/\s+/g, '_');
+         filename = `${clean(corner)}_${clean(name)}_Track-${index}.mp3`;
+      }
+
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(downloadUrl);
+      document.body.removeChild(a);
+
+      toast.success('Download started!');
+    } catch (e: any) {
+        console.error(e);
+        toast.error(e.message || 'Download failed');
+    } finally {
+        setIsLoading(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -209,36 +277,85 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
 
             <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
               <h3 className="text-sm font-semibold">Source Link 1</h3>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
+              <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-8">
                   <FormField
                     control={form.control}
                     name="source_url"
                     render={({ field }) => (
                       <FormItem>
-                        <FormControl><Input placeholder="URL 1" {...field} /></FormControl>
+                        <FormControl>
+                            <Input placeholder="URL 1 (YouTube, Spotify, etc)" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="start_time_seconds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl><Input type="number" placeholder="Start (s)" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="col-span-4 flex gap-1">
+                     <FormField
+                        control={form.control}
+                        name="start_time_seconds"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormControl><Input type="number" placeholder="Start (s)" className="w-full" {...field} /></FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
               </div>
+
+               {/* Admin Helper Tools 1 */}
+               <div className="flex gap-2">
+                 {(form.watch('source_url')?.includes('youtube.com') || form.watch('source_url')?.includes('youtu.be')) && (
+                    <>
+                        <Button 
+                            type="button" 
+                            variant="secondary" 
+                            size="sm"
+                            className="text-xs h-7"
+                            onClick={async () => {
+                                const url = form.getValues('source_url');
+                                if (!url) return;
+                                try {
+                                    setIsLoading(true);
+                                    const res = await fetch('/api/public/music/convert', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ url, action: 'check' })
+                                    });
+                                    const data = await res.json();
+                                    if (data.error) throw new Error(data.error);
+                                    toast.success(`Found: ${data.title}`);
+                                } catch (e: any) {
+                                    toast.error(e.message);
+                                } finally {
+                                    setIsLoading(false);
+                                }
+                            }}
+                        >
+                            Verify Link
+                        </Button>
+                        <Button 
+                            type="button" 
+                            variant="destructive" 
+                            size="sm"
+                            className="text-xs h-7 bg-red-600 hover:bg-red-700 text-white"
+                            onClick={() => handleDownload(form.getValues('source_url'), 1)}
+                        >
+                            Download MP3
+                        </Button>
+                    </>
+                 )}
+               </div>
+
             </div>
 
             <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
               <h3 className="text-sm font-semibold">Source Link 2</h3>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
+              <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-8">
                   <FormField
                     control={form.control}
                     name="source_url_2"
@@ -250,23 +367,39 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                     )}
                   />
                 </div>
-                <FormField
-                  control={form.control}
-                  name="start_time_2"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormControl><Input type="number" placeholder="Start (s)" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                <div className="col-span-4">
+                    <FormField
+                    control={form.control}
+                    name="start_time_2"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormControl><Input type="number" placeholder="Start (s)" {...field} /></FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
               </div>
+                {/* Admin Helper Tools 2 */}
+               <div className="flex gap-2">
+                 {(form.watch('source_url_2')?.includes('youtube.com') || form.watch('source_url_2')?.includes('youtu.be')) && (
+                    <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm"
+                        className="text-xs h-7 bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() => handleDownload(form.getValues('source_url_2'), 2)}
+                    >
+                        Download MP3
+                    </Button>
+                 )}
+               </div>
             </div>
 
             <div className="space-y-4 border rounded-lg p-3 bg-muted/30">
               <h3 className="text-sm font-semibold">Source Link 3</h3>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="col-span-2">
+              <div className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-8">
                   <FormField
                     control={form.control}
                     name="source_url_3"
@@ -278,6 +411,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                     )}
                   />
                 </div>
+                <div className="col-span-4">
                 <FormField
                   control={form.control}
                   name="start_time_3"
@@ -288,7 +422,22 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                     </FormItem>
                   )}
                 />
+                </div>
               </div>
+                {/* Admin Helper Tools 3 */}
+               <div className="flex gap-2">
+                 {(form.watch('source_url_3')?.includes('youtube.com') || form.watch('source_url_3')?.includes('youtu.be')) && (
+                    <Button 
+                        type="button" 
+                        variant="destructive" 
+                        size="sm"
+                        className="text-xs h-7 bg-red-600 hover:bg-red-700 text-white"
+                        onClick={() => handleDownload(form.getValues('source_url_3'), 3)}
+                    >
+                        Download MP3
+                    </Button>
+                 )}
+               </div>
             </div>
 
             <FormField

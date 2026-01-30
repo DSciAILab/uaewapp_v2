@@ -10,6 +10,8 @@ import { MusicForm } from '@/components/music/music-form';
 import { MusicPlayer } from '@/components/music/music-player';
 import { EntranceMusic, MusicStatus } from '@/types/music';
 import { getEventMusic } from '@/lib/services/music-service';
+import { MusicCSVImport } from '@/components/music/music-csv-import';
+import { MusicBulkDownload } from '@/components/music/music-bulk-download';
 
 export default function MusicPage() {
   const params = useParams();
@@ -65,9 +67,13 @@ export default function MusicPage() {
           <h1 className="text-3xl font-bold">Entrance Music</h1>
           <p className="text-muted-foreground">Manage fighter walkout songs and order</p>
         </div>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />Add Music
-        </Button>
+        <div className="flex gap-2">
+          <MusicBulkDownload music={music} eventName={music[0]?.enrolled?.person?.event_name || 'Event'} />
+          <MusicCSVImport onSuccess={loadMusic} />
+          <Button onClick={() => setIsFormOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />Add Music
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

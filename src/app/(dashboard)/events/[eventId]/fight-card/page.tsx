@@ -210,6 +210,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
              didDrawCell: (data) => {
                  if (data.section === 'body') {
                      const match = matches[data.row.index];
+                     if (!match) return;
                      
                      // Red Corner Photo (Col 2 -> index 2)
                      if (data.column.index === 2 && match.red?.photoUrl) {

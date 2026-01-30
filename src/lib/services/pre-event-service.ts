@@ -14,7 +14,11 @@ import {
   PreEventClearance,
   PreEventSummary,
   ClearanceStatus,
+  LogisticsRow,
 } from '@/types/pre-event';
+import { EntranceMusic } from '@/types/music';
+import { FighterStats } from '@/types/stats';
+import { CarPassenger } from '@/types/transport';
 
 function getClient() {
   return createClient();
@@ -635,6 +639,125 @@ export async function getPreEventSummary(eventId: string): Promise<PreEventSumma
   }
 
   return summaries;
+}
+// ==================== LOGISTICS ====================
+
+export async function getLogisticsOverview(eventId: string): Promise<LogisticsRow[]> {
+  const supabase = getClient();
+
+  // 1. Fetch Aggregated Pre-Event Summary (Blood, Medical, Docs)
+  const summaries = await getPreEventSummary(eventId);
+
+  // 2. Fetch Music Status
+  const { data: musicData } = await supabase
+    .from('mma_entrance_music')
+    .select('enrolled_id, status')
+    .eq('event_id', eventId);
+  
+  const musicMap = new Map();
+  musicData?.forEach(m => musicMap.set(m.enrolled_id, m.status));
+
+  // 3. Fetch Fighter Stats (Uniforms)
+  // We need person_ids first to query stats
+  const enrolledIds = summaries.map(s => s.enrolled_id);
+  const { data: enrollments } = await supabase
+    .from('mma_enrollments')
+    .select('id, person_id')
+    .in('id', enrolledIds);
+    
+  const personMap = new Map(enrollments?.map(e => [e.id, e.person_id]));
+  const personIds = enrollments?.map(e => e.person_id) || [];
+
+  const { data: statsData } = await supabase
+    .from('mma_fighter_stats')
+    .select('person_id, uniform_size, shorts_size, tshirt_size, weight_class')
+    .in('person_id', personIds);
+
+  const statsMap = new Map(statsData?.map(s => [s.person_id, s]));
+
+  // 4. Fetch Transport Assignments (Cars)
+  const { data: assignments } = await supabase
+    .from('mma_car_passengers')
+    .select(`
+      enrolled_id,
+      transport_type,
+      car:mma_event_cars!inner(id, car_number)
+    `)
+    .in('enrolled_id', enrolledIds);
+
+  const transportMap = new Map();
+  assignments?.forEach(a => {
+    if (!transportMap.has(a.enrolled_id)) {
+      transportMap.set(a.enrolled_id, { arrival: null, departure: null });
+    }
+    const t = transportMap.get(a.enrolled_id);
+    if (a.transport_type === 'arrival') {
+      t.arrival = a.car;
+    } else if (a.transport_type === 'departure') {
+      t.departure = a.car;
+    } else if (a.transport_type === 'both') {
+      t.arrival = a.car;
+      t.departure = a.car;
+    }
+  });
+
+  // 5. Fetch Weigh-Ins
+  const { data: weighIns } = await supabase
+      .from('mma_event_weigh_ins')
+      .select('enrolled_id, made_weight, official_weight_kg')
+      .eq('event_id', eventId);
+  
+  const weighInMap = new Map(weighIns?.map(w => [w.enrolled_id, w]));
+
+  // 6. Aggregate EVERYTHING
+  return summaries.map(summary => {
+    const personId = personMap.get(summary.enrolled_id) || '';
+    const stats = statsMap.get(personId);
+    
+    // Music Logic
+    const musicStatus = musicMap.get(summary.enrolled_id);
+    let musicState: 'ok' | 'pending' | 'missing' = 'missing';
+    if (musicStatus === 'approved') musicState = 'ok';
+    else if (musicStatus === 'pending' || musicStatus === 'submitted') musicState = 'pending';
+
+    // Uniform Logic
+    let uniformState: 'ok' | 'partial' | 'missing' = 'missing';
+    if (stats) {
+       if (stats.uniform_size && stats.shorts_size && stats.tshirt_size) uniformState = 'ok';
+       else if (stats.uniform_size || stats.shorts_size || stats.tshirt_size) uniformState = 'partial';
+    }
+
+    // Weight Logic
+    const weighIn = weighInMap.get(summary.enrolled_id);
+    let weightState: 'ok' | 'missed' | 'pending' = 'pending';
+    if (weighIn) {
+        weightState = weighIn.made_weight ? 'ok' : 'missed';
+    }
+
+    // Transport Logic
+    const transport = transportMap.get(summary.enrolled_id) || { arrival: null, departure: null };
+
+    return {
+      enrolled_id: summary.enrolled_id,
+      person_id: personId,
+      full_name: summary.person_name,
+      role: summary.role,
+      checklist: {
+        blood_test: summary.blood_tests.all_clear ? 'cleared' : (summary.blood_tests.failed > 0 ? 'denied' : 'pending'),
+        medical_exam: summary.medical_exams.all_clear ? 'cleared' : (summary.medical_exams.failed > 0 ? 'denied' : 'pending'),
+        documents: summary.documents.all_clear ? 'cleared' : (summary.documents.rejected > 0 ? 'denied' : 'pending'),
+        music: musicState,
+        uniform: uniformState,
+        weight: weightState,
+      },
+      transport: {
+        arrival_car_id: transport.arrival?.id || null,
+        departure_car_id: transport.departure?.id || null,
+        arrival_car_number: transport.arrival?.car_number || null,
+        departure_car_number: transport.departure?.car_number || null,
+      }
+    };
+  });
 }
 
 export async function getPreEventStats(eventId: string): Promise<{

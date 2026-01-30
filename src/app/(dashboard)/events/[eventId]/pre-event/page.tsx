@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Droplet, Stethoscope, FileText, Users } from 'lucide-react';
+import { Plus, Droplet, Stethoscope, FileText, Users, Plane } from 'lucide-react';
 import { PreEventSummaryStats } from '@/components/pre-event/pre-event-summary';
 import { ClearanceStatusCard } from '@/components/pre-event/clearance-status-card';
 import { BloodTestTable } from '@/components/pre-event/blood-test-table';
@@ -13,14 +13,18 @@ import { MedicalExamTable } from '@/components/pre-event/medical-exam-table';
 import { MedicalExamForm } from '@/components/pre-event/medical-exam-form';
 import { DocumentsTable } from '@/components/pre-event/documents-table';
 import { DocumentForm } from '@/components/pre-event/document-form';
-import { BloodTest, MedicalExam, RequiredDocument, PreEventSummary } from '@/types/pre-event';
+import { BloodTest, MedicalExam, RequiredDocument, PreEventSummary, LogisticsRow } from '@/types/pre-event';
+import { LogisticsTable } from '@/components/pre-event/logistics-table';
+import { EventCar } from '@/types/transport';
 import { 
   getEventBloodTests, 
   getEventMedicalExams, 
   getEventDocuments, 
   getPreEventSummary,
-  getPreEventStats 
+  getPreEventStats,
+  getLogisticsOverview
 } from '@/lib/services/pre-event-service';
+import { getEventCars } from '@/lib/services/transport-service';
 
 export default function PreEventPage() {
   const params = useParams();
@@ -41,6 +45,9 @@ export default function PreEventPage() {
     medical_exams_pending: 0,
     documents_pending: 0,
   });
+  const [logisticsData, setLogisticsData] = useState<LogisticsRow[]>([]);
+  const [eventCars, setEventCars] = useState<EventCar[]>([]);
+
   const [enrolledList, setEnrolledList] = useState<Array<{ id: string; person: { full_name: string } }>>([]);
   
   // Blood Test state
@@ -60,12 +67,14 @@ export default function PreEventPage() {
   const loadData = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [bloodTestsData, medicalExamsData, documentsData, summariesData, statsData] = await Promise.all([
+      const [bloodTestsData, medicalExamsData, documentsData, summariesData, statsData, logisticsOverview, carsData] = await Promise.all([
         getEventBloodTests(eventId),
         getEventMedicalExams(eventId),
         getEventDocuments(eventId),
         getPreEventSummary(eventId),
         getPreEventStats(eventId),
+        getLogisticsOverview(eventId),
+        getEventCars(eventId)
       ]);
       
       setBloodTests(bloodTestsData);
@@ -73,6 +82,8 @@ export default function PreEventPage() {
       setDocuments(documentsData);
       setSummaries(summariesData);
       setStats(statsData);
+      setLogisticsData(logisticsOverview);
+      setEventCars(carsData);
 
       // Build enrolled list from summaries
       setEnrolledList(summariesData.map(s => ({
@@ -141,6 +152,9 @@ export default function PreEventPage() {
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <Users className="h-4 w-4" />Overview
           </TabsTrigger>
+          <TabsTrigger value="logistics" className="flex items-center gap-2">
+            <Plane className="h-4 w-4" />Logistics & Readiness
+          </TabsTrigger>
           <TabsTrigger value="blood" className="flex items-center gap-2">
             <Droplet className="h-4 w-4" />Blood Tests
           </TabsTrigger>
@@ -167,6 +181,19 @@ export default function PreEventPage() {
               )}
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="logistics" className="mt-4">
+           {isLoading ? (
+             <div className="text-center py-8">Loading...</div>
+           ) : (
+             <LogisticsTable 
+               data={logisticsData} 
+               cars={eventCars} 
+               eventId={eventId} 
+               onRefresh={loadData} 
+             />
+           )}
         </TabsContent>
 
         <TabsContent value="blood" className="mt-4">

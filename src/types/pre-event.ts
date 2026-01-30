@@ -240,6 +240,27 @@ export interface PreEventSummary {
   clearance_status: ClearanceStatus;
 }
 
+export interface LogisticsRow {
+  enrolled_id: string;
+  person_id: string;
+  full_name: string;
+  role: string;
+  checklist: {
+    blood_test: ClearanceStatus;
+    medical_exam: ClearanceStatus;
+    documents: ClearanceStatus;
+    music: 'ok' | 'pending' | 'missing';
+    uniform: 'ok' | 'partial' | 'missing';
+    weight: 'ok' | 'missed' | 'pending'; 
+  };
+  transport: {
+    arrival_car_id: string | null;
+    departure_car_id: string | null;
+    arrival_car_number: number | null;
+    departure_car_number: number | null;
+  };
+}
+
 export const BLOOD_TEST_TYPES = [
   'Standard Panel',
   'Drug Screen',

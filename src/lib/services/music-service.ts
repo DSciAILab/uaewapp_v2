@@ -34,7 +34,8 @@ export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name:compiled_name)
+        corner,
+        person:mma_people!inner(id, full_name:compiled_name, fighter_id, event_name)
       )
     `)
     .eq('event_id', eventId)

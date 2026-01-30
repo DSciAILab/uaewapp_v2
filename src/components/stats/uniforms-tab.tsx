@@ -111,43 +111,71 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
     loadData();
   }, [eventId]);
 
+  /* 
+     * Optimizing loadData to prevent the external Google Sheets CSV fetch (getFightCardData)
+     * from blocking the entire page load. We load local DB data first, render it, 
+     * and then enrich it with the external data in the background.
+     */
   const loadData = async () => {
     setLoading(true);
+    
+    // 1. Load critical local data first
     try {
-      const [data, event, fightCard] = await Promise.all([
+      const [data, event] = await Promise.all([
         getEventFighterStats(eventId),
-        getEventById(eventId),
-        getFightCardData()
+        getEventById(eventId)
       ]);
-
-      // Cross-reference corners
-      const enrichedFighters = data.map((f: FighterStats) => {
-        // Only auto-fill if corner is null
-        if (!f.corner) {
-          const match = fightCard.find((c: any) => {
-            const pName = normalizeName(f.person?.full_name || '');
-            const cName = normalizeName(c.name);
-            return pName === cName || pName.includes(cName) || cName.includes(pName);
-          });
-          
-          if (match) {
-            return { 
-              ...f, 
-              corner: (match.corner.charAt(0).toUpperCase() + match.corner.slice(1).toLowerCase()) as any,
-              matchNumber: match.matchNumber,
-              _auto_corner: true // Internal flag for UI hint
-            } as FighterStats & { _auto_corner?: boolean; matchNumber?: number };
-          }
-        }
-        return f;
-      });
-
-      setFighters(enrichedFighters);
+      
+      setFighters(data);
       setEventData(event);
+      setLoading(false); // Valid data is ready, stop spinner
+
+      // 2. Load external data (Fight Card CSV) in background
+      try {
+        const fightCard = await getFightCardData();
+        
+        if (fightCard && fightCard.length > 0) {
+          setFighters(prevFighters => {
+            return prevFighters.map((f: FighterStats) => {
+              // Only auto-fill if corner is null
+              if (!f.corner) {
+                const match = fightCard.find((c: any) => {
+                  const pName = normalizeName(f.person?.full_name || '');
+                  const cName = normalizeName(c.name);
+                  return pName === cName || pName.includes(cName) || cName.includes(pName);
+                });
+                
+                if (match) {
+                  return { 
+                    ...f, 
+                    corner: (match.corner.charAt(0).toUpperCase() + match.corner.slice(1).toLowerCase()) as any,
+                    matchNumber: match.matchNumber,
+                    _auto_corner: true
+                  } as FighterStats & { _auto_corner?: boolean; matchNumber?: number };
+                }
+              } else {
+                 // Even if corner is set, we might want to attach match number
+                 const match = fightCard.find((c: any) => {
+                  const pName = normalizeName(f.person?.full_name || '');
+                  const cName = normalizeName(c.name);
+                  return pName === cName || pName.includes(cName) || cName.includes(pName);
+                });
+                if (match) {
+                   return { ...f, matchNumber: match.matchNumber } as any;
+                }
+              }
+              return f;
+            });
+          });
+        }
+      } catch (externalError) {
+        console.warn('Background fetch of fight card data failed:', externalError);
+        // Do not block UI or show error toast for this non-critical failure
+      }
+
     } catch (error) {
       toast.error('Failed to load fighter data');
       console.error(error);
-    } finally {
       setLoading(false);
     }
   };

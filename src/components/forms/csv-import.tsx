@@ -185,7 +185,7 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
       const transformed: Partial<PersonFormData> = {}
       mappings.forEach(m => {
         if (m.dbField !== 'skip') {
-          let value = row[m.csvColumn]?.trim()
+          const value = row[m.csvColumn]?.trim()
           
           if (!value) {
              (transformed as any)[m.dbField] = null
