@@ -14,7 +14,16 @@ export default async function StagingRedirectPage() {
     .single();
 
   if (event) {
-    redirect(`/public/staging/${event.id}`);
+    // Check if user is authenticated
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (user) {
+      // Authenticated users go to Operations
+      redirect(`/events/${event.id}/staging`);
+    } else {
+      // Unauthenticated users (TVs) go to Public View
+      redirect(`/public/staging/${event.id}`);
+    }
   }
 
   // Fallback if no active event found or error

@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
 import { DashboardData, EventMetrics, ModuleStatus, UpcomingDeadline, ActivityItem } from '@/types/dashboard';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 const getClient = () => createClient();
 
@@ -9,16 +10,19 @@ const getClient = () => createClient();
  * Instead of multiple client-side queries, we use a single server-side PL/pgSQL function.
  * This reduces latency from ~800ms to ~40ms.
  */
-export async function getDashboardData(eventId: string): Promise<DashboardData> {
-  const supabase = getClient();
+export async function getDashboardData(eventId: string, client?: SupabaseClient, initialEvent?: any): Promise<DashboardData> {
+  const supabase = client || getClient();
   // Parallel fetch: Event Static Info + Metrics (via RPC) + Deadlines
   const [eventResult, metricsResult, deadlinesResult] = await Promise.all([
-    supabase.from('mma_events').select('id, name, event_date, city, status').eq('id', eventId).single(),
+    initialEvent ? { data: initialEvent, error: null } : supabase.from('mma_events').select('id, name, event_date, city, status').eq('id', eventId).single(),
     supabase.rpc('get_event_dashboard_metrics', { p_event_id: eventId }),
-    getUpcomingDeadlines(eventId)
+    getUpcomingDeadlines(eventId, client)
   ]);
 
-  if (eventResult.error) throw new Error('Failed to fetch event info');
+  if (eventResult.error) {
+    console.error('Dashboard Event Fetch Error:', eventResult.error);
+    throw new Error(`Failed to fetch event info: ${eventResult.error.message}`);
+  }
   if (metricsResult.error) {
     console.error('RPC Error:', metricsResult.error);
     throw new Error('Failed to fetch operational metrics via RPC');
@@ -48,8 +52,8 @@ export async function getDashboardData(eventId: string): Promise<DashboardData> 
 /**
  * Compatibility export: Fetches only metrics using the optimized RPC.
  */
-export async function getEventMetrics(eventId: string): Promise<EventMetrics> {
-  const supabase = getClient();
+export async function getEventMetrics(eventId: string, client?: SupabaseClient): Promise<EventMetrics> {
+  const supabase = client || getClient();
   const { data, error } = await supabase.rpc('get_event_dashboard_metrics', { p_event_id: eventId });
   if (error) throw error;
   return data as EventMetrics;
@@ -58,8 +62,8 @@ export async function getEventMetrics(eventId: string): Promise<EventMetrics> {
 /**
  * Helper to fetch upcoming deadlines (optimized)
  */
-export async function getUpcomingDeadlines(eventId: string): Promise<UpcomingDeadline[]> {
-  const supabase = getClient();
+export async function getUpcomingDeadlines(eventId: string, client?: SupabaseClient): Promise<UpcomingDeadline[]> {
+  const supabase = client || getClient();
   const { data: tasks } = await supabase
     .from('mma_athlete_tasks')
     .select('id, task_type, scheduled_date, scheduled_time')

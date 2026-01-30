@@ -28,7 +28,7 @@ export default async function DashboardPage() {
 
   if (event) {
     try {
-      dashboardData = await getDashboardData(event.id);
+      dashboardData = await getDashboardData(event.id, supabase, event);
       modules = calculateModuleStatuses(dashboardData.metrics);
       deadlines = dashboardData.deadlines;
     } catch (error) {
