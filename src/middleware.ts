@@ -37,7 +37,8 @@ export async function middleware(request: NextRequest) {
   const publicRoutes = ['/login', '/callback', '/']
   const isPublicRoute = publicRoutes.some(route => 
     request.nextUrl.pathname === route || 
-    request.nextUrl.pathname.startsWith('/tv')
+    request.nextUrl.pathname.startsWith('/tv') ||
+    request.nextUrl.pathname.startsWith('/public')
   )
 
   // Redirecionar para login se não autenticado
