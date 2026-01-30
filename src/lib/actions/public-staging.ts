@@ -100,11 +100,10 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
             return allTokensMatch;
         });
 
-        // "Show Everyone" logic
-        const matchData = match || { matchNumber: null, corner: null, name: null };
-        const existing = checkinMap.get(enr.id);
+        if (!match) continue; // Skip if not on fight card
 
-        const displayName = person.event_name || matchData.name || fullName;
+        const existing = checkinMap.get(enr.id);
+        const displayName = person.event_name || match.name || fullName;
 
         result.push({
             id: existing?.id || `temp_${enr.id}`,
@@ -120,9 +119,9 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
             coaches_with_bus_count: existing?.coaches_with_bus_count || 0,
             coaches_credentials_given: existing?.coaches_credentials_given || 0,
             notes: existing?.notes || null,
-            call_order: existing?.call_order || matchData.matchNumber || 999,
-            fight_order: matchData.matchNumber || null,
-            corner: matchData.corner || null,
+            call_order: existing?.call_order || match.matchNumber || 999,
+            fight_order: match.matchNumber || null,
+            corner: match.corner || null,
             is_completed: existing?.is_completed || false,
             created_at: existing?.created_at || new Date().toISOString(),
             updated_at: existing?.updated_at || new Date().toISOString(),
@@ -133,7 +132,7 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
                 fighter_id: person.fighter_id,
                 photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
             },
-            event_name: Array.isArray(enr.event) ? enr.event[0]?.name : enr.event?.name
+            event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name : (enr.event as any)?.name
         });
     }
 
