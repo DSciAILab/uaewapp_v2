@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
     const { url, action } = body;
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // ACTION: CHECK (Get Metadata)
     if (action === 'check') {
-        return new Promise((resolve) => {
+        return new Promise<NextResponse>((resolve) => {
             const process = spawn('yt-dlp', ['--dump-json', url]);
             let dataString = '';
             
@@ -52,16 +52,6 @@ export async function POST(req: NextRequest) {
 
     // ACTION: DOWNLOAD (Stream to Client)
     if (action === 'download') {
-        
-        // We need to fetch title first for filename (optional but nice)
-        // Or we can just stream it. Let's just stream to be fast.
-        // We'll use a generic filename or try to get it?
-        // Let's use a generic one for speed, or `yt-dlp` can handle it? 
-        // We set Content-Disposition in Next.js response.
-        
-        // -x: Extract audio
-        // --audio-format mp3: Convert to mp3
-        // -o -: Output to stdout
         const ytProcess = spawn('yt-dlp', [
             '-x',
             '--audio-format', 'mp3',
@@ -74,22 +64,16 @@ export async function POST(req: NextRequest) {
                 ytProcess.stdout.on('data', (chunk) => controller.enqueue(chunk));
                 
                 ytProcess.stdout.on('end', () => {
-                    // We wait for process to close to ensure we don't close prematurely if using exit code check?
-                    // Actually 'end' on stdout means no more data. 
-                    // But legitimate failure might yield empty stdout.
+                   // End of stream
                 });
 
                 ytProcess.stderr.on('data', (data) => {
-                    console.log(`yt-dlp stderr: ${data}`); // Log progress/errors
+                    console.log(`yt-dlp stderr: ${data}`);
                 });
 
                 ytProcess.on('close', (code) => {
                     if (code !== 0) {
                          console.error(`yt-dlp exited with code ${code}`);
-                         // If we haven't closed yet, maybe error? 
-                         // But if we already sent data, we can't really "error" the HTTP response easily mid-stream 
-                         // without breaking the chunk encoding or just closing connection.
-                         // controller.error(new Error(`Exit code ${code}`));
                     }
                     controller.close();
                 });
@@ -106,69 +90,81 @@ export async function POST(req: NextRequest) {
                 'Content-Type': 'audio/mpeg',
                 'Content-Disposition': `attachment; filename="download.mp3"`,
             },
+        }) as unknown as NextResponse; 
+        // Note: NextResponse usually takes BodyInit. ReadableStream is valid but TS might complain about types in Next 13/14 sometimes.
+        // Casting to unknown then NextResponse or just returning Response (polymorphic) is safer.
+        // Actually, let's return standard Response if NextResponse complains, but the signature wants NextResponse.
+        // The original code returned NextResponse(stream).
+        // If TS error persists, we change return type to Promise<Response>.
+    }
+
+    // ACTION: UPLOAD (To Supabase)
+    if (action === 'upload') {
+        // PRIORITY: Use Service Role Key (Bypass RLS)
+        let supabase;
+        if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            const { createClient: createAdminClient } = await import('@supabase/supabase-js');
+            supabase = createAdminClient(
+                process.env.NEXT_PUBLIC_SUPABASE_URL!, 
+                process.env.SUPABASE_SERVICE_ROLE_KEY
+            );
+        } else {
+            const { createClient: createServerClient } = await import('@/lib/supabase/server');
+            supabase = await createServerClient();
+        }
+        
+        // 1. Get Info for Title
+        const infoProcess = spawn('yt-dlp', ['--dump-json', url]);
+        let infoData = '';
+        for await (const chunk of infoProcess.stdout) {
+            infoData += chunk;
+        }
+        
+        if (!infoData) {
+             throw new Error('Failed to get video info');
+        }
+
+        const info = JSON.parse(infoData);
+        
+        const sanitizedTitle = info.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const filename = `yt_${Date.now()}_${sanitizedTitle}.mp3`;
+
+        // 2. Stream Download -> Buffer -> Supabase
+        const downloadProcess = spawn('yt-dlp', ['-f', 'bestaudio', '-o', '-', url]);
+        const chunks: Uint8Array[] = [];
+        
+        for await (const chunk of downloadProcess.stdout) {
+            chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('music')
+            .upload(filename, buffer, {
+                contentType: 'audio/mpeg',
+                upsert: false
+            });
+
+        if (uploadError) {
+            throw new Error('Supabase Upload Failed: ' + uploadError.message);
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('music')
+            .getPublicUrl(filename);
+
+        return NextResponse.json({
+            success: true,
+            title: info.title,
+            publicUrl: publicUrl
         });
     }
 
-    // ACTION: UPLOAD (To Supabase) - REFACTORED FOR YT-DLP
-    
-    // PRIORITY: Use Service Role Key (Bypass RLS)
-    let supabase;
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        const { createClient: createAdminClient } = await import('@supabase/supabase-js');
-        supabase = createAdminClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!, 
-            process.env.SUPABASE_SERVICE_ROLE_KEY
-        );
-    } else {
-        const { createClient: createServerClient } = await import('@/lib/supabase/server');
-        supabase = await createServerClient();
-    }
-    
-    // 1. Get Info for Title
-    const infoProcess = spawn('yt-dlp', ['--dump-json', url]);
-    let infoData = '';
-    for await (const chunk of infoProcess.stdout) {
-        infoData += chunk;
-    }
-    const info = JSON.parse(infoData);
-    
-    const sanitizedTitle = info.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const filename = `yt_${Date.now()}_${sanitizedTitle}.mp3`;
-
-    // 2. Stream Download -> Buffer -> Supabase
-    // Note: Supabase Node client needs Buffer/Blob. 
-    // Ideally we stream upload, but Supabase-js `upload` takes a Body.
-    // We can buffer it (memory intensive) or use specialized stream uploader.
-    // For now, let's buffer (Music is usually < 10MB).
-    
-    const downloadProcess = spawn('yt-dlp', ['-f', 'bestaudio', '-o', '-', url]);
-    const chunks: Uint8Array[] = [];
-    
-    for await (const chunk of downloadProcess.stdout) {
-        chunks.push(chunk);
-    }
-    const buffer = Buffer.concat(chunks);
-
-    const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('music')
-        .upload(filename, buffer, {
-            contentType: 'audio/mpeg',
-            upsert: false
-        });
-
-    if (uploadError) {
-        throw new Error('Supabase Upload Failed: ' + uploadError.message);
-    }
-
-    const { data: { publicUrl } } = supabase.storage
-        .from('music')
-        .getPublicUrl(filename);
-
-    return NextResponse.json({
-        success: true,
-        title: info.title,
-        publicUrl: publicUrl
-    });
+    // Default: Bad Request
+    return NextResponse.json(
+        { error: 'Invalid action' },
+        { status: 400 }
+    );
 
   } catch (error: any) {
     console.error('YouTube processing error:', error);
