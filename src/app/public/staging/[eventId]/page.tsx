@@ -197,7 +197,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                     </div>
                                 </TableHead>
                                 <TableHead className="text-center min-w-[300px]">Checks</TableHead>
-                                <TableHead className="text-right">Notes</TableHead>
+                                <TableHead className="text-left">Notes</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -252,7 +252,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                                 <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-full border border-slate-200 dark:border-slate-700 mr-2" title="Coaches Credentials / Bus">
                                                     <Users className="h-4 w-4 text-slate-500" />
                                                     <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                                                        {row.coaches_credentials_given}/{row.coaches_with_bus_count}
+                                                        {row.coaches_credentials_given}
                                                     </span>
                                                 </div>
                                             )}
@@ -264,7 +264,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                             <CategoryIcon type="uniform" title="Uniform" status={row.uniform_status || 'pending'} />
                                         </div>
                                     </TableCell>
-                                    <TableCell className="text-right max-w-[150px] truncate text-xs text-muted-foreground" title={row.notes || ''}>
+                                    <TableCell className="text-left max-w-[200px] whitespace-normal break-words text-xs text-muted-foreground" title={row.notes || ''}>
                                         {row.notes || '-'}
                                     </TableCell>
                                 </TableRow>
@@ -320,12 +320,12 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                         {(row.coaches_with_bus_count > 0 || row.coaches_credentials_given > 0) && (
                                              <div className="flex items-center gap-1 text-[10px] bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded px-1 py-0.5 w-fit border border-blue-100 dark:border-blue-800">
                                                 <Users className="h-3 w-3" />
-                                                <span className="font-semibold">{row.coaches_credentials_given}/{row.coaches_with_bus_count}</span>
+                                                <span className="font-semibold">{row.coaches_credentials_given}</span>
                                              </div>
                                         )}
                                     </div>
                                     {row.notes && (
-                                        <div className="mt-2 text-[10px] text-muted-foreground italic border-t pt-1 truncate">
+                                        <div className="mt-2 text-[10px] text-muted-foreground italic border-t pt-1 whitespace-normal break-words">
                                             {row.notes}
                                         </div>
                                     )}
