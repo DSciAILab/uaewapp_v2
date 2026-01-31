@@ -45,48 +45,45 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
         const checkinMap = new Map<string, StagingCheckin>();
         checkins.forEach((c: StagingCheckin) => checkinMap.set(c.enrolled_id, c));
 
-        const processedEnrollmentIds = new Set<string>();
         const result: StagingRow[] = [];
 
-        // 3. Loop 1: Iterate Fight Card (The "Left Table" of our Join)
-        // This ensures everyone on the schedule is listed, even if not enrolled.
-        for (const fight of fightCard) {
-            const fightNameNorm = normalizeName(fight.name || '').toLowerCase();
-            
-            // Find matching enrollment
-            const matchedEnrollment = enrollments.find(enr => {
-                if (processedEnrollmentIds.has(enr.id)) return false; // Already taken
+            // Start of Logic aligned with staging-service.ts
+            // We iterate ONLY enrollments. The Fight Card is used for enrichment/lookup only.
+            // This prevents "Ghosts" from mismatched events and ensures 1:1 parity with Admin Panel.
 
+            for (const enr of enrollments) {
                 const person = Array.isArray(enr.person) ? enr.person[0] : enr.person;
-                if (!person) return false;
-
-                const dbName = `${person.name || ''} ${person.surname || ''}`.trim();
-                const dbNameNorm = normalizeName(dbName).toLowerCase();
-
-                // 1. Exact Match
-                if (dbNameNorm === fightNameNorm) return true;
                 
-                // 2. Fuzzy / Token Match
-                const fTokens = fightNameNorm.split(/\s+/);
-                const dTokens = dbNameNorm.split(/\s+/);
-                
-                // Very simple fuzzy: if all tokens of one are in the other
-                return fTokens.every(t => dbNameNorm.includes(t)) || 
-                       dTokens.every(t => fightNameNorm.includes(t));
-            });
+                if (!person) {
+                    console.warn('[PublicStaging] Missing person for enrollment:', enr.id);
+                    continue;
+                }
 
-            // Build Row Result
-            if (matchedEnrollment) {
-                // CASE A: Scheduled AND Enrolled
-                processedEnrollmentIds.add(matchedEnrollment.id);
-                const existing = checkinMap.get(matchedEnrollment.id);
-                const person = Array.isArray(matchedEnrollment.person) ? matchedEnrollment.person[0] : matchedEnrollment.person;
-                const dbName = `${person.name || ''} ${person.surname || ''}`.trim();
+                const fullName = `${person.name || ''} ${person.surname || ''}`.trim();
+                const eventName = person.event_name || '';
+
+                // Find match in Fight Card (No Filtering, just strict logic)
+                const matchData = fightCard.find((fight: any) => {
+                    const cName = normalizeName(fight.name || '');
+                    const pName = normalizeName(fullName);
+                    const eName = normalizeName(eventName);
+                    
+                    // Robust matching from staging-service.ts
+                    return pName === cName || 
+                           eName === cName || 
+                           (cName.length > 3 && pName.includes(cName)) || 
+                           (pName.length > 3 && cName.includes(pName)) ||
+                           (cName.length > 3 && eName.includes(cName)) ||
+                           (eName.length > 3 && cName.includes(eName));
+                }) || { matchNumber: null, corner: null, name: null }; // Default if no match
+
+                const existing = checkinMap.get(enr.id);
+                const dbName = fullName;
 
                 result.push({
-                    id: existing?.id || `temp_${matchedEnrollment.id}`,
+                    id: existing?.id || `temp_${enr.id}`,
                     event_id: eventId,
-                    enrolled_id: matchedEnrollment.id,
+                    enrolled_id: enr.id,
                     bus_number: existing?.bus_number || null,
                     bus_time: existing?.bus_time || null,
                     passport_status: (existing?.passport_status) || 'pending',
@@ -96,107 +93,36 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
                     uniform_status: (existing?.uniform_status) || 'pending',
                     coaches_with_bus_count: existing?.coaches_with_bus_count || 0,
                     coaches_credentials_given: existing?.coaches_credentials_given || 0,
-                    notes: existing?.notes || null, // Ensure notes are passed
-                    call_order: existing?.call_order || fight.matchNumber || 999,
-                    fight_order: fight.matchNumber || null,
-                    corner: (fight.corner as any) || null,
+                    notes: existing?.notes || null,
+                    call_order: existing?.call_order || matchData.matchNumber || 999, // Fallback to end
+                    fight_order: matchData.matchNumber || null,
+                    corner: (matchData.corner as any) || null,
                     is_completed: existing?.is_completed || false,
                     created_at: existing?.created_at || new Date().toISOString(),
                     updated_at: existing?.updated_at || new Date().toISOString(),
                     person: {
                         id: person.id,
-                        full_name: person.event_name || fight.name || dbName, // Prefer event name -> fight card -> raw db
-                        nationality: person.nationality || fight.nationality,
+                        full_name: matchData.name || person.event_name || fullName, // Use Fight Card name -> Event Name -> Full Name
+                        nationality: person.nationality,
                         fighter_id: person.fighter_id,
                         photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
                     },
-                    event_name: Array.isArray(matchedEnrollment.event) ? (matchedEnrollment.event[0] as any)?.name : (matchedEnrollment.event as any)?.name
-                });
-
-            } else {
-                // CASE B: Scheduled but NOT Enrolled (Ghost)
-                // We show them so staff knows they are missing from DB
-                result.push({
-                    id: `ghost_${Math.random()}`,
-                    event_id: eventId,
-                    enrolled_id: 'pending', // No ID yet
-                    bus_number: null,
-                    bus_time: null,
-                    passport_status: 'pending',
-                    nails_status: 'pending',
-                    cup_status: 'pending',
-                    mouthguard_status: 'pending',
-                    uniform_status: 'pending',
-                    coaches_with_bus_count: 0,
-                    coaches_credentials_given: 0,
-                    notes: 'Not Enrolled in System',
-                    call_order: fight.matchNumber || 999,
-                    fight_order: fight.matchNumber || null,
-                    corner: (fight.corner as any) || null,
-                    is_completed: false,
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                    person: {
-                        id: 'pending',
-                        full_name: fight.name,
-                        nationality: fight.nationality,
-                        fighter_id: '---',
-                        photo_url: undefined
-                    },
-                    event_name: 'Unknown Event' 
+                    event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name : (enr.event as any)?.name
                 });
             }
-        }
 
-        // 4. Loop 2: Remaining Enrollments (The "Right Table" of our Join)
-        // Athletes in DB but NOT in Fight Card CSV (e.g. late additions, mismatch names)
-        for (const enr of enrollments) {
-            if (processedEnrollmentIds.has(enr.id)) continue;
-
-            const existing = checkinMap.get(enr.id);
-            const person = Array.isArray(enr.person) ? enr.person[0] : enr.person;
-            if (!person) continue;
-
-             result.push({
-                id: existing?.id || `temp_${enr.id}`,
-                event_id: eventId,
-                enrolled_id: enr.id,
-                bus_number: existing?.bus_number || null,
-                bus_time: existing?.bus_time || null,
-                passport_status: (existing?.passport_status) || 'pending',
-                nails_status: (existing?.nails_status) || 'pending',
-                cup_status: (existing?.cup_status) || 'pending',
-                mouthguard_status: (existing?.mouthguard_status) || 'pending',
-                uniform_status: (existing?.uniform_status) || 'pending',
-                coaches_with_bus_count: existing?.coaches_with_bus_count || 0,
-                coaches_credentials_given: existing?.coaches_credentials_given || 0,
-                notes: existing?.notes || 'Not on Fight Card',
-                call_order: existing?.call_order || 999,
-                fight_order: null, // No order known
-                corner: null,
-                is_completed: existing?.is_completed || false,
-                created_at: existing?.created_at || new Date().toISOString(),
-                updated_at: existing?.updated_at || new Date().toISOString(),
-                person: {
-                    id: person.id,
-                    full_name: person.event_name || `${person.name} ${person.surname}`,
-                    nationality: person.nationality,
-                    fighter_id: person.fighter_id,
-                    photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
-                },
-                event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name : (enr.event as any)?.name
+            // Final Sort matches staging-service
+            return result.sort((a, b) => {
+                // Sort by fight_order (ascending), nulls last
+                const orderA = a.fight_order ?? 999;
+                const orderB = b.fight_order ?? 999;
+                return orderA - orderB;
             });
-        }
-
-        // 5. Final Sort
-        return result.sort((a, b) => {
-            const orderA = a.fight_order ?? 9999;
-            const orderB = b.fight_order ?? 9999;
-            return orderA - orderB;
-        });
 
     } catch (err) {
         console.error('[PublicStaging] Critical error:', err);
         return [];
     }
 }
+
+

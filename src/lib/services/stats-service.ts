@@ -578,7 +578,7 @@ export async function getFightCardData(): Promise<any[]> {
   const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8I30mTm8ZyuBttmebz9wv-41TIZ-8HzHiLEYcEhXD2Y5JXCn7AD3aDmOIBpYSp-9tMF7F7obDdQsw/pub?gid=1830739607&single=true&output=csv';
   
   try {
-    const response = await fetch(CSV_URL);
+    const response = await fetch(CSV_URL, { cache: 'no-store' });
     if (!response.ok) throw new Error('Failed to fetch CSV');
     const csvText = await response.text();
     
