@@ -60,20 +60,22 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
     const blueDone = data.filter(r => r.corner === 'BLUE' && r.is_completed).length;
 
     // Helper for Status Badge
-    // Helper for Status Badge
     const StatusBadge = ({ status, label }: { status: string, label: string }) => {
         let variant: "default" | "secondary" | "destructive" | "outline" = "outline";
-        let className = "text-[10px] h-5 px-1 border-dashed text-muted-foreground";
+        let className = "text-[10px] h-5 px-1 border-dashed text-muted-foreground w-full justify-center";
 
         if (status === 'checked') {
             variant = "default";
-            className = "bg-green-600 hover:bg-green-600 text-[10px] h-5 px-1";
+            // Explicit green for both light/dark
+            className = "bg-green-600 hover:bg-green-600 text-white border-green-700 text-[10px] h-5 px-1 w-full justify-center";
         } else if (status === 'missed') {
             variant = "destructive";
-            className = "text-[10px] h-5 px-1";
+             // Explicit red for both light/dark
+            className = "bg-red-600 hover:bg-red-600 text-white border-red-700 text-[10px] h-5 px-1 w-full justify-center";
         } else if (status === 'verify_at_venue') {
             variant = "secondary";
-            className = "bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200 text-[10px] h-5 px-1";
+             // Orange
+            className = "bg-orange-500 hover:bg-orange-600 text-white border-orange-600 text-[10px] h-5 px-1 w-full justify-center";
         }
 
         return (
@@ -84,11 +86,11 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
     };
 
     return (
-        <div className="min-h-screen bg-slate-50 p-2 sm:p-4">
+        <div className="min-h-screen bg-background text-foreground p-2 sm:p-4">
             {/* Header / Stats */}
             <div className="max-w-6xl mx-auto space-y-4">
                 <div className="flex flex-col gap-2">
-                     <h1 className="text-xl font-bold text-slate-900">
+                     <h1 className="text-xl font-bold">
                         {data[0]?.event_name || 'Event Pre-Departure Check'} Monitor
                      </h1>
                      <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -103,25 +105,25 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                 {/* Corner Stats */}
                 <div className="grid grid-cols-2 gap-3">
                     <div className={cn(
-                        "rounded-lg p-3 border flex flex-col items-center justify-center gap-1 transition-colors",
-                         cornerFilter === 'RED' ? "bg-red-100 border-red-300 ring-2 ring-red-500/20" : "bg-white border-red-100"
+                        "rounded-lg p-3 border flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer",
+                         cornerFilter === 'RED' ? "bg-red-500/10 border-red-500/50 ring-2 ring-red-500/20" : "bg-card border-border hover:bg-accent"
                     )} onClick={() => setCornerFilter(f => f === 'RED' ? 'ALL' : 'RED')}>
-                        <span className="text-xs font-bold text-red-700 uppercase tracking-wider">Red Corner</span>
-                        <span className="text-2xl font-bold text-red-900">{redDone}/{redTotal}</span>
-                        <span className="text-[10px] text-red-600">Checked In</span>
+                        <span className="text-xs font-bold text-red-600 dark:text-red-400 uppercase tracking-wider">Red Corner</span>
+                        <span className="text-2xl font-bold">{redDone}/{redTotal}</span>
+                        <span className="text-[10px] text-muted-foreground">Checked In</span>
                     </div>
                     <div className={cn(
-                        "rounded-lg p-3 border flex flex-col items-center justify-center gap-1 transition-colors",
-                         cornerFilter === 'BLUE' ? "bg-blue-100 border-blue-300 ring-2 ring-blue-500/20" : "bg-white border-blue-100"
+                        "rounded-lg p-3 border flex flex-col items-center justify-center gap-1 transition-colors cursor-pointer",
+                         cornerFilter === 'BLUE' ? "bg-blue-500/10 border-blue-500/50 ring-2 ring-blue-500/20" : "bg-card border-border hover:bg-accent"
                     )} onClick={() => setCornerFilter(f => f === 'BLUE' ? 'ALL' : 'BLUE')}>
-                        <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Blue Corner</span>
-                        <span className="text-2xl font-bold text-blue-900">{blueDone}/{blueTotal}</span>
-                        <span className="text-[10px] text-blue-600">Checked In</span>
+                        <span className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider">Blue Corner</span>
+                        <span className="text-2xl font-bold">{blueDone}/{blueTotal}</span>
+                        <span className="text-[10px] text-muted-foreground">Checked In</span>
                     </div>
                 </div>
 
-                {/* Filter Control (Visible on larger screens or distinct from cards) */}
-                <div className="flex justify-between items-center bg-white p-2 rounded-lg border shadow-sm">
+                {/* Filter Control */}
+                <div className="flex justify-between items-center bg-card p-2 rounded-lg border shadow-sm">
                     <div className="flex items-center gap-2">
                         <Filter className="h-4 w-4 text-muted-foreground" />
                         <Select value={cornerFilter} onValueChange={(v: any) => setCornerFilter(v)}>
@@ -140,17 +142,17 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                     </Button>
                 </div>
 
-                {/* Mobile Friendly Cards List for very small screens, Table for tablet+ */}
-                <div className="bg-white rounded-lg border shadow-sm overflow-hidden">
+                {/* Desktop Table (Hidden on Mobile) */}
+                <div className="hidden md:block bg-card rounded-lg border shadow-sm overflow-hidden">
                     <Table>
                         <TableHeader>
                             <TableRow className="bg-muted/50 text-xs">
                                 <TableHead className="w-[50px] text-center">#</TableHead>
                                 <TableHead className="w-[60px]">Photo</TableHead>
                                 <TableHead>Fighter</TableHead>
-                                <TableHead className="text-center w-[60px]">Status</TableHead> {/* Completed? */}
-                                <TableHead className="text-center w-[80px] hidden sm:table-cell">Bus</TableHead>
-                                <TableHead className="text-right hidden md:table-cell min-w-[300px]">Checks</TableHead>
+                                <TableHead className="text-center w-[60px]">Status</TableHead>
+                                <TableHead className="text-center w-[80px]">Bus</TableHead>
+                                <TableHead className="text-right min-w-[300px]">Checks</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -169,7 +171,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                     key={row.enrolled_id}
                                     className={cn(
                                         "transition-colors",
-                                        row.is_completed ? "bg-emerald-50/60 hover:bg-emerald-50/80" : ""
+                                        row.is_completed ? "bg-emerald-500/10 hover:bg-emerald-500/20" : ""
                                     )}
                                 >
                                     <TableCell className="text-center font-bold text-muted-foreground">
@@ -192,12 +194,12 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                     </TableCell>
                                     <TableCell className="text-center">
                                          {row.is_completed ? (
-                                            <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-[10px] h-5">DONE</Badge>
+                                            <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] h-5">DONE</Badge>
                                          ) : (
                                             <Badge variant="outline" className="text-muted-foreground text-[10px] h-5 border-dashed">PENDING</Badge>
                                          )}
                                     </TableCell>
-                                    <TableCell className="text-center hidden sm:table-cell">
+                                    <TableCell className="text-center">
                                         {row.bus_number ? (
                                             <div className="flex flex-col items-center">
                                                 <span className="font-bold text-xs">{row.bus_number}</span>
@@ -205,26 +207,84 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                             </div>
                                         ) : <span className="text-muted-foreground">-</span>}
                                     </TableCell>
-                                    <TableCell className="hidden md:table-cell align-middle">
+                                    <TableCell className="text-right">
                                         <div className="flex flex-wrap items-center justify-end gap-1.5 w-full">
-                                            <StatusBadge label="Nail" status={row.nails_status} />
-                                            <StatusBadge label="Cup" status={row.cup_status} />
-                                            <StatusBadge label="Mth" status={row.mouthguard_status} />
-                                            <div className="w-px h-4 bg-border mx-1 hidden lg:block" /> {/* Separator */}
-                                            <StatusBadge label="Pass" status={row.passport_status} />
-                                            <StatusBadge label="Uni" status={row.uniform_status || 'pending'} />
-                                            
-                                            {(row.coaches_with_bus_count > 0 || row.coaches_credentials_given > 0) && (
-                                                <Badge variant="secondary" className="text-[10px] h-5 px-1 bg-slate-100 text-slate-600 border-slate-200 whitespace-nowrap ml-1">
-                                                    {row.coaches_credentials_given}/{row.coaches_with_bus_count} C
-                                                </Badge>
-                                            )}
+                                            <div className="w-16"><StatusBadge label="Nail" status={row.nails_status} /></div>
+                                            <div className="w-16"><StatusBadge label="Cup" status={row.cup_status} /></div>
+                                            <div className="w-16"><StatusBadge label="Mth" status={row.mouthguard_status} /></div>
+                                            <div className="w-px h-4 bg-border mx-1" />
+                                            <div className="w-16"><StatusBadge label="Pass" status={row.passport_status} /></div>
+                                            <div className="w-16"><StatusBadge label="Uni" status={row.uniform_status || 'pending'} /></div>
                                         </div>
                                     </TableCell>
                                 </TableRow>
                             ))}
                         </TableBody>
                     </Table>
+                </div>
+
+                {/* Mobile Card List (Visible on Mobile) */}
+                <div className="md:hidden space-y-2">
+                    {loading && data.length === 0 && <div className="text-center p-4">Loading...</div>}
+                    {!loading && filteredData.length === 0 && <div className="text-center p-4">No athletes found.</div>}
+                    
+                    {filteredData.map(row => (
+                        <div key={row.enrolled_id} className={cn(
+                            "bg-card border rounded-lg overflow-hidden shadow-sm flex flex-col",
+                            row.is_completed ? "border-green-500/30 bg-green-500/5" : "border-border"
+                        )}>
+                            <div className="flex w-full">
+                                {/* Left Side: 50% - Identity */}
+                                <div className="w-1/2 p-3 flex flex-col gap-2 border-r border-border/50">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-mono text-muted-foreground">#{row.fight_order || '-'}</span>
+                                        <Badge variant="outline" className={cn(
+                                            "h-5 text-[10px] px-1",
+                                            row.corner === 'RED' ? "text-red-600 border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900" : 
+                                            row.corner === 'BLUE' ? "text-blue-600 border-blue-200 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900" : ""
+                                        )}>
+                                            {row.corner || 'N/A'}
+                                        </Badge>
+                                    </div>
+                                    
+                                    <div className="flex items-center gap-2">
+                                        <Avatar className={cn(
+                                            "h-10 w-10 border-2 shrink-0",
+                                            row.corner === 'RED' ? "border-red-500" : row.corner === 'BLUE' ? "border-blue-500" : "border-muted"
+                                        )}>
+                                            <AvatarImage src={row.person.photo_url || ''} />
+                                            <AvatarFallback>{row.person.full_name?.substring(0,2)}</AvatarFallback>
+                                        </Avatar>
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className="font-bold text-sm leading-tight truncate">{row.person.full_name}</span>
+                                            <span className="text-[10px] text-muted-foreground">{row.person.fighter_id}</span>
+                                        </div>
+                                    </div>
+
+                                    {row.bus_number && (
+                                         <div className="mt-1 flex items-center gap-1 text-[10px] bg-muted/50 rounded px-1 py-0.5 w-fit">
+                                            <span className="font-semibold">Bus: {row.bus_number}</span>
+                                         </div>
+                                    )}
+                                </div>
+
+                                {/* Right Side: 50% - Badges Grid */}
+                                <div className="w-1/2 p-2 bg-muted/10 grid grid-cols-2 gap-1 content-start">
+                                    <StatusBadge label="Nail" status={row.nails_status} />
+                                    <StatusBadge label="Cup" status={row.cup_status} />
+                                    <StatusBadge label="Mth" status={row.mouthguard_status} />
+                                    <StatusBadge label="Pass" status={row.passport_status} />
+                                    <StatusBadge label="Uni" status={row.uniform_status || 'pending'} />
+                                    
+                                    {row.is_completed ? (
+                                        <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] h-5 justify-center w-full">DONE</Badge>
+                                    ) : (
+                                        <Badge variant="outline" className="text-muted-foreground text-[10px] h-5 border-dashed justify-center w-full">WAIT</Badge>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
         </div>
