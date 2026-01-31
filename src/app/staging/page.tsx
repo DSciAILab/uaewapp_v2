@@ -9,7 +9,7 @@ export default async function StagingRedirectPage() {
     .from('mma_events')
     .select('id')
     .eq('status', 'active')
-    .order('start_date', { ascending: false })
+    .order('event_date', { ascending: false })
     .limit(1)
     .single();
 

@@ -7,7 +7,8 @@ import { StagingTable } from '@/components/staging/staging-table';
 import { getStagingData } from '@/lib/services/staging-service';
 import { StagingRow } from '@/types/staging';
 import { Button } from '@/components/ui/button';
-import { RefreshCw } from 'lucide-react';
+import { RefreshCw, ExternalLink, Copy } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function StagingPage() {
   const params = useParams();
@@ -38,18 +39,36 @@ export default function StagingPage() {
     loadData();
   }, [loadData]);
 
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/public/staging/${eventId}`;
+    navigator.clipboard.writeText(url);
+    toast.success('Public link copied to clipboard');
+  };
+
+  const handleOpenPublic = () => {
+    window.open(`/public/staging/${eventId}`, '_blank');
+  };
+
   return (
     <div className="flex flex-col h-full space-y-4 p-6">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold tracking-tight">
-            {eventName ? `${eventName} - Staging` : 'Physical Staging & Dispatch'}
+            {eventName ? `${eventName} - Pre-Departure Check` : 'Pre-Departure Check'}
           </h2>
           <p className="text-muted-foreground">
             Manage physical checks, coach credentials, and bus assignments.
           </p>
         </div>
         <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={handleCopyLink} title="Copy Public Link">
+                <Copy className="mr-2 h-4 w-4" />
+                Copy Link
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleOpenPublic}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Public Monitor
+            </Button>
             <Button variant="outline" size="sm" onClick={loadData} disabled={isLoading}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                 Refresh

@@ -57,7 +57,7 @@ const navItems = [
   { label: 'Entrance Music', href: '/music', icon: 'Music', area: 'operations' },
   { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
   { label: 'Pre-Event', href: '/pre-event', icon: 'ShieldCheck', area: 'pre_event' },
-  { label: 'Staging', href: '/staging', icon: 'ClipboardList', area: 'pre_event' },
+  { label: 'Pre-Departure Check', href: '/staging', icon: 'ClipboardList', area: 'pre_event' },
   { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
   { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
   { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },

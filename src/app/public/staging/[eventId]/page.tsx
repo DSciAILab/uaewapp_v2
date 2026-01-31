@@ -89,7 +89,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
             <div className="max-w-6xl mx-auto space-y-4">
                 <div className="flex flex-col gap-2">
                      <h1 className="text-xl font-bold text-slate-900">
-                        {data[0]?.event_name || 'Event Staging'} Monitor
+                        {data[0]?.event_name || 'Event Pre-Departure Check'} Monitor
                      </h1>
                      <div className="flex items-center justify-between text-xs text-muted-foreground">
                         <span>Updated: {lastUpdated.toLocaleTimeString()}</span>

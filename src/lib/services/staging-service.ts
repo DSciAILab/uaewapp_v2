@@ -15,7 +15,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
     .from('mma_enrollments')
     .select(`
       id,
-      person:mma_people(id, name, surname, nationality, fighter_id, passport_photo),
+      person:mma_people(id, name, surname, nationality, fighter_id, passport_photo, event_name),
       event:mma_events(name),
       role:mma_roles!inner(code)
     `)
@@ -64,13 +64,22 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
     }
 
     const fullName = `${person.name || ''} ${person.surname || ''}`.trim();
+    const eventName = person.event_name || '';
 
     // Match with Fight Card to get Corner / Match #
     // Also serves as a filter: "Only fighters must be shown"
     const match = fightCard.find((c: any) => {
         const pName = normalizeName(fullName);
+        const eName = normalizeName(eventName);
         const cName = normalizeName(c.name);
-        return pName === cName || pName.includes(cName) || cName.includes(pName);
+        
+        // Robust matching: check full name, event name, or partial inclusion
+        return pName === cName || 
+               eName === cName || 
+               (cName.length > 3 && pName.includes(cName)) || 
+               (pName.length > 3 && cName.includes(pName)) ||
+               (cName.length > 3 && eName.includes(cName)) ||
+               (eName.length > 3 && cName.includes(eName));
     });
 
     // If "Only fighters must be shown in this list", and we rely on the fight card for that:
@@ -103,7 +112,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
       updated_at: existing?.updated_at || new Date().toISOString(),
       person: {
         id: person.id,
-        full_name: matchData.name || fullName, // Use Fight Card name if available (Event Name), else Passport Name
+        full_name: matchData.name || eventName || fullName, // Use Fight Card name -> Event Name -> Full Name
         nationality: person.nationality,
         fighter_id: person.fighter_id,
         photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
