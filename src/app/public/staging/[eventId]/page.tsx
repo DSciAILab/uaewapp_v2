@@ -150,7 +150,6 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                 <TableHead className="w-[50px] text-center">#</TableHead>
                                 <TableHead className="w-[60px]">Photo</TableHead>
                                 <TableHead>Fighter</TableHead>
-                                <TableHead className="text-center w-[60px]">Status</TableHead>
                                 <TableHead className="text-center w-[80px]">Bus</TableHead>
                                 <TableHead className="text-right min-w-[300px]">Checks</TableHead>
                             </TableRow>
@@ -158,12 +157,12 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                         <TableBody>
                             {loading && data.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center">Loading...</TableCell>
+                                    <TableCell colSpan={5} className="h-24 text-center">Loading...</TableCell>
                                 </TableRow>
                             )}
                             {!loading && filteredData.length === 0 && (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">No athletes found.</TableCell>
+                                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">No athletes found.</TableCell>
                                 </TableRow>
                             )}
                             {filteredData.map(row => (
@@ -191,13 +190,6 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                             <span className="font-bold text-sm leading-tight">{row.person.full_name}</span>
                                             <span className="text-[10px] text-muted-foreground">{row.person.fighter_id}</span>
                                         </div>
-                                    </TableCell>
-                                    <TableCell className="text-center">
-                                         {row.is_completed ? (
-                                            <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] h-5">DONE</Badge>
-                                         ) : (
-                                            <Badge variant="outline" className="text-muted-foreground text-[10px] h-5 border-dashed">PENDING</Badge>
-                                         )}
                                     </TableCell>
                                     <TableCell className="text-center">
                                         {row.bus_number ? (
@@ -275,12 +267,6 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                     <StatusBadge label="Mth" status={row.mouthguard_status} />
                                     <StatusBadge label="Pass" status={row.passport_status} />
                                     <StatusBadge label="Uni" status={row.uniform_status || 'pending'} />
-                                    
-                                    {row.is_completed ? (
-                                        <Badge className="bg-green-600 hover:bg-green-600 text-white text-[10px] h-5 justify-center w-full">DONE</Badge>
-                                    ) : (
-                                        <Badge variant="outline" className="text-muted-foreground text-[10px] h-5 border-dashed justify-center w-full">WAIT</Badge>
-                                    )}
                                 </div>
                             </div>
                         </div>
