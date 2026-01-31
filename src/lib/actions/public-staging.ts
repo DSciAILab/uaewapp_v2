@@ -1,145 +1,202 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server';
-import { getStagingData } from '@/lib/services/staging-service';
-
-// Wrapper to ensure we can fetch this data server-side without client-side RLS issues
-// In a real scenario, we might want to check specific public permissions, 
-// but for now we assume possessing the eventUUID is enough context or we rely on the service logic.
-// However, getStagingData uses the client-side `createClient` import by default in the service file.
-// We should probably instantiate a server client here and duplicate the logic OR 
-// refactor the service to accept a client. 
-// For speed/safety, I will re-implement the fetch logic here using the Server Client which has correct context
-// or simply assume the anon key has read access if configured. 
-// BUT, often RLS is "auth only". 
-// To allow "Public View", we might need the Service Role if RLS is strict, OR ensure RLS allows Anon select on these tables.
-// Since I can't easily change RLS right now without SQL, I'll try to use the server client.
-
-// Actually, `getStagingData` imports `createClient` from `@/lib/supabase/client`. 
-// That won't work in a Server Action for context.
-// I will rewrite a specific fetch function here.
-
+import { createAdminClient } from '@/lib/supabase/server';
 import { StagingRow, StagingCheckin } from '@/types/staging';
-import { getFightCardData } from '@/lib/services/stats-service'; // Import from stats-service
+import { getFightCardData } from '@/lib/services/stats-service'; 
 import { normalizeName, getFighterPhotoUrl } from '@/lib/utils';
 
 export async function getPublicStagingData(eventId: string): Promise<StagingRow[]> {
-    const supabase = await createClient(); // Server client
+    console.log(`[PublicStaging] Fetching for event: ${eventId}`);
+    const supabase = await createAdminClient();
 
-    // 1. Get all enrollments
-    const { data: enrollments, error: enrollError } = await supabase
-        .from('mma_enrollments')
-        .select(`
-            id,
-            person:mma_people(id, name, surname, nationality, fighter_id, passport_photo, event_name),
-            event:mma_events(name),
-            role:mma_roles!inner(code)
-        `)
-        .eq('event_id', eventId)
-        .eq('status', 'active')
-        .eq('role.code', 'F');
-
-    if (enrollError) {
-        console.error('Public Fetch Error (Enrollments):', enrollError);
-        return [];
-    }
-
-    if (!enrollments || enrollments.length === 0) return [];
-
-    // 2. Get staging checkins
-    const { data: checkins, error: checkinError } = await supabase
-        .from('mma_staging_checkins')
-        .select('*')
-        .eq('event_id', eventId);
-
-    if (checkinError) {
-        console.error('Public Fetch Error (Checkins):', checkinError);
-        return [];
-    }
-
-    // 3. Fight Card
-    const fightCard = await getFightCardData();
-
-    const checkinMap = new Map<string, StagingCheckin>();
-    checkins?.forEach((c: StagingCheckin) => checkinMap.set(c.enrolled_id, c));
-
-    const result: StagingRow[] = [];
-
-    for (const enr of enrollments) {
-        const person = Array.isArray(enr.person) ? enr.person[0] : enr.person;
-        if (!person) continue;
-
-        const fullName = `${person.name || ''} ${person.surname || ''}`.trim();
-
-        // Match Logic (Same as service)
-        // Match Logic (Improved Fuzzy)
-        const match = fightCard.find((c: any) => {
-            if (!c.name) return false;
+    try {
+        // 1. Parallel Fetch: Enrollments, Checkins, Fight Card
+        const [enrollmentRes, checkinRes, fightCard] = await Promise.all([
+            // Enrollments
+            supabase
+                .from('mma_enrollments')
+                .select(`
+                    id,
+                    person:mma_people(id, name, surname, nationality, fighter_id, passport_photo, event_name),
+                    event:mma_events(name),
+                    role:mma_roles!inner(code)
+                `)
+                .eq('event_id', eventId)
+                .eq('status', 'active')
+                .eq('role.code', 'F'),
             
-            const pName = normalizeName(fullName).toLowerCase();
-            const cName = normalizeName(c.name).toLowerCase();
+            // Checkins
+            supabase
+                .from('mma_staging_checkins')
+                .select('*')
+                .eq('event_id', eventId),
+
+            // Fight Card (External CSV)
+            getFightCardData()
+        ]);
+
+        const enrollments = enrollmentRes.data || [];
+        const checkins = checkinRes.data || [];
+        
+        if (enrollmentRes.error) console.error('[PublicStaging] Enrollment error:', enrollmentRes.error);
+        if (checkinRes.error) console.error('[PublicStaging] Checkin error:', checkinRes.error);
+
+        // 2. Maps for fast lookup
+        const checkinMap = new Map<string, StagingCheckin>();
+        checkins.forEach((c: StagingCheckin) => checkinMap.set(c.enrolled_id, c));
+
+        const processedEnrollmentIds = new Set<string>();
+        const result: StagingRow[] = [];
+
+        // 3. Loop 1: Iterate Fight Card (The "Left Table" of our Join)
+        // This ensures everyone on the schedule is listed, even if not enrolled.
+        for (const fight of fightCard) {
+            const fightNameNorm = normalizeName(fight.name || '').toLowerCase();
             
-            // 1. Direct match
-            if (pName === cName) return true;
-            if (pName.includes(cName) || cName.includes(pName)) return true;
+            // Find matching enrollment
+            const matchedEnrollment = enrollments.find(enr => {
+                if (processedEnrollmentIds.has(enr.id)) return false; // Already taken
 
-            // 2. Token match (Handle "Khabib" vs "Khabibulla")
-            const pTokens = pName.split(/\s+/);
-            const cTokens = cName.split(/\s+/);
+                const person = Array.isArray(enr.person) ? enr.person[0] : enr.person;
+                if (!person) return false;
 
-            // We want to ensure the Fight Card name (usually simpler) matches the Passport Name (usually longer)
-            // Checks if ALL tokens in the short name can be found in the long name
-            const allTokensMatch = cTokens.every(cToken => {
-                 return pTokens.some(pToken => 
-                     pToken === cToken || 
-                     pToken.startsWith(cToken) ||  // "Khabibulla" starts with "Khabib"
-                     cToken.startsWith(pToken)     // "Chris" starts with "Christopher"? No, other way
-                 );
+                const dbName = `${person.name || ''} ${person.surname || ''}`.trim();
+                const dbNameNorm = normalizeName(dbName).toLowerCase();
+
+                // 1. Exact Match
+                if (dbNameNorm === fightNameNorm) return true;
+                
+                // 2. Fuzzy / Token Match
+                const fTokens = fightNameNorm.split(/\s+/);
+                const dTokens = dbNameNorm.split(/\s+/);
+                
+                // Very simple fuzzy: if all tokens of one are in the other
+                return fTokens.every(t => dbNameNorm.includes(t)) || 
+                       dTokens.every(t => fightNameNorm.includes(t));
             });
 
-            return allTokensMatch;
+            // Build Row Result
+            if (matchedEnrollment) {
+                // CASE A: Scheduled AND Enrolled
+                processedEnrollmentIds.add(matchedEnrollment.id);
+                const existing = checkinMap.get(matchedEnrollment.id);
+                const person = Array.isArray(matchedEnrollment.person) ? matchedEnrollment.person[0] : matchedEnrollment.person;
+                const dbName = `${person.name || ''} ${person.surname || ''}`.trim();
+
+                result.push({
+                    id: existing?.id || `temp_${matchedEnrollment.id}`,
+                    event_id: eventId,
+                    enrolled_id: matchedEnrollment.id,
+                    bus_number: existing?.bus_number || null,
+                    bus_time: existing?.bus_time || null,
+                    passport_status: (existing?.passport_status) || 'pending',
+                    nails_status: (existing?.nails_status) || 'pending',
+                    cup_status: (existing?.cup_status) || 'pending',
+                    mouthguard_status: (existing?.mouthguard_status) || 'pending',
+                    uniform_status: (existing?.uniform_status) || 'pending',
+                    coaches_with_bus_count: existing?.coaches_with_bus_count || 0,
+                    coaches_credentials_given: existing?.coaches_credentials_given || 0,
+                    notes: existing?.notes || null, // Ensure notes are passed
+                    call_order: existing?.call_order || fight.matchNumber || 999,
+                    fight_order: fight.matchNumber || null,
+                    corner: (fight.corner as any) || null,
+                    is_completed: existing?.is_completed || false,
+                    created_at: existing?.created_at || new Date().toISOString(),
+                    updated_at: existing?.updated_at || new Date().toISOString(),
+                    person: {
+                        id: person.id,
+                        full_name: person.event_name || fight.name || dbName, // Prefer event name -> fight card -> raw db
+                        nationality: person.nationality || fight.nationality,
+                        fighter_id: person.fighter_id,
+                        photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
+                    },
+                    event_name: Array.isArray(matchedEnrollment.event) ? (matchedEnrollment.event[0] as any)?.name : (matchedEnrollment.event as any)?.name
+                });
+
+            } else {
+                // CASE B: Scheduled but NOT Enrolled (Ghost)
+                // We show them so staff knows they are missing from DB
+                result.push({
+                    id: `ghost_${Math.random()}`,
+                    event_id: eventId,
+                    enrolled_id: 'pending', // No ID yet
+                    bus_number: null,
+                    bus_time: null,
+                    passport_status: 'pending',
+                    nails_status: 'pending',
+                    cup_status: 'pending',
+                    mouthguard_status: 'pending',
+                    uniform_status: 'pending',
+                    coaches_with_bus_count: 0,
+                    coaches_credentials_given: 0,
+                    notes: 'Not Enrolled in System',
+                    call_order: fight.matchNumber || 999,
+                    fight_order: fight.matchNumber || null,
+                    corner: (fight.corner as any) || null,
+                    is_completed: false,
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                    person: {
+                        id: 'pending',
+                        full_name: fight.name,
+                        nationality: fight.nationality,
+                        fighter_id: '---',
+                        photo_url: undefined
+                    },
+                    event_name: 'Unknown Event' 
+                });
+            }
+        }
+
+        // 4. Loop 2: Remaining Enrollments (The "Right Table" of our Join)
+        // Athletes in DB but NOT in Fight Card CSV (e.g. late additions, mismatch names)
+        for (const enr of enrollments) {
+            if (processedEnrollmentIds.has(enr.id)) continue;
+
+            const existing = checkinMap.get(enr.id);
+            const person = Array.isArray(enr.person) ? enr.person[0] : enr.person;
+            if (!person) continue;
+
+             result.push({
+                id: existing?.id || `temp_${enr.id}`,
+                event_id: eventId,
+                enrolled_id: enr.id,
+                bus_number: existing?.bus_number || null,
+                bus_time: existing?.bus_time || null,
+                passport_status: (existing?.passport_status) || 'pending',
+                nails_status: (existing?.nails_status) || 'pending',
+                cup_status: (existing?.cup_status) || 'pending',
+                mouthguard_status: (existing?.mouthguard_status) || 'pending',
+                uniform_status: (existing?.uniform_status) || 'pending',
+                coaches_with_bus_count: existing?.coaches_with_bus_count || 0,
+                coaches_credentials_given: existing?.coaches_credentials_given || 0,
+                notes: existing?.notes || 'Not on Fight Card',
+                call_order: existing?.call_order || 999,
+                fight_order: null, // No order known
+                corner: null,
+                is_completed: existing?.is_completed || false,
+                created_at: existing?.created_at || new Date().toISOString(),
+                updated_at: existing?.updated_at || new Date().toISOString(),
+                person: {
+                    id: person.id,
+                    full_name: person.event_name || `${person.name} ${person.surname}`,
+                    nationality: person.nationality,
+                    fighter_id: person.fighter_id,
+                    photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
+                },
+                event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name : (enr.event as any)?.name
+            });
+        }
+
+        // 5. Final Sort
+        return result.sort((a, b) => {
+            const orderA = a.fight_order ?? 9999;
+            const orderB = b.fight_order ?? 9999;
+            return orderA - orderB;
         });
 
-        // Use defaults if not matched (Show everyone, like dashboard)
-        const matchData = match || { matchNumber: null, corner: null, name: null };
-        const displayName = person.event_name || matchData.name || fullName;
-
-        const existing = checkinMap.get(enr.id);
-
-        result.push({
-            id: existing?.id || `temp_${enr.id}`,
-            event_id: eventId,
-            enrolled_id: enr.id,
-            bus_number: existing?.bus_number || null,
-            bus_time: existing?.bus_time || null,
-            passport_status: (existing?.passport_status) || 'pending',
-            nails_status: (existing?.nails_status) || 'pending',
-            cup_status: (existing?.cup_status) || 'pending',
-            mouthguard_status: (existing?.mouthguard_status) || 'pending',
-            uniform_status: (existing?.uniform_status) || 'pending',
-            coaches_with_bus_count: existing?.coaches_with_bus_count || 0,
-            coaches_credentials_given: existing?.coaches_credentials_given || 0,
-            notes: existing?.notes || null,
-            call_order: existing?.call_order || matchData.matchNumber || 999,
-            fight_order: matchData.matchNumber || null,
-            corner: matchData.corner || null,
-            is_completed: existing?.is_completed || false,
-            created_at: existing?.created_at || new Date().toISOString(),
-            updated_at: existing?.updated_at || new Date().toISOString(),
-            person: {
-                id: person.id,
-                full_name: displayName,
-                nationality: person.nationality,
-                fighter_id: person.fighter_id,
-                photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo
-            },
-            event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name : (enr.event as any)?.name
-        });
+    } catch (err) {
+        console.error('[PublicStaging] Critical error:', err);
+        return [];
     }
-
-    return result.sort((a, b) => {
-        const orderA = a.fight_order ?? 999;
-        const orderB = b.fight_order ?? 999;
-        return orderA - orderB;
-    });
 }
