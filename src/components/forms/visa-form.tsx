@@ -81,6 +81,9 @@ export function VisaForm({
       if (!visa.nationality && visa.enrollment?.person?.nationality) {
         setValue('nationality', visa.enrollment.person.nationality)
       }
+      if (!visa.document_link && (visa.enrollment?.person as any)?.document_folder) {
+        setValue('document_link', (visa.enrollment.person as any).document_folder)
+      }
       return
     }
 

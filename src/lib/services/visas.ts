@@ -16,6 +16,7 @@ export interface VisaWithEnrollment extends Visa {
       nationality: string | null
       passport_number: string | null
       passport_expiry: string | null
+      document_folder: string | null
     }
     role: {
       id: string
@@ -51,7 +52,8 @@ export async function getVisasByEvent(eventId: string, filters: VisaFilters = {}
           fighter_id,
           nationality,
           passport_number,
-          passport_expiry
+          passport_expiry,
+          document_folder
         ),
         role:mma_roles(
           id,
@@ -127,7 +129,8 @@ export async function getVisaById(id: string): Promise<VisaWithEnrollment | null
           fighter_id,
           nationality,
           passport_number,
-          passport_expiry
+          passport_expiry,
+          document_folder
         ),
         role:mma_roles(
           id,
@@ -215,7 +218,8 @@ export async function getEnrollmentsNeedingVisa(eventId: string): Promise<any[]>
         fighter_id,
         nationality,
         passport_number,
-        passport_expiry
+        passport_expiry,
+        document_folder
       ),
       role:mma_roles(
         id,

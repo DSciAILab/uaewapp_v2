@@ -143,15 +143,14 @@ export async function updateEnrollment(id: string, formData: Partial<EnrollmentF
 }
 
 /**
- * Sincroniza registros nos módulos de Vistos e Hotéis baseados nas flags de necessidade
- */
-/**
  * Sincroniza registros nos módulos variados (Voo, Visto, Hotel) baseados nas flags de necessidade.
  * Cria registros placeholder se não existirem.
+ * Puxa dados da pessoa (document_folder, nationality) para pré-preencher o visto.
  */
 async function syncRelatedModules(enrollment: Enrollment) {
   const supabase = getClient();
   const { event_id, id: enrolled_id, needs_visa, needs_hotel, needs_flight } = enrollment
+  const person = (enrollment as any).person as Person | undefined
 
   console.log('Syncing related modules for enrollment:', { enrolled_id, needs_visa, needs_hotel, needs_flight })
 
@@ -160,25 +159,32 @@ async function syncRelatedModules(enrollment: Enrollment) {
     const { data: existingVisa } = await supabase
       .from('mma_visas')
       .select('id')
-      .eq('enrollment_id', enrolled_id) // Column is 'enrollment_id' in DB schema, check mapping
+      .eq('enrollment_id', enrolled_id)
       .single()
 
-    // Note: DB schema check says 'enrollment_id' for mma_visas.
-    // Existing code used 'enrolled_id'. I will check database.ts Mapping.
-    // database.ts says: Enrollment -> id. Visa -> enrollment_id.
-    // The previous code used 'enrolled_id' which matches the variable name but maybe not column?
-    // SQL Schema output: "column_name":"enrollment_id".
-    // SO I MUST USE 'enrollment_id'.
-
     if (!existingVisa) {
-      const { error: visaError } = await supabase.from('mma_visas').insert({
-        // event_id, // Removed: mma_visas table does not have event_id column
+      const visaInsert: any = {
         enrollment_id: enrolled_id,
         status: 2, // Required/Pendente
         is_done: false
-      })
+      }
+
+      // Pré-preencher com dados da pessoa se disponíveis
+      if (person) {
+        if (person.document_folder) {
+          visaInsert.document_link = person.document_folder
+        }
+        if (person.nationality) {
+          visaInsert.nationality = person.nationality
+        }
+        if (person.compiled_name) {
+          visaInsert.passport_name = person.compiled_name
+        }
+      }
+
+      const { error: visaError } = await supabase.from('mma_visas').insert(visaInsert)
       if (visaError) console.error('Error auto-creating visa:', visaError)
-      else console.log('Auto-created visa for enrollment', enrolled_id)
+      else console.log('Auto-created visa for enrollment', enrolled_id, 'with person data:', !!person)
     }
   }
 
@@ -424,7 +430,11 @@ export async function bulkCreateEnrollments(
           onConflict: 'event_id, person_id',
           ignoreDuplicates: false
         })
-        .select()
+        .select(`
+          *,
+          person:mma_people(*),
+          role:mma_roles(*)
+        `)
         .single();
 
       if (error) throw error;
