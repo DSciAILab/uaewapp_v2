@@ -90,8 +90,8 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
       aValue = (a as any).matchNumber || 999;
       bValue = (b as any).matchNumber || 999;
     } else if (sortConfig.key === 'name') {
-      aValue = a.person?.full_name || '';
-      bValue = b.person?.full_name || '';
+      aValue = a.person?.compiled_name || '';
+      bValue = b.person?.compiled_name || '';
     } else {
       // Direct properties
       aValue = (a as any)[sortConfig.key] || '';
@@ -140,7 +140,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
               // Only auto-fill if corner is null
               if (!f.corner) {
                 const match = fightCard.find((c: any) => {
-                  const pName = normalizeName(f.person?.full_name || '');
+                  const pName = normalizeName(f.person?.compiled_name || '');
                   const cName = normalizeName(c.name);
                   return pName === cName || pName.includes(cName) || cName.includes(pName);
                 });
@@ -156,7 +156,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
               } else {
                  // Even if corner is set, we might want to attach match number
                  const match = fightCard.find((c: any) => {
-                  const pName = normalizeName(f.person?.full_name || '');
+                  const pName = normalizeName(f.person?.compiled_name || '');
                   const cName = normalizeName(c.name);
                   return pName === cName || pName.includes(cName) || cName.includes(pName);
                 });
@@ -566,7 +566,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                   <Avatar className="h-10 w-10 border border-muted shadow-sm">
                        <AvatarImage src={getFighterPhotoUrl(fighter.person?.fighter_id)} />
                        <AvatarFallback className="text-xs font-bold bg-muted/50">
-                           {(fighter.person?.event_name || fighter.person?.full_name || '??').substring(0,2).toUpperCase()}
+                           {(fighter.person?.event_name || fighter.person?.compiled_name || '??').substring(0,2).toUpperCase()}
                        </AvatarFallback>
                   </Avatar>
                 </TableCell>

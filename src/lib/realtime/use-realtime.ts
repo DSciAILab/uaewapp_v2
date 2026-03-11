@@ -92,7 +92,7 @@ export function useRealtime({
 
 function mapTableToChannel(table: SubscribedTable): string {
   const mapping: Record<SubscribedTable, string> = {
-    mma_enrolled: 'general',
+    mma_enrollments: 'general',
     mma_flights: 'flights',
     mma_flight_tickets: 'flights',
     mma_visas: 'general',

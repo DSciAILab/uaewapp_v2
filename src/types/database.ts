@@ -56,6 +56,7 @@ export interface Event {
   checkin_margin_hours: number
   checkout_margin_hours: number
   status: EventStatus
+  fight_card_csv_url?: string
   notes?: string
   created_at: string
   updated_at: string
@@ -145,8 +146,8 @@ export interface Hotel {
   has_divergence: boolean
   divergence_type?: string[]
   divergence_approved?: boolean
-  divergence_approved_by?: string
-  divergence_approved_at?: string
+  divergence_divergence_approved_by?: string
+  divergence_divergence_approved_at?: string
   status: string
   notes?: string
   created_at: string

@@ -14,7 +14,7 @@ export async function getFighterStats(personId: string): Promise<FighterStats | 
     .from('mma_fighter_stats')
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name)
     `)
     .eq('person_id', personId)
     .single();
@@ -36,7 +36,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .select(`
       person_id,
       corner,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name),
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name),
       role:mma_roles!inner(code)
     `)
     .eq('event_id', eventId)
@@ -57,7 +57,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .from('mma_fighter_stats')
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name)
     `)
     .in('person_id', personIds);
 
@@ -170,7 +170,7 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     .eq('id', statsId)
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality, fighter_id, event_name)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name)
     `)
     .single();
 
@@ -202,7 +202,7 @@ export async function getCoachData(personId: string): Promise<CoachData | null> 
     .from('mma_coach_data')
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality)
     `)
     .eq('person_id', personId)
     .single();
@@ -224,7 +224,7 @@ export async function getEventCoachData(eventId: string): Promise<CoachData[]> {
     .from('mma_enrollments')
     .select(`
       person_id,
-      person:mma_people!inner(id, full_name:compiled_name, nationality),
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality),
       role:mma_roles!inner(code)
     `)
     .eq('event_id', eventId)
@@ -242,7 +242,7 @@ export async function getEventCoachData(eventId: string): Promise<CoachData[]> {
     .from('mma_coach_data')
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality)
     `)
     .in('person_id', personIds);
 
@@ -315,7 +315,7 @@ export async function updateCoachData(dataId: string, formData: Partial<CoachDat
     .eq('id', dataId)
     .select(`
       *,
-      person:mma_people!inner(id, full_name:compiled_name, nationality)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality)
     `)
     .single();
 
@@ -347,7 +347,7 @@ export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]>
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name:compiled_name, event_name, fighter_id),
+        person:mma_people!inner(id, compiled_name:compiled_name, event_name, fighter_id),
         person_id,
         corner
       )

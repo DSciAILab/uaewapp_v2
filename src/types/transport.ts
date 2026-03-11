@@ -1,10 +1,7 @@
 export interface Driver {
   id: string;
-  full_name: string;
+  name: string;
   phone: string | null;
-  email: string | null;
-  license_number: string | null;
-  vehicle_info: string | null;
   is_active: boolean;
   notes: string | null;
   created_at: string;
@@ -12,11 +9,8 @@ export interface Driver {
 }
 
 export interface DriverFormData {
-  full_name: string;
+  name: string;
   phone?: string;
-  email?: string;
-  license_number?: string;
-  vehicle_info?: string;
   is_active: boolean;
   notes?: string;
 }
@@ -26,10 +20,17 @@ export interface EventCar {
   event_id: string;
   driver_id: string | null;
   car_number: number;
-  car_label: string | null;
-  capacity: number;
+  type: 'arrival' | 'departure' | 'event';
   vehicle_type: string | null;
-  license_plate: string | null;
+  flight_number: string | null;
+  flight_date: string | null;
+  flight_time: string | null;
+  airport: string | null;
+  route_from: string | null;
+  route_to: string | null;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   notes: string | null;
   created_at: string;
   updated_at: string;
@@ -41,23 +42,24 @@ export interface EventCar {
 
 export interface EventCarFormData {
   driver_id?: string;
-  car_label?: string;
-  capacity: number;
+  type: 'arrival' | 'departure' | 'event';
   vehicle_type?: string;
-  license_plate?: string;
+  flight_number?: string;
+  flight_date?: string;
+  flight_time?: string;
+  airport?: string;
+  route_from?: string;
+  route_to?: string;
+  scheduled_date?: string;
+  scheduled_time?: string;
+  status: 'scheduled' | 'in_progress' | 'completed' | 'cancelled';
   notes?: string;
 }
 
 export interface CarPassenger {
   id: string;
   car_id: string;
-  enrolled_id: string;
-  flight_id: string | null;
-  transport_type: 'arrival' | 'departure';
-  pickup_location: string | null;
-  dropoff_location: string | null;
-  pickup_time: string | null;
-  notes: string | null;
+  enrollment_id: string;
   created_at: string;
   
   // Joined data
@@ -65,30 +67,14 @@ export interface CarPassenger {
     id: string;
     person: {
       id: string;
-      compiled_name: string; // Changed from full_name to match DB
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
     };
-  };
-  flight?: {
-    id: string;
-    flight_number: string;
-    arrival_datetime: string | null; // Changed from datetime to arrival_datetime/departure_datetime
-    departure_datetime: string | null;
-    arrival_date: string | null;
-    arrival_time: string | null;
-    departure_date: string | null;
-    departure_time: string | null;
   };
 }
 
 export interface CarPassengerFormData {
-  enrolled_id: string;
-  flight_id?: string;
-  transport_type: 'arrival' | 'departure';
-  pickup_location?: string;
-  dropoff_location?: string;
-  pickup_time?: string;
-  notes?: string;
+  enrollment_id: string;
 }
 
 export interface FlightGroup {
@@ -102,7 +88,7 @@ export interface FlightGroup {
     enrolled_id: string;
     person_id: string;
     person_name: string;
-    role: string;
+    role?: { name: string };
     assigned_car?: EventCar;
   }>;
   unassigned_count: number;

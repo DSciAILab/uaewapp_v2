@@ -28,7 +28,7 @@ const documentSchema = z.object({
 
 interface DocumentFormProps {
   eventId: string;
-  enrolledList: Array<{ id: string; person: { full_name: string } }>;
+  enrolledList: Array<{ id: string; person: { compiled_name: string } }>;
   document?: RequiredDocument | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -108,7 +108,7 @@ export function DocumentForm({ eventId, enrolledList, document, open, onOpenChan
 
   const enrolledOptions = enrolledList.map((e) => ({
     value: e.id,
-    label: e.person.full_name,
+    label: e.person.compiled_name,
   }));
 
   const watchStatus = form.watch('status');

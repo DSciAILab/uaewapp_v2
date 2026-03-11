@@ -79,7 +79,7 @@ export function MedicalExamTable({ medicalExams, onEdit, onRefresh }: MedicalExa
             ) : (
               medicalExams.map((exam) => (
                 <TableRow key={exam.id}>
-                  <TableCell className="font-medium">{exam.enrolled?.person?.full_name}</TableCell>
+                  <TableCell className="font-medium">{exam.enrolled?.person?.compiled_name}</TableCell>
                   <TableCell>{exam.exam_type}</TableCell>
                   <TableCell>{exam.examiner_name || '-'}</TableCell>
                   <TableCell>

@@ -80,7 +80,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
 
             // General Text Check (Name, Corner, Fighter ID)
             return (
-                row.person.full_name?.toLowerCase().includes(term) ||
+                row.person.compiled_name?.toLowerCase().includes(term) ||
                 row.person.fighter_id?.toLowerCase().includes(term) ||
                 row.corner?.toLowerCase().includes(term) ||
                 (row.bus_number && `bus ${row.bus_number}`.includes(term))
@@ -96,8 +96,8 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
         let bValue: any = '';
 
         if (key === 'fighter') {
-            aValue = (a.person.full_name || '').toLowerCase();
-            bValue = (b.person.full_name || '').toLowerCase();
+            aValue = (a.person.compiled_name || '').toLowerCase();
+            bValue = (b.person.compiled_name || '').toLowerCase();
         } else if (key === 'bus') {
             // Handle null bus numbers (put them last if asc, first if desc? Usually last)
             aValue = a.bus_number || 'zzz'; 
@@ -228,12 +228,12 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                             row.corner === 'RED' ? "border-red-500" : row.corner === 'BLUE' ? "border-blue-500" : "border-muted"
                                         )}>
                                             <AvatarImage src={row.person.photo_url || ''} />
-                                            <AvatarFallback>{row.person.full_name?.substring(0,2)}</AvatarFallback>
+                                            <AvatarFallback>{row.person.compiled_name?.substring(0,2)}</AvatarFallback>
                                         </Avatar>
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">
-                                            <span className="font-bold text-sm leading-tight">{row.person.full_name}</span>
+                                            <span className="font-bold text-sm leading-tight">{row.person.compiled_name}</span>
                                             <span className="text-[10px] text-muted-foreground">{row.person.fighter_id}</span>
                                         </div>
                                     </TableCell>
@@ -303,10 +303,10 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                             row.corner === 'RED' ? "border-red-500" : row.corner === 'BLUE' ? "border-blue-500" : "border-muted"
                                         )}>
                                             <AvatarImage src={row.person.photo_url || ''} />
-                                            <AvatarFallback>{row.person.full_name?.substring(0,2)}</AvatarFallback>
+                                            <AvatarFallback>{row.person.compiled_name?.substring(0,2)}</AvatarFallback>
                                         </Avatar>
                                         <div className="flex flex-col overflow-hidden">
-                                            <span className="font-bold text-sm leading-tight truncate">{row.person.full_name}</span>
+                                            <span className="font-bold text-sm leading-tight truncate">{row.person.compiled_name}</span>
                                             <span className="text-[10px] text-muted-foreground">{row.person.fighter_id}</span>
                                         </div>
                                     </div>

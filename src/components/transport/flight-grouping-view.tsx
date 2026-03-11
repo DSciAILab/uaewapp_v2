@@ -27,15 +27,13 @@ interface FlightGroupingViewProps {
 export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingViewProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const handleAssign = async (enrolledId: string, flightId: string, carId: string, type: 'arrival' | 'departure') => {
-    setLoadingId(`${enrolledId}-${carId}`);
+  const handleAssign = async (enrollmentId: string, carId: string) => {
+    setLoadingId(`${enrollmentId}-${carId}`);
     try {
       await assignPassenger(carId, {
-        enrolled_id: enrolledId,
-        flight_id: flightId,
-        transport_type: type
+        enrollment_id: enrollmentId
       });
-      toast.success('Passenger assigned');
+      toast.success('Passenger assigned to car');
       onRefresh();
     } catch (error: any) {
       toast.error('Failed to assign passenger');
@@ -48,7 +46,7 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
       if (!confirm('Remove passenger from car?')) return;
       try {
           await removePassenger(passengerId);
-          toast.success('Passenger removed');
+          toast.success('Passenger removed from car');
           onRefresh();
       } catch (error) {
           toast.error('Failed to remove passenger');
@@ -78,7 +76,7 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                                 {isArrival ? 'Arriving' : 'Departing'}
                             </Badge>
                         </CardTitle>
-                        <p className="text-sm text-muted-foreground mt-1">
+                        <p className="text-sm text-muted-foreground mt-1 text-slate-500">
                             {date ? format(date, 'PPP p') : 'Time TBD'}
                         </p>
                     </div>
@@ -88,7 +86,7 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                         {group.unassigned_count} Unassigned
                     </Badge>
                     <span className="text-xs text-muted-foreground">
-                        {group.passengers.length} passengers
+                        {group.passengers.length} passengers total
                     </span>
                 </div>
               </div>
@@ -97,28 +95,30 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                <div className="space-y-3">
                    {group.passengers.map((p) => {
                        const assignedCar = p.assigned_car;
-                       const passengerRef = assignedCar?.passengers?.find(pass => pass.enrolled_id === p.enrolled_id && pass.transport_type === group.flight.type);
+                       // Find the specific passenger record ID from the assigned car's passengers
+                       const passengerRecord = assignedCar?.passengers?.find(pass => pass.enrollment_id === p.enrolled_id);
                        
                        return (
-                           <div key={`${p.enrolled_id}-${group.flight.type}`} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm">
+                           <div key={`${p.enrolled_id}-${group.flight.type}`} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow">
                                <div className="flex items-center gap-3">
                                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600">
                                        {p.person_name.charAt(0)}
                                    </div>
                                    <div>
                                        <p className="font-medium text-sm">{p.person_name}</p>
-                                       <p className="text-xs text-muted-foreground">{p.role}</p>
+                                       <p className="text-xs text-muted-foreground">{p.role?.name || (typeof p.role === 'string' ? p.role : '')}</p>
                                    </div>
                                </div>
 
                                <div className="flex items-center gap-2">
                                    {assignedCar ? (
-                                       <Badge variant="outline" className="h-8 px-3 gap-2 bg-slate-50">
-                                           <Car className="h-3 w-3" />
+                                       <Badge variant="outline" className="h-8 px-3 gap-2 bg-slate-50 border-slate-200">
+                                           <Car className="h-3 w-3 text-slate-500" />
                                            Car #{assignedCar.car_number}
                                            <button 
-                                            onClick={() => passengerRef && handleRemove(passengerRef.id)}
+                                            onClick={() => passengerRecord && handleRemove(passengerRecord.id)}
                                             className="ml-1 hover:bg-slate-200 rounded-full p-0.5"
+                                            title="Unassign"
                                            >
                                                <X className="h-3 w-3 text-muted-foreground" />
                                            </button>
@@ -126,32 +126,28 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                                    ) : (
                                        <DropdownMenu>
                                            <DropdownMenuTrigger asChild>
-                                               <Button size="sm" variant="outline" className="h-8 gap-2 border-dashed text-muted-foreground">
+                                               <Button size="sm" variant="outline" className="h-8 gap-2 border-dashed text-muted-foreground hover:text-primary hover:border-primary">
                                                    <Plus className="h-3 w-3" />
                                                    Assign Car
                                                </Button>
                                            </DropdownMenuTrigger>
-                                           <DropdownMenuContent align="end" className="w-[200px]">
-                                               {cars.map(car => {
+                                           <DropdownMenuContent align="end" className="w-[180px]">
+                                               {cars.filter(c => c.type === group.flight.type).map(car => {
                                                    const currentCount = car.passengers?.length || 0;
-                                                   const isFull = currentCount >= car.capacity;
                                                    return (
                                                        <DropdownMenuItem 
                                                         key={car.id} 
-                                                        disabled={isFull}
-                                                        onClick={() => handleAssign(p.enrolled_id, group.flight.id, car.id, group.flight.type as any)}
+                                                        onClick={() => handleAssign(p.enrolled_id, car.id)}
                                                        >
-                                                           <Car className="h-4 w-4 mr-2" />
+                                                           <Car className="h-4 w-4 mr-2 text-slate-400" />
                                                            <span className="flex-1">Car #{car.car_number}</span>
-                                                           <span className="text-xs text-muted-foreground">
-                                                               {currentCount}/{car.capacity}
-                                                           </span>
+                                                           <Badge variant="secondary" className="text-[10px] h-4 px-1">{currentCount} pax</Badge>
                                                        </DropdownMenuItem>
                                                    );
                                                })}
-                                               {cars.length === 0 && (
-                                                   <div className="p-2 text-xs text-center text-muted-foreground">
-                                                       No cars available
+                                               {cars.filter(c => c.type === group.flight.type).length === 0 && (
+                                                   <div className="p-3 text-xs text-center text-muted-foreground">
+                                                       No {group.flight.type} cars available
                                                    </div>
                                                )}
                                            </DropdownMenuContent>

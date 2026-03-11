@@ -71,7 +71,7 @@ export async function getBatchById(batchId: string): Promise<Batch | null> {
         *,
         enrolled:mma_enrollments(
           id,
-          person:mma_people(id, full_name, role)
+          person:mma_people(id, compiled_name), role:mma_roles(name)
         )
       )
     `)
@@ -187,7 +187,7 @@ export async function getBatchParticipants(batchId: string): Promise<BatchPartic
       *,
       enrolled:mma_enrollments(
         id,
-        person:mma_people(id, full_name, role)
+        person:mma_people(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('batch_id', batchId)
@@ -226,7 +226,7 @@ export async function addParticipantToBatch(
       *,
       enrolled:mma_enrollments(
         id,
-        person:mma_people(id, full_name, role)
+        person:mma_people(id, compiled_name), role:mma_roles(name)
       )
     `)
     .single();
@@ -350,7 +350,7 @@ export async function getAvailableEnrolledForBatch(
   batchId: string
 ): Promise<Array<{
   id: string;
-  person: { id: string; full_name: string; role: string };
+  person: { id: string; compiled_name: string; role: string };
 }>> {
   const supabase = getClient();
   // Get all enrolled for event
@@ -358,7 +358,7 @@ export async function getAvailableEnrolledForBatch(
     .from('mma_enrollments')
     .select(`
       id,
-      person:mma_people!inner(id, full_name, role)
+      person:mma_people!inner(id, compiled_name), role:mma_roles(name)
     `)
     .eq('event_id', eventId);
 

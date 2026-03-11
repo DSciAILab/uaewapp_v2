@@ -13,7 +13,7 @@ export async function getAthleteMusic(enrolledId: string): Promise<EntranceMusic
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name:compiled_name)
+        person:mma_people!inner(id, compiled_name:compiled_name)
       )
     `)
     .eq('enrolled_id', enrolledId)
@@ -35,7 +35,7 @@ export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
       enrolled:mma_enrollments!inner(
         id,
         corner,
-        person:mma_people!inner(id, full_name:compiled_name, fighter_id, event_name)
+        person:mma_people!inner(id, compiled_name:compiled_name, fighter_id, event_name)
       )
     `)
     .eq('event_id', eventId)

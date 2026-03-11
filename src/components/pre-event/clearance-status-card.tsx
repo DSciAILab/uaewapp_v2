@@ -43,7 +43,7 @@ export function ClearanceStatusCard({ summary, onClick }: ClearanceStatusCardPro
             {summary.clearance_status.charAt(0).toUpperCase() + summary.clearance_status.slice(1)}
           </Badge>
         </div>
-        <p className="text-sm text-muted-foreground">{summary.role}</p>
+        <p className="text-sm text-muted-foreground">{summary.role?.name || (typeof summary.role === 'string' ? summary.role : '')}</p>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Progress */}

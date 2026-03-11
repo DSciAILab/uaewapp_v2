@@ -43,7 +43,7 @@ export default function MusicSubmissionPage() {
         .from('mma_enrollments')
         .select(`
           id,
-          person:mma_people(id, full_name:compiled_name, academy:other_academy)
+          person:mma_people(id, compiled_name:compiled_name, academy:other_academy)
         `)
         .eq('event_id', eventId)
         .ilike('person.compiled_name', `%${searchQuery}%`)
@@ -203,7 +203,7 @@ export default function MusicSubmissionPage() {
                   onClick={() => handleSelectFighter(result)}
                 >
                   <div>
-                    <div className="font-semibold">{result.person.full_name}</div>
+                    <div className="font-semibold">{result.person.compiled_name}</div>
                     <div className="text-sm text-muted-foreground">{result.person.academy || 'No Academy'}</div>
                   </div>
                   <Button variant="ghost" size="sm">Select</Button>
@@ -223,7 +223,7 @@ export default function MusicSubmissionPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Upload Music</CardTitle>
-                <CardDescription>for {selectedFighter.person.full_name}</CardDescription>
+                <CardDescription>for {selectedFighter.person.compiled_name}</CardDescription>
               </div>
               <Button variant="outline" size="sm" onClick={() => setStep('search')}>Change Fighter</Button>
             </div>

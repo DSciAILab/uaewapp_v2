@@ -23,7 +23,7 @@ interface RealtimeProviderProps {
 // This is inferred from the original code's usage of `presence` object
 interface PresenceState {
   name: string;
-  role: string;
+  role?: { name: string };
   section: string;
   online_at: string;
   // Add other properties if they exist in the presence object
@@ -62,7 +62,7 @@ export function RealtimeProvider({ eventId, children }: RealtimeProviderProps) {
             onlineUsers.push({
               id: key, // The key from newState is the user ID
               name: presence.name || 'Unknown',
-              role: presence.role || 'User',
+              role: typeof presence.role === 'string' ? { name: presence.role } : (presence.role || { name: 'User' }),
               status: 'online', // Assuming 'online' for active presence
               current_section: presence.section,
               last_seen: presence.online_at, // Using online_at as last_seen

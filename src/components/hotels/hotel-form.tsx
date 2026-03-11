@@ -17,14 +17,11 @@ import { toast } from 'sonner';
 
 const hotelSchema = z.object({
   enrollment_id: z.string().min(1, 'Please select a person'),
-  hotel_name: z.string().optional(), // Now optional in UI, handled by service
-  room_type: z.string().optional(),
-  actual_checkin: z.string().min(1, 'Check-in date is required'),
-  actual_checkout: z.string().min(1, 'Check-out date is required'),
-  confirmation_number: z.string().optional(),
-  status: z.enum(['pending', 'confirmed', 'cancelled']),
+  checkin_date: z.string().min(1, 'Check-in date is required'),
+  checkout_date: z.string().min(1, 'Check-out date is required'),
+  reservation_number: z.string().optional(),
+  status: z.enum(['pending', 'reserved', 'confirmed', 'cancelled']),
   notes: z.string().optional(),
-  divergence_reason: z.string().optional(),
 });
 
 interface HotelFormProps {
@@ -51,60 +48,43 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
     resolver: zodResolver(hotelSchema),
     defaultValues: {
       enrollment_id: '',
-      hotel_name: '',
-      room_type: '',
-      actual_checkin: '',
-      actual_checkout: '',
-      confirmation_number: '',
+      checkin_date: '',
+      checkout_date: '',
+      reservation_number: '',
       status: 'pending',
       notes: '',
-      divergence_reason: '',
     },
   });
 
   useEffect(() => {
-    // Determine available people
-    // If Creating (fresh) -> Fetch all without hotel
-    // If PreFilled -> We have the person in the 'hotel' object already, we should use it or fetch all to include it.
-    // Ideally, for PreFilled, we assume the person IS available (logic in page ensures they don't have hotel).
-    
     if (open) {
       getEnrolledWithoutHotel(eventId).then((data: any) => {
-          // If pre-filled, ensure the pre-filled person is in the list (it should be, since they don't have hotel)
           setAvailableEnrolled(data);
       }).catch(console.error);
     }
   }, [open, eventId]);
 
   useEffect(() => {
-    // Only reset if the hotel ID changes (meaning a different record was selected)
     if (hotel) {
       form.reset({
         enrollment_id: hotel.enrollment_id,
-        hotel_name: isPreFilled ? '' : hotel.hotel_name,
-        room_type: hotel.room_type || '',
-        actual_checkin: hotel.actual_checkin ? hotel.actual_checkin.split('T')[0] : '',
-        actual_checkout: hotel.actual_checkout ? hotel.actual_checkout.split('T')[0] : '',
-        confirmation_number: hotel.confirmation_number || '',
+        checkin_date: hotel.checkin_date ? hotel.checkin_date.split('T')[0] : '',
+        checkout_date: hotel.checkout_date ? hotel.checkout_date.split('T')[0] : '',
+        reservation_number: hotel.reservation_number || '',
         status: hotel.status as HotelStatus,
         notes: hotel.notes || '',
-        divergence_reason: hotel.divergence_reason || '',
       });
     } else {
       form.reset({
         enrollment_id: '',
-        hotel_name: '',
-        room_type: '',
-        actual_checkin: '',
-        actual_checkout: '',
-        confirmation_number: '',
+        checkin_date: '',
+        checkout_date: '',
+        reservation_number: '',
         status: 'pending',
         notes: '',
-        divergence_reason: '',
       });
     }
-  }, [hotel?.id]); // Only trigger when ID changes (removing form dependency to avoid loops)
-
+  }, [hotel?.id]);
 
   const onSubmit = async (data: HotelFormData) => {
     setIsLoading(true);
@@ -126,8 +106,9 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
     }
   };
 
-  const statusOptions: { value: HotelStatus; label: string }[] = [
+  const statusOptions: { value: HotelStatus | 'reserved'; label: string }[] = [
     { value: 'pending', label: 'Pending' },
+    { value: 'reserved', label: 'Reserved' },
     { value: 'confirmed', label: 'Confirmed' },
     { value: 'cancelled', label: 'Cancelled' },
   ];
@@ -141,16 +122,15 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {/* Guest Name Display (Read-only if we already know who it is) */}
             {(hotel || form.getValues('enrollment_id')) ? (
               <div className="bg-slate-50 dark:bg-slate-900/50 p-3 rounded-md border border-slate-100 dark:border-slate-800">
                 <p className="text-[10px] font-bold uppercase text-muted-foreground mb-1">Guest</p>
                 <div className="flex items-center justify-between">
                   <span className="font-semibold text-sm">
-                    {hotel?.enrolled?.person.full_name || availableEnrolled.find(e => e.id === form.getValues('enrollment_id'))?.person.compiled_name || 'Loading...'}
+                    {hotel?.enrolled?.person.compiled_name || availableEnrolled.find(e => e.id === form.getValues('enrollment_id'))?.person.compiled_name || 'Loading...'}
                   </span>
                   <Badge variant="secondary" className="text-[10px]">
-                     {hotel?.enrolled?.person.role || availableEnrolled.find(e => e.id === form.getValues('enrollment_id'))?.person.role || 'Guest'}
+                     {(hotel?.enrolled as any)?.role?.name || (hotel?.enrolled as any)?.person?.role?.name || (availableEnrolled.find(e => e.id === form.getValues('enrollment_id')) as any)?.role?.name || (availableEnrolled.find(e => e.id === form.getValues('enrollment_id')) as any)?.person?.role || 'Guest'}
                   </Badge>
                 </div>
               </div>
@@ -168,7 +148,7 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
                       <SelectContent>
                         {availableEnrolled.map((e) => (
                           <SelectItem key={e.id} value={e.id}>
-                            {e.person.compiled_name} ({e.person.role})
+                            {e.person.compiled_name} ({(e.person?.role as any)?.name || e.person?.role})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -179,33 +159,10 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
               />
             )}
 
-            {/* Hidden Hotel Name (Automatically handled by service) */}
-            <FormField
-              control={form.control}
-              name="hotel_name"
-              render={({ field }) => (
-                <FormItem className="hidden">
-                  <FormControl><Input {...field} /></FormControl>
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="room_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Room Type</FormLabel>
-                  <FormControl><Input placeholder="e.g., Double, Suite" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
-                name="actual_checkin"
+                name="checkin_date"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Check-in Date *</FormLabel>
@@ -217,7 +174,7 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
 
               <FormField
                 control={form.control}
-                name="actual_checkout"
+                name="checkout_date"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Check-out Date *</FormLabel>
@@ -230,10 +187,10 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
 
             <FormField
               control={form.control}
-              name="confirmation_number"
+              name="reservation_number"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Confirmation Number</FormLabel>
+                  <FormLabel>Booking Number</FormLabel>
                   <FormControl><Input placeholder="Booking confirmation" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -259,19 +216,6 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="divergence_reason"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Reason for Date Divergence (if any)</FormLabel>
-                  <FormControl>
-                    <Textarea placeholder="Explain why dates differ from expected..." {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

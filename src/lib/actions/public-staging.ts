@@ -102,7 +102,7 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
                     updated_at: existing?.updated_at || new Date().toISOString(),
                     person: {
                         id: person.id,
-                        full_name: matchData.name || person.event_name || fullName, // Use Fight Card name -> Event Name -> Full Name
+                        compiled_name: matchData.name || person.event_name || fullName, // Use Fight Card name -> Event Name -> Full Name
                         nationality: person.nationality,
                         fighter_id: person.fighter_id,
                         photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo

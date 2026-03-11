@@ -55,9 +55,9 @@ export async function getEventHotels(
         event_id: e.event_id,
         person: {
           id: e.person?.id || 'unknown',
-          full_name: e.person?.compiled_name || 'Unnamed Person',
+          compiled_name: e.person?.compiled_name || 'Unnamed Person',
           fighter_id: e.person?.fighter_id,
-          role: (Array.isArray(e.role) ? e.role[0]?.name : e.role?.name) || 'N/A',
+          role: (Array.isArray(e.role) ? e.role[0]?.name : (e.person?.role as any)?.name || e.person?.role) || 'N/A',
           event_name: e.event?.name
         },
         arrival_flight: { arrival_datetime },
@@ -85,16 +85,14 @@ export async function getEventHotels(
 
     return {
       id: `missing-${e.id}`,
-      event_id: e.event_id,
       enrollment_id: e.id,
-      hotel_name: 'Pending Booking',
       status: 'pending',
       has_divergence: false,
       divergence_approved: false,
-      calculated_checkin: virtualDates.checkin.toISOString(),
-      calculated_checkout: virtualDates.checkout.toISOString(),
-      actual_checkin: '',
-      actual_checkout: '',
+      suggested_checkin_date: virtualDates.checkin.toISOString().split('T')[0],
+      suggested_checkout_date: virtualDates.checkout.toISOString().split('T')[0],
+      checkin_date: null,
+      checkout_date: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       ...commonData
@@ -105,9 +103,8 @@ export async function getEventHotels(
   if (filters?.search) {
     const searchLower = filters.search.toLowerCase();
     results = results.filter(hotel => 
-      (hotel.enrolled?.person?.full_name || '').toLowerCase().includes(searchLower) ||
-      (hotel.hotel_name || '').toLowerCase().includes(searchLower) ||
-      (hotel.confirmation_number || '').toLowerCase().includes(searchLower)
+      (hotel.enrolled?.person?.compiled_name || '').toLowerCase().includes(searchLower) ||
+      (hotel.reservation_number || '').toLowerCase().includes(searchLower)
     );
   }
 
@@ -125,8 +122,8 @@ export async function getEventHotels(
 
   // Sort by name for consistency
   return results.sort((a, b) => {
-    const nameA = a?.enrolled?.person?.full_name || '';
-    const nameB = b?.enrolled?.person?.full_name || '';
+    const nameA = a?.enrolled?.person?.compiled_name || '';
+    const nameB = b?.enrolled?.person?.compiled_name || '';
     return nameA.localeCompare(nameB);
   });
 }
@@ -170,7 +167,7 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       ...data.enrolled,
       person: {
         id: data.enrolled.person.id,
-        full_name: data.enrolled.person.compiled_name,
+        compiled_name: data.enrolled.person.compiled_name,
         fighter_id: data.enrolled.person.fighter_id,
         role: data.enrolled.role?.name || 'N/A',
         event_name: data.enrolled.event?.name
@@ -181,25 +178,6 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
   } as Hotel;
 }
 
-// Helper to get the most common/latest hotel name for an event
-async function getEventDefaultHotelName(eventId: string): Promise<string> {
-  try {
-    const supabase = getClient();
-    const { data } = await supabase
-      .from('mma_hotels')
-      .select('hotel_name')
-      .eq('event_id', eventId)
-      .neq('hotel_name', 'TBD')
-      .neq('hotel_name', 'Pending Booking')
-      .neq('hotel_name', 'Event Hotel')
-      .order('created_at', { ascending: false })
-      .limit(1);
-      
-    return data?.[0]?.hotel_name || 'Event Hotel';
-  } catch (e) {
-    return 'Event Hotel';
-  }
-}
 
 export async function createHotel(
   eventId: string,
@@ -239,45 +217,33 @@ export async function createHotel(
   );
 
   // Ensure dates are just YYYY-MM-DD to avoid timezone shifting
-  const actualCheckin = (formData.actual_checkin || (calculated.checkin ? calculated.checkin.toISOString() : '')).split('T')[0];
-  const actualCheckout = (formData.actual_checkout || (calculated.checkout ? calculated.checkout.toISOString() : '')).split('T')[0];
+  const finalCheckin = (formData.checkin_date || (calculated.checkin ? calculated.checkin.toISOString() : '')).split('T')[0];
+  const finalCheckout = (formData.checkout_date || (calculated.checkout ? calculated.checkout.toISOString() : '')).split('T')[0];
 
   const divergences = detectDivergences(
     calculated.checkin,
     calculated.checkout,
-    actualCheckin,
-    actualCheckout
+    finalCheckin,
+    finalCheckout
   );
 
   const hasDivergence = divergences.length > 0;
-  const primaryDivergence = getPrimaryDivergence(divergences);
-
-  // If no hotel name is provided, try to find one from other event bookings
-  const hotel_name = formData.hotel_name || await getEventDefaultHotelName(eventId);
+  const divergenceTypes = divergences.map(d => d.type);
 
   const saveData = {
-    event_id: eventId,
     enrollment_id: formData.enrollment_id,
-    hotel_name: hotel_name,
-    room_type: formData.room_type || null,
-    room_number: formData.room_number || null,
-    calculated_checkin: calculated.checkin.toISOString(),
-    calculated_checkout: calculated.checkout.toISOString(),
-    actual_checkin: actualCheckin,
-    actual_checkout: actualCheckout,
+    suggested_checkin_date: calculated.checkin.toISOString().split('T')[0],
+    suggested_checkout_date: calculated.checkout.toISOString().split('T')[0],
+    checkin_date: finalCheckin || null,
+    checkout_date: finalCheckout || null,
     has_divergence: hasDivergence,
-    primary_divergence_type: primaryDivergence,
-    divergence_reason: formData.divergence_reason || null,
-    divergence_approved: formData.divergence_reason ? false : (hasDivergence ? false : true),
-    confirmation_number: formData.confirmation_number || null,
+    divergence_type: divergenceTypes,
+    divergence_approved: formData.divergence_type ? false : (hasDivergence ? false : true),
+    reservation_number: formData.reservation_number || null,
     status: formData.status,
     notes: formData.notes || null,
     updated_at: new Date().toISOString()
   };
-
-  if (formData.checked_in_at) {
-      (saveData as any).checked_in_at = formData.checked_in_at;
-  }
 
 
   // First, check if a record already exists for this enrollment to avoid 409
@@ -375,34 +341,31 @@ export async function updateHotel(
   );
 
   // Ensure dates are just YYYY-MM-DD to avoid timezone shifting
-  const actualCheckin = (formData.actual_checkin || current.actual_checkin || '').split('T')[0];
-  const actualCheckout = (formData.actual_checkout || current.actual_checkout || '').split('T')[0];
+  const finalCheckin = (formData.checkin_date || current.checkin_date || '').split('T')[0];
+  const finalCheckout = (formData.checkout_date || current.checkout_date || '').split('T')[0];
 
   const divergences = detectDivergences(
     calculated.checkin,
     calculated.checkout,
-    actualCheckin,
-    actualCheckout
+    finalCheckin,
+    finalCheckout
   );
 
   const hasDivergence = divergences.length > 0;
-  const primaryDivergence = getPrimaryDivergence(divergences);
+  const divergenceTypes = divergences.map(d => d.type);
 
   const updateData = {
-    hotel_name: formData.hotel_name || current.hotel_name,
-    room_type: formData.room_type !== undefined ? formData.room_type : current.room_type,
-    actual_checkin: actualCheckin,
-    actual_checkout: actualCheckout,
-    calculated_checkin: calculated.checkin.toISOString(),
-    calculated_checkout: calculated.checkout.toISOString(),
+    checkin_date: finalCheckin || null,
+    checkout_date: finalCheckout || null,
+    suggested_checkin_date: calculated.checkin.toISOString().split('T')[0],
+    suggested_checkout_date: calculated.checkout.toISOString().split('T')[0],
     has_divergence: hasDivergence,
-    primary_divergence_type: primaryDivergence,
-    divergence_reason: formData.divergence_reason !== undefined ? formData.divergence_reason : current.divergence_reason,
-    confirmation_number: formData.confirmation_number !== undefined ? formData.confirmation_number : current.confirmation_number,
+    divergence_type: divergenceTypes,
+    reservation_number: formData.reservation_number !== undefined ? formData.reservation_number : current.reservation_number,
     status: formData.status || current.status,
     notes: formData.notes !== undefined ? formData.notes : current.notes,
     // Reset approval if dates changed and are divergent
-    divergence_approved: (actualCheckin !== current.actual_checkin || actualCheckout !== current.actual_checkout) && hasDivergence 
+    divergence_approved: (finalCheckin !== current.checkin_date || finalCheckout !== current.checkout_date) && hasDivergence 
       ? false 
       : current.divergence_approved,
     updated_at: new Date().toISOString()
@@ -426,8 +389,8 @@ export async function approveDivergence(hotelId: string, approverId: string): Pr
     .from('mma_hotels')
     .update({
       divergence_approved: true,
-      approved_by: approverId,
-      approved_at: new Date().toISOString()
+      divergence_approved_by: approverId,
+      divergence_approved_at: new Date().toISOString()
     })
     .eq('id', hotelId)
     .select()
@@ -444,8 +407,8 @@ export async function rejectDivergence(hotelId: string): Promise<Hotel> {
     .from('mma_hotels')
     .update({
       divergence_approved: false,
-      approved_by: null,
-      approved_at: null
+      divergence_approved_by: null,
+      divergence_approved_at: null
     })
     .eq('id', hotelId)
     .select()
@@ -491,9 +454,8 @@ export async function updateHotelStatus(
     return await createHotel(enrollment.event_id, {
       enrollment_id: enrollmentId,
       status: status,
-      hotel_name: '', // Service will fetch default
-      actual_checkin: '', // Service will calculate
-      actual_checkout: ''
+      checkin_date: '', // Service will calculate
+      checkout_date: ''
     }, eventDates);
   }
 
@@ -547,7 +509,7 @@ export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
     person: {
       id: e.person.id,
       compiled_name: e.person.compiled_name,
-      role: e.role?.name || 'N/A'
+      role: (e.person?.role as any)?.name || e.person?.role || 'N/A'
     },
     flights: e.flights
   })).filter((e: any) => !hotelEnrolledIds.has(e.id));
@@ -584,12 +546,8 @@ export async function updateHotelBatch(
   };
 
   if (data.status) updateData.status = data.status;
-  if (data.hotel_name) updateData.hotel_name = data.hotel_name;
-  if (data.room_type) updateData.room_type = data.room_type;
-  if (data.room_number !== undefined) updateData.room_number = data.room_number;
-  if (data.actual_checkin) updateData.actual_checkin = data.actual_checkin;
-  if (data.actual_checkout) updateData.actual_checkout = data.actual_checkout;
-  if (data.checked_in_at !== undefined) updateData.checked_in_at = data.checked_in_at;
+  if (data.checkin_date) updateData.checkin_date = data.checkin_date;
+  if (data.checkout_date) updateData.checkout_date = data.checkout_date;
 
   const supabase = getClient();
   const { error } = await supabase
@@ -598,28 +556,4 @@ export async function updateHotelBatch(
     .in('id', hotelIds);
 
   if (error) throw new Error('Failed to batch update hotels: ' + error.message);
-}
-
-export async function checkInGuest(hotelId: string): Promise<void> {
-    const supabase = getClient();
-    const { error } = await supabase
-        .from('mma_hotels')
-        .update({ 
-            checked_in_at: new Date().toISOString(),
-             // Auto-confirm if not confirmed, though prompt might be better?
-             // Let's stick to just check-in time for now.
-        })
-        .eq('id', hotelId);
-
-    if (error) throw new Error('Failed to check in guest: ' + error.message);
-}
-
-export async function checkOutGuest(hotelId: string): Promise<void> {
-    const supabase = getClient();
-    const { error } = await supabase
-        .from('mma_hotels')
-        .update({ checked_in_at: null })
-        .eq('id', hotelId);
-
-    if (error) throw new Error('Failed to check out guest: ' + error.message);
 }

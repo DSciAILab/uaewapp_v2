@@ -24,7 +24,7 @@ export function LogisticsTable({ data, cars, eventId, onRefresh }: LogisticsTabl
   const [search, setSearch] = useState('');
 
   const filteredData = data.filter(row => 
-    row.full_name.toLowerCase().includes(search.toLowerCase())
+    row.compiled_name.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleTransportAssign = async (enrolledId: string, carId: string, type: 'arrival' | 'departure') => {
@@ -87,8 +87,8 @@ export function LogisticsTable({ data, cars, eventId, onRefresh }: LogisticsTabl
             {filteredData.map((row) => (
               <TableRow key={row.enrolled_id} className="hover:bg-muted/30">
                 <TableCell className="font-medium">
-                  <div>{row.full_name}</div>
-                  <Badge variant="secondary" className="text-[10px] h-5 px-1">{row.role}</Badge>
+                  <div>{row.compiled_name}</div>
+                  <Badge variant="secondary" className="text-[10px] h-5 px-1">{row.role?.name || (typeof row.role === 'string' ? row.role : '')}</Badge>
                 </TableCell>
                 
                 <TableCell className="text-center bg-blue-50/30">

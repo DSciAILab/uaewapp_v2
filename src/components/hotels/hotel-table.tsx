@@ -13,7 +13,7 @@ import { HotelDivergenceBadge } from './hotel-divergence-badge';
 import { BatchEditDialog } from './batch-edit-dialog';
 import { HotelApprovalDialog } from './hotel-approval-dialog';
 import { calculateNights } from '@/lib/utils/hotel-calculations';
-import { deleteHotel, updateHotelStatus, updateHotelBatch, checkInGuest, checkOutGuest } from '@/lib/services/hotel-service';
+import { deleteHotel, updateHotelStatus, updateHotelBatch } from '@/lib/services/hotel-service';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -27,8 +27,9 @@ interface HotelTableProps {
   onRefresh: () => void;
 }
 
-const statusConfig: Record<HotelStatus, { label: string; className: string }> = {
+const statusConfig: Record<HotelStatus | 'reserved', { label: string; className: string }> = {
   pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200' },
+  reserved: { label: 'Reserved', className: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' },
   confirmed: { label: 'Confirmed', className: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200' },
   cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200' },
 };
@@ -57,16 +58,12 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
 
     switch (sortConfig.key) {
       case 'guest':
-        aValue = a.enrolled?.person?.full_name || '';
-        bValue = b.enrolled?.person?.full_name || '';
-        break;
-      case 'room':
-        aValue = a.room_number || '';
-        bValue = b.room_number || '';
+        aValue = a.enrolled?.person?.compiled_name || '';
+        bValue = b.enrolled?.person?.compiled_name || '';
         break;
       case 'dates':
-        aValue = a.actual_checkin || '';
-        bValue = b.actual_checkin || '';
+        aValue = a.checkin_date || '';
+        bValue = b.checkin_date || '';
         break;
       case 'status':
         aValue = a.status || '';
@@ -99,17 +96,6 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
     setSelectedIds(next);
   };
 
-  const handleBatchCheckIn = async () => {
-    if (selectedIds.size === 0) return;
-    try {
-      await Promise.all(Array.from(selectedIds).map(id => checkInGuest(id)));
-      toast.success(`${selectedIds.size} guests checked in`);
-      setSelectedIds(new Set());
-      onRefresh();
-    } catch (error) {
-       toast.error('Failed to check in guests');
-    }
-  };
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -141,20 +127,6 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
     }
   };
 
-  const handleCheckInToggle = async (hotel: Hotel) => {
-      try {
-          if (hotel.checked_in_at) {
-              await checkOutGuest(hotel.id);
-              toast.success('Guest checked out');
-          } else {
-              await checkInGuest(hotel.id);
-              toast.success('Guest checked in');
-          }
-          onRefresh();
-      } catch (e) {
-          toast.error('Failed to update check-in status');
-      }
-  };
 
   return (
     <>
@@ -164,11 +136,6 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                 <span className="text-sm font-medium">{selectedIds.size} selected</span>
                 <div className="flex items-center gap-2">
                      <Button size="sm" variant="outline" onClick={() => setSelectedIds(new Set())}>Cancel</Button>
-                     <Button size="sm" onClick={handleBatchCheckIn}>
-                        <UserCheck className="w-4 h-4 mr-2" />
-                        Check In Selected
-                     </Button>
-                     {/* More batch actions to come */}
                 </div>
             </div>
         )}
@@ -202,7 +169,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                     </div>
                 </TableHead>
                 <TableHead>Nights</TableHead>
-                <TableHead>Res. Number</TableHead>
+                <TableHead>Booking Ref</TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
                     <div className="flex items-center gap-2">
                         Status <ArrowUpDown className="h-3 w-3" />
@@ -222,7 +189,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                 ) : (
                 sortedHotels.map((hotel) => {
                     const isSelected = selectedIds.has(hotel.id);
-                    const nights = calculateNights(hotel.actual_checkin, hotel.actual_checkout);
+                    const nights = calculateNights(hotel.checkin_date || '', hotel.checkout_date || '');
                     
                     return (
                     <TableRow 
@@ -242,11 +209,11 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                             {hotel.enrolled?.person.fighter_id && (
                               <AvatarImage 
                                 src={getFighterPhotoUrl(hotel.enrolled.person.fighter_id)} 
-                                alt={hotel.enrolled.person.full_name} 
+                                alt={hotel.enrolled.person.compiled_name} 
                               />
                             )}
                             <AvatarFallback className="text-xs font-bold bg-muted/50">
-                              {hotel.enrolled?.person.full_name?.[0]}
+                              {hotel.enrolled?.person.compiled_name?.[0]}
                             </AvatarFallback>
                           </Avatar>
                         </TableCell>
@@ -262,14 +229,9 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         <TableCell>
                           <div className="flex flex-col">
                               <p className="font-semibold flex items-center gap-2">
-                                  {hotel.enrolled?.person?.full_name}
-                                  {hotel.checked_in_at && (
-                                      <Badge variant="default" className="bg-green-600 hover:bg-green-600 text-[10px] h-4 px-1">
-                                          IN
-                                      </Badge>
-                                  )}
+                                  {hotel.enrolled?.person?.compiled_name}
                               </p>
-                              <p className="text-xs text-muted-foreground uppercase tracking-tight">{hotel.enrolled?.person?.role}</p>
+                              <p className="text-xs text-muted-foreground uppercase tracking-tight">{hotel.enrolled?.person?.role?.name || (hotel.enrolled as any)?.role?.name}</p>
                           </div>
                         </TableCell>
                         <TableCell>
@@ -278,18 +240,13 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         <TableCell>
                            <div className="flex flex-col">
                               <span className="text-sm font-medium">
-                                {hotel.actual_checkin ? format(new Date(hotel.actual_checkin), 'MMM dd, yyyy') : <span className="text-muted-foreground italic">TBD</span>}
+                                {hotel.checkin_date ? format(new Date(hotel.checkin_date), 'MMM dd, yyyy') : <span className="text-muted-foreground italic">TBD</span>}
                               </span>
-                              {hotel.room_number && (
-                                <span className="text-[10px] text-primary flex items-center gap-1">
-                                  <Key className="w-2.5 h-2.5" /> Room: {hotel.room_number}
-                                </span>
-                              )}
                            </div>
                         </TableCell>
                         <TableCell>
                            <span className="text-sm font-medium">
-                            {hotel.actual_checkout ? format(new Date(hotel.actual_checkout), 'MMM dd, yyyy') : <span className="text-muted-foreground italic">TBD</span>}
+                            {hotel.checkout_date ? format(new Date(hotel.checkout_date), 'MMM dd, yyyy') : <span className="text-muted-foreground italic">TBD</span>}
                            </span>
                         </TableCell>
                         <TableCell>
@@ -299,26 +256,25 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         </TableCell>
                         <TableCell>
                            <span className="text-xs font-mono bg-muted/30 px-2 py-1 rounded border">
-                              {hotel.confirmation_number || '-'}
+                              {hotel.reservation_number || '-'}
                            </span>
                         </TableCell>
                         <TableCell>
                         <Badge variant="outline" className={cn("font-bold text-[10px] uppercase", statusConfig[hotel.status]?.className || 'bg-gray-100')}>
-                            {hotel.status === 'pending' && (hotel.hotel_name === 'Pending Booking' || hotel.hotel_name === 'TBD') 
+                            {hotel.status === 'pending' && !hotel.reservation_number
                                 ? 'Action Needed' 
                                 : statusConfig[hotel.status]?.label || hotel.status}
                         </Badge>
                         </TableCell>
                         <TableCell>
-                        {hotel.has_divergence && hotel.primary_divergence_type ? (
+                        {hotel.has_divergence && hotel.divergence_type && hotel.divergence_type.length > 0 ? (
                             <div 
                             className="inline-block" 
                             onClick={(e) => { e.stopPropagation(); setApprovalHotel(hotel); }}
                             >
                             <HotelDivergenceBadge
-                                divergenceType={hotel.primary_divergence_type}
-                                isApproved={hotel.divergence_approved}
-                                reason={hotel.divergence_reason}
+                                divergenceType={hotel.divergence_type[0] as any}
+                                isApproved={hotel.divergence_approved || false}
                             />
                             </div>
                         ) : (
@@ -333,10 +289,6 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                             <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => onEdit(hotel)}>
                                 <Pencil className="mr-2 h-4 w-4" />Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleCheckInToggle(hotel)}>
-                                <UserCheck className="mr-2 h-4 w-4" />
-                                {hotel.checked_in_at ? 'Undo Check-in' : 'Check In'}
                             </DropdownMenuItem>
                             {hotel.has_divergence && (
                                 <DropdownMenuItem onClick={() => setApprovalHotel(hotel)}>

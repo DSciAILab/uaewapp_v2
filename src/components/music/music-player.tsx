@@ -63,7 +63,7 @@ export function MusicPlayer({ music, onClose }: MusicPlayerProps) {
             <Volume2 className="h-8 w-8 text-slate-600" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold truncate">{music.enrolled?.person?.full_name || 'Fighter Music'}</h4>
+            <h4 className="font-bold truncate">{music.enrolled?.person?.compiled_name || 'Fighter Music'}</h4>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-[10px] uppercase font-black text-primary bg-primary/10 px-1.5 py-0.5 rounded">
                 Type: {music.source_type}

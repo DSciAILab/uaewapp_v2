@@ -49,9 +49,9 @@ export function cleanName(name: string): string {
   return name
 }
 
-export function getDisplayName(person: { event_name?: string | null, full_name?: string | null, compiled_name?: string | null }): string {
+export function getDisplayName(person: { event_name?: string | null, compiled_name?: string | null }): string {
   if (person.event_name) return person.event_name
-  const baseName = person.full_name || person.compiled_name || 'Unknown'
+  const baseName = person.compiled_name || person.compiled_name || 'Unknown'
   return cleanName(baseName)
 }
 

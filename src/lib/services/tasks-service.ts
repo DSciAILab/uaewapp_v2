@@ -11,7 +11,7 @@ export async function getEventTasks(eventId: string, filters: TaskFilters = {}):
     .from('mma_athlete_tasks')
     .select(`
       *,
-      assigned_user:mma_users!assigned_to(id, full_name),
+      assigned_user:mma_users!assigned_to(id, compiled_name),
       template:mma_task_templates(id, name)
     `)
     .eq('event_id', eventId);

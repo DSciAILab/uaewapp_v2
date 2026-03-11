@@ -48,7 +48,7 @@ export default function PreEventPage() {
   const [logisticsData, setLogisticsData] = useState<LogisticsRow[]>([]);
   const [eventCars, setEventCars] = useState<EventCar[]>([]);
 
-  const [enrolledList, setEnrolledList] = useState<Array<{ id: string; person: { full_name: string } }>>([]);
+  const [enrolledList, setEnrolledList] = useState<Array<{ id: string; person: { compiled_name: string } }>>([]);
   
   // Blood Test state
   const [editingBloodTest, setEditingBloodTest] = useState<BloodTest | null>(null);
@@ -88,7 +88,7 @@ export default function PreEventPage() {
       // Build enrolled list from summaries
       setEnrolledList(summariesData.map(s => ({
         id: s.enrolled_id,
-        person: { full_name: s.person_name },
+        person: { compiled_name: s.person_name },
       })));
     } catch (error) {
       console.error('Failed to load pre-event data:', error);

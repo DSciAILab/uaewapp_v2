@@ -7,7 +7,7 @@ export const REALTIME_CHANNELS = {
 } as const;
 
 export const SUBSCRIBED_TABLES = [
-  'mma_enrolled',
+  'mma_enrollments',
   'mma_flights',
   'mma_flight_tickets',
   'mma_visas',

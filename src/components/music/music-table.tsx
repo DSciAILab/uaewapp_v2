@@ -86,7 +86,7 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
                       <Avatar className="h-10 w-10 border border-muted shadow-sm">
                            <AvatarImage src={getFighterPhotoUrl(m.enrolled?.person?.fighter_id)} />
                            <AvatarFallback className="text-xs font-bold bg-muted/50">
-                               {(m.enrolled?.person?.full_name || '??').substring(0, 2).toUpperCase()}
+                               {(m.enrolled?.person?.compiled_name || '??').substring(0, 2).toUpperCase()}
                            </AvatarFallback>
                       </Avatar>
                   </TableCell>
@@ -106,7 +106,7 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
                   {/* NOME + EVENT NAME */}
                   <TableCell>
                     <div className="flex flex-col">
-                        <span className="font-bold text-sm">{m.enrolled?.person?.full_name}</span>
+                        <span className="font-bold text-sm">{m.enrolled?.person?.compiled_name}</span>
                         {m.enrolled?.person?.event_name && (
                             <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{m.enrolled?.person?.event_name}</span>
                         )}

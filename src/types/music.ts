@@ -33,7 +33,7 @@ export interface EntranceMusic {
     corner_color?: string; // Fallback
     person: {
       id: string;
-      full_name: string;
+      compiled_name: string;
       fighter_id?: string; 
       event_name?: string;
       role?: string;

@@ -27,7 +27,7 @@ export interface StagingRow extends StagingCheckin {
   
   person: {
     id: string;
-    full_name: string;
+    compiled_name: string;
     nationality?: string;
     fighter_id?: string;
     photo_url?: string; // We'll need to construct this from passport_photo or similar

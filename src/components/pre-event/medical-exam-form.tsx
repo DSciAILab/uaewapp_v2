@@ -33,7 +33,7 @@ const medicalExamSchema = z.object({
 
 interface MedicalExamFormProps {
   eventId: string;
-  enrolledList: Array<{ id: string; person: { full_name: string } }>;
+  enrolledList: Array<{ id: string; person: { compiled_name: string } }>;
   medicalExam?: MedicalExam | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -127,7 +127,7 @@ export function MedicalExamForm({ eventId, enrolledList, medicalExam, open, onOp
 
   const enrolledOptions = enrolledList.map((e) => ({
     value: e.id,
-    label: e.person.full_name,
+    label: e.person.compiled_name,
   }));
 
   return (

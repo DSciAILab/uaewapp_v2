@@ -34,7 +34,7 @@ export async function getEventBloodTests(eventId: string): Promise<BloodTest[]> 
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name, role)
+        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('event_id', eventId)
@@ -53,7 +53,7 @@ export async function getBloodTestById(testId: string): Promise<BloodTest | null
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name, role)
+        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('id', testId)
@@ -176,7 +176,7 @@ export async function getEventMedicalExams(eventId: string): Promise<MedicalExam
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name, role)
+        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('event_id', eventId)
@@ -195,7 +195,7 @@ export async function getMedicalExamById(examId: string): Promise<MedicalExam | 
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name, role)
+        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('id', examId)
@@ -284,7 +284,7 @@ export async function getEventDocuments(eventId: string): Promise<RequiredDocume
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name, role)
+        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('event_id', eventId)
@@ -303,7 +303,7 @@ export async function getDocumentById(docId: string): Promise<RequiredDocument |
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, full_name, role)
+        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
       )
     `)
     .eq('id', docId)
@@ -567,7 +567,7 @@ export async function getPreEventSummary(eventId: string): Promise<PreEventSumma
     .from('mma_enrollments')
     .select(`
       id,
-      person:mma_people!inner(id, full_name, role)
+      person:mma_people!inner(id, compiled_name), role:mma_roles(name)
     `)
     .eq('event_id', eventId);
 
@@ -611,7 +611,7 @@ export async function getPreEventSummary(eventId: string): Promise<PreEventSumma
 
     summaries.push({
       enrolled_id: e.id,
-      person_name: (Array.isArray(e.person) ? e.person[0] : e.person).full_name,
+      person_name: (Array.isArray(e.person) ? e.person[0] : e.person).compiled_name,
       role: (Array.isArray(e.person) ? e.person[0] : e.person).role,
       blood_tests: {
         total: bt.length,
@@ -740,7 +740,7 @@ export async function getLogisticsOverview(eventId: string): Promise<LogisticsRo
     return {
       enrolled_id: summary.enrolled_id,
       person_id: personId,
-      full_name: summary.person_name,
+      compiled_name: summary.person_name,
       role: summary.role,
       checklist: {
         blood_test: summary.blood_tests.all_clear ? 'cleared' : (summary.blood_tests.failed > 0 ? 'denied' : 'pending'),

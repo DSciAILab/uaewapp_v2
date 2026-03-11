@@ -72,7 +72,7 @@ export interface EventTask {
   // Joined data
   assigned_user?: {
     id: string;
-    full_name: string;
+    compiled_name: string;
   };
   template?: TaskTemplate;
 }

@@ -114,7 +114,7 @@ export function MusicCSVImport({ onSuccess }: MusicCSVImportProps) {
              
              const { data: personByFighterId, error: err3 } = await supabase
                 .from('mma_people')
-                .select('id, full_name:name, fighter_id')
+                .select('id, compiled_name:name, fighter_id')
                 .eq('fighter_id', cleanFighterId)
                 .maybeSingle();
              

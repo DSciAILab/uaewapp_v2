@@ -50,7 +50,7 @@ export function MusicBulkDownload({ music, eventName = 'Event' }: MusicBulkDownl
     for (const m of downloadableMusic) {
       if (abortControllerRef.current?.signal.aborted) break;
 
-      const fighterName = m.enrolled?.person?.full_name || 'Unknown';
+      const fighterName = m.enrolled?.person?.compiled_name || 'Unknown';
       const corner = m.enrolled?.corner || 'Corner';
       
       const clean = (str: string) => str.replace(/[^a-z0-9\s_-]/gi, '').trim().replace(/\s+/g, '_');

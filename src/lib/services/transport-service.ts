@@ -7,7 +7,7 @@ const getClient = () => createClient();
 
 export async function getDrivers(activeOnly: boolean = false): Promise<Driver[]> {
   const supabase = getClient();
-  let query = supabase.from('mma_drivers').select('*').order('full_name');
+  let query = supabase.from('mma_transport_drivers').select('*').order('name');
 
   if (activeOnly) {
     query = query.eq('is_active', true);
@@ -22,7 +22,7 @@ export async function getDrivers(activeOnly: boolean = false): Promise<Driver[]>
 export async function getDriverById(driverId: string): Promise<Driver | null> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_drivers')
+    .from('mma_transport_drivers')
     .select('*')
     .eq('id', driverId)
     .single();
@@ -38,13 +38,10 @@ export async function getDriverById(driverId: string): Promise<Driver | null> {
 export async function createDriver(formData: DriverFormData): Promise<Driver> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_drivers')
+    .from('mma_transport_drivers')
     .insert({
-      full_name: formData.full_name,
+      name: formData.name,
       phone: formData.phone || null,
-      email: formData.email || null,
-      license_number: formData.license_number || null,
-      vehicle_info: formData.vehicle_info || null,
       is_active: formData.is_active,
       notes: formData.notes || null
     })
@@ -59,7 +56,7 @@ export async function createDriver(formData: DriverFormData): Promise<Driver> {
 export async function updateDriver(driverId: string, formData: Partial<DriverFormData>): Promise<Driver> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_drivers')
+    .from('mma_transport_drivers')
     .update(formData)
     .eq('id', driverId)
     .select()
@@ -73,7 +70,7 @@ export async function updateDriver(driverId: string, formData: Partial<DriverFor
 export async function deactivateDriver(driverId: string): Promise<void> {
   const supabase = getClient();
   const { error } = await supabase
-    .from('mma_drivers')
+    .from('mma_transport_drivers')
     .update({ is_active: false })
     .eq('id', driverId);
 
@@ -85,18 +82,17 @@ export async function deactivateDriver(driverId: string): Promise<void> {
 export async function getEventCars(eventId: string): Promise<EventCar[]> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_event_cars')
+    .from('mma_transport_cars')
     .select(`
       *,
-      driver:mma_drivers(*),
-      passengers:mma_car_passengers(
+      driver:mma_transport_drivers(*),
+      passengers:mma_transport_passengers(
         *,
         enrolled:mma_enrollments(
             id, 
             person:mma_people(id, compiled_name),
             role:mma_roles(name)
-        ),
-        flight:mma_flights(id, arrival_flight_number, departure_flight_number, arrival_date, arrival_time, departure_date, departure_time)
+        )
       )
     `)
     .eq('event_id', eventId)
@@ -104,22 +100,16 @@ export async function getEventCars(eventId: string): Promise<EventCar[]> {
 
   if (error) throw new Error('Failed to fetch event cars: ' + error.message);
   
-  // Transform nested data structure to match interface if needed
-  // Supabase returns standard JSON which mostly matches, but need to ensure consistency
   return (data || []).map((car: any) => ({
       ...car,
       passengers: (car.passengers || []).map((p: any) => ({
           ...p,
-          enrolled: {
+          enrolled: p.enrolled ? {
             ...p.enrolled,
             person: {
                 ...p.enrolled.person,
                 role: p.enrolled.role?.name || 'N/A'
             }
-          },
-          flight: p.flight ? {
-            ...p.flight,
-            flight_number: p.transport_type === 'arrival' ? p.flight.arrival_flight_number : p.flight.departure_flight_number
           } : null
       }))
   }));
@@ -129,7 +119,7 @@ export async function createEventCar(eventId: string, formData: EventCarFormData
   const supabase = getClient();
   // Get max car number for auto-increment
   const { data: maxCar } = await supabase
-    .from('mma_event_cars')
+    .from('mma_transport_cars')
     .select('car_number')
     .eq('event_id', eventId)
     .order('car_number', { ascending: false })
@@ -139,15 +129,22 @@ export async function createEventCar(eventId: string, formData: EventCarFormData
   const nextCarNumber = (maxCar?.car_number || 0) + 1;
 
   const { data, error } = await supabase
-    .from('mma_event_cars')
+    .from('mma_transport_cars')
     .insert({
       event_id: eventId,
       driver_id: formData.driver_id || null,
       car_number: nextCarNumber,
-      car_label: formData.car_label || `Car ${nextCarNumber}`,
-      capacity: formData.capacity,
+      type: formData.type,
       vehicle_type: formData.vehicle_type || null,
-      license_plate: formData.license_plate || null,
+      flight_number: formData.flight_number || null,
+      flight_date: formData.flight_date || null,
+      flight_time: formData.flight_time || null,
+      airport: formData.airport || null,
+      route_from: formData.route_from || null,
+      route_to: formData.route_to || null,
+      scheduled_date: formData.scheduled_date || null,
+      scheduled_time: formData.scheduled_time || null,
+      status: formData.status || 'scheduled',
       notes: formData.notes || null
     })
     .select()
@@ -161,7 +158,7 @@ export async function createEventCar(eventId: string, formData: EventCarFormData
 export async function updateEventCar(carId: string, formData: Partial<EventCarFormData>): Promise<EventCar> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_event_cars')
+    .from('mma_transport_cars')
     .update(formData)
     .eq('id', carId)
     .select()
@@ -175,7 +172,7 @@ export async function updateEventCar(carId: string, formData: Partial<EventCarFo
 export async function deleteEventCar(carId: string): Promise<void> {
   const supabase = getClient();
   const { error } = await supabase
-    .from('mma_event_cars')
+    .from('mma_transport_cars')
     .delete()
     .eq('id', carId);
 
@@ -187,16 +184,10 @@ export async function deleteEventCar(carId: string): Promise<void> {
 export async function assignPassenger(carId: string, formData: CarPassengerFormData): Promise<CarPassenger> {
     const supabase = getClient();
     const { data, error } = await supabase
-        .from('mma_car_passengers')
+        .from('mma_transport_passengers')
         .insert({
             car_id: carId,
-            enrolled_id: formData.enrolled_id,
-            flight_id: formData.flight_id || null,
-            transport_type: formData.transport_type,
-            pickup_location: formData.pickup_location || null,
-            dropoff_location: formData.dropoff_location || null,
-            pickup_time: formData.pickup_time || null,
-            notes: formData.notes || null
+            enrollment_id: formData.enrollment_id
         })
         .select()
         .single();
@@ -208,7 +199,7 @@ export async function assignPassenger(carId: string, formData: CarPassengerFormD
 export async function removePassenger(passengerId: string): Promise<void> {
     const supabase = getClient();
     const { error } = await supabase
-        .from('mma_car_passengers')
+        .from('mma_transport_passengers')
         .delete()
         .eq('id', passengerId);
 
@@ -216,9 +207,6 @@ export async function removePassenger(passengerId: string): Promise<void> {
 }
 
 export async function getUnassignedPassengers(eventId: string) {
-    // This is complex - finding people who need transport but aren't assigned
-    // Simpler approach: Get all needing transport, get all assigned, diff them
-    
     const supabase = getClient();
     // 1. Get all enrollments for event with needs_transport != 'none'
     const { data: enrollments } = await supabase
@@ -235,14 +223,21 @@ export async function getUnassignedPassengers(eventId: string) {
         .eq('status', 'active')
         .neq('needs_transport', 'none');
         
-    // 2. Get all active assignments
+    // 2. Get all active assignments joined with car info to know transport type
     const { data: assignments } = await supabase
-        .from('mma_car_passengers')
-        .select('enrolled_id, transport_type')
-        .in('enrolled_id', (enrollments || []).map((e: any) => e.id));
+        .from('mma_transport_passengers')
+        .select(`
+            enrollment_id,
+            car:mma_transport_cars(type)
+        `)
+        .in('enrollment_id', (enrollments || []).map((e: any) => e.id));
         
     const assignedSet = new Set<string>();
-    assignments?.forEach((a: any) => assignedSet.add(`${a.enrolled_id}_${a.transport_type}`));
+    assignments?.forEach((a: any) => {
+        if (a.car?.type) {
+            assignedSet.add(`${a.enrollment_id}_${a.car.type}`);
+        }
+    });
     
     // 3. Filter
     const unassigned: any[] = [];
@@ -279,19 +274,18 @@ export async function getTransportStats(eventId: string) {
   const supabase = getClient();
   // 1. Get cars stats
   const { data: cars, error: carsError } = await supabase
-    .from('mma_event_cars')
-    .select('id, capacity, passengers:mma_car_passengers(id)')
+    .from('mma_transport_cars')
+    .select('id, passengers:mma_transport_passengers(id)')
     .eq('event_id', eventId);
 
   if (carsError) throw new Error('Failed to fetch transport stats: ' + carsError.message);
 
   const totalCars = cars?.length || 0;
   const assignedCars = cars?.filter((c: any) => c.passengers && c.passengers.length > 0).length || 0; 
-  const totalCapacity = cars?.reduce((sum: number, c: any) => sum + (c.capacity || 0), 0) || 0;
 
   // 2. Get drivers stats
   const { data: drivers, error: driversError } = await supabase
-    .from('mma_drivers')
+    .from('mma_transport_drivers')
     .select('is_active');
     
   if (driversError) throw new Error('Failed to fetch driver stats: ' + driversError.message);
@@ -303,15 +297,109 @@ export async function getTransportStats(eventId: string) {
     total_cars: totalCars,
     total_drivers: totalDrivers,
     active_drivers: activeDrivers,
-    assigned_cars: assignedCars,
-    total_capacity: totalCapacity
+    assigned_cars: assignedCars
   };
 }
 
 export async function getFlightGroups(eventId: string): Promise<import('@/types/transport').FlightGroup[]> {
-  // TODO: Implement actual grouping logic
-  return []; 
+  const supabase = getClient();
+  
+  // 1. Get all flights for event
+  const { data: flights } = await supabase
+    .from('mma_flights')
+    .select(`
+      id,
+      type,
+      arrival_flight_number,
+      arrival_date,
+      arrival_time,
+      departure_flight_number,
+      departure_date,
+      departure_time,
+      enrollment:mma_enrollments!inner(
+        id,
+        event_id,
+        person:mma_people(id, compiled_name),
+        role:mma_roles(name)
+      )
+    `)
+    .eq('enrollment.event_id', eventId);
+
+  if (!flights) return [];
+
+  // 2. Get all car assignments for this event to cross-check
+  const { data: cars } = await supabase
+    .from('mma_transport_cars')
+    .select(`
+      *,
+      passengers:mma_transport_passengers(
+        id,
+        enrollment_id
+      )
+    `)
+    .eq('event_id', eventId);
+
+  // Group passengers by flight number and datetime
+  const groupsRaw: Record<string, import('@/types/transport').FlightGroup> = {};
+
+  flights.forEach((f: any) => {
+    const isArrival = f.type === 'arrival_only' || f.type === 'full';
+    const isDeparture = f.type === 'departure_only' || f.type === 'full';
+
+    // Helper for adding to groups
+    const addToGroup = (type: 'arrival' | 'departure') => {
+      const flightNum = type === 'arrival' ? f.arrival_flight_number : f.departure_flight_number;
+      const date = type === 'arrival' ? f.arrival_date : f.departure_date;
+      const time = type === 'arrival' ? f.arrival_time : f.departure_time;
+      
+      if (!flightNum) return;
+
+      const key = `${type}_${flightNum}_${date}_${time}`;
+      
+      if (!groupsRaw[key]) {
+        groupsRaw[key] = {
+          flight: {
+            id: f.id + '_' + type, // Synthetic ID for UI grouping
+            flight_number: flightNum,
+            datetime: date ? `${date}T${time || '00:00:00'}` : '',
+            type
+          },
+          passengers: [],
+          unassigned_count: 0
+        };
+      }
+
+      // Check if this specific enrollment is assigned to a car of this type
+      const assignedCar = cars?.find((car: any) => 
+        car.type === type && 
+        car.passengers.some((p: any) => p.enrollment_id === f.enrollment.id)
+      );
+
+      groupsRaw[key].passengers.push({
+        enrolled_id: f.enrollment.id,
+        person_id: f.enrollment.person.id,
+        person_name: f.enrollment.person.compiled_name,
+        role: f.enrollment.role,
+        assigned_car: assignedCar ? {
+          ...assignedCar,
+          passengers: assignedCar.passengers // We don't need the full passenger list here usually but just in case
+        } : undefined
+      });
+
+      if (!assignedCar) {
+        groupsRaw[key].unassigned_count++;
+      }
+    };
+
+    if (isArrival) addToGroup('arrival');
+    if (isDeparture) addToGroup('departure');
+  });
+
+  return Object.values(groupsRaw).sort((a, b) => 
+    new Date(a.flight.datetime).getTime() - new Date(b.flight.datetime).getTime()
+  );
 }
+
 // ALIASES for backward compatibility or component consistency
 export const addPassengerToCar = assignPassenger;
 export const removePassengerFromCar = removePassenger;

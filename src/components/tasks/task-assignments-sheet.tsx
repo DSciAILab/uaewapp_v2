@@ -120,7 +120,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const filteredAssignments = assignments.filter(a => {
     if (statusFilter !== 'all' && a.status !== statusFilter) return false;
     if (searchQuery) {
-      const name = a.enrollment?.person.full_name?.toLowerCase() || '';
+      const name = a.enrollment?.person.compiled_name?.toLowerCase() || '';
       const role = a.enrollment?.role.name?.toLowerCase() || '';
       const query = searchQuery.toLowerCase();
       return name.includes(query) || role.includes(query);
@@ -204,7 +204,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                             {assignment.enrollment?.person.name?.[0]}{assignment.enrollment?.person.surname?.[0]}
                           </AvatarFallback>
                         </Avatar>
-                        {assignment.enrollment?.person.full_name}
+                        {assignment.enrollment?.person.compiled_name}
                       </div>
                     </TableCell>
                     <TableCell>

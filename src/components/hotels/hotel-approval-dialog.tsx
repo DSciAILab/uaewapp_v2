@@ -22,8 +22,8 @@ export function HotelApprovalDialog({ hotel, open, onOpenChange, onApprovalChang
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useUser();
 
-  const calculatedNights = calculateNights(hotel.calculated_checkin, hotel.calculated_checkout);
-  const actualNights = calculateNights(hotel.actual_checkin, hotel.actual_checkout);
+  const calculatedNights = calculateNights(hotel.suggested_checkin_date || '', hotel.suggested_checkout_date || '');
+  const actualNights = calculateNights(hotel.checkin_date || '', hotel.checkout_date || '');
   const extraNights = actualNights - calculatedNights;
 
   const handleApprove = async () => {
@@ -67,18 +67,14 @@ export function HotelApprovalDialog({ hotel, open, onOpenChange, onApprovalChang
         <div className="space-y-4 py-4">
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Guest</span>
-            <span className="font-medium">{hotel.enrolled?.person?.full_name}</span>
+            <span className="font-medium">{hotel.enrolled?.person?.compiled_name}</span>
           </div>
 
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-muted-foreground">Hotel</span>
-            <span>{hotel.hotel_name}</span>
-          </div>
 
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Divergence</span>
             <Badge variant="outline" className="bg-orange-100 text-orange-800 border-orange-200">
-              {hotel.primary_divergence_type && formatDivergenceLabel(hotel.primary_divergence_type)}
+              {hotel.divergence_type && hotel.divergence_type.length > 0 && formatDivergenceLabel(hotel.divergence_type[0] as any)}
             </Badge>
           </div>
 
@@ -88,19 +84,19 @@ export function HotelApprovalDialog({ hotel, open, onOpenChange, onApprovalChang
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <p className="text-muted-foreground">Calculated Check-in</p>
-                <p>{format(new Date(hotel.calculated_checkin), 'MMM dd, yyyy')}</p>
+                <p>{hotel.suggested_checkin_date ? format(new Date(hotel.suggested_checkin_date), 'MMM dd, yyyy') : '-'}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Actual Check-in</p>
-                <p className="font-medium">{format(new Date(hotel.actual_checkin), 'MMM dd, yyyy')}</p>
+                <p className="font-medium">{hotel.checkin_date ? format(new Date(hotel.checkin_date), 'MMM dd, yyyy') : '-'}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Calculated Check-out</p>
-                <p>{format(new Date(hotel.calculated_checkout), 'MMM dd, yyyy')}</p>
+                <p>{hotel.suggested_checkout_date ? format(new Date(hotel.suggested_checkout_date), 'MMM dd, yyyy') : '-'}</p>
               </div>
               <div>
                 <p className="text-muted-foreground">Actual Check-out</p>
-                <p className="font-medium">{format(new Date(hotel.actual_checkout), 'MMM dd, yyyy')}</p>
+                <p className="font-medium">{hotel.checkout_date ? format(new Date(hotel.checkout_date), 'MMM dd, yyyy') : '-'}</p>
               </div>
             </div>
 
@@ -122,17 +118,11 @@ export function HotelApprovalDialog({ hotel, open, onOpenChange, onApprovalChang
             </div>
           </div>
 
-          {hotel.divergence_reason && (
-            <div className="border rounded-lg p-4">
-              <h4 className="font-medium text-sm mb-2">Reason Provided</h4>
-              <p className="text-sm text-muted-foreground">{hotel.divergence_reason}</p>
-            </div>
-          )}
 
-          {hotel.divergence_approved && hotel.approved_at && (
+          {hotel.divergence_approved && hotel.divergence_approved_at && (
             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
               <p className="text-sm text-green-800">
-                Approved on {format(new Date(hotel.approved_at), 'MMM dd, yyyy HH:mm')}
+                Approved on {format(new Date(hotel.divergence_approved_at), 'MMM dd, yyyy HH:mm')}
               </p>
             </div>
           )}

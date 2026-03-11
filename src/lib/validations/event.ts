@@ -12,6 +12,7 @@ export const eventSchema = z.object({
   checkin_margin_hours: z.coerce.number().min(0).max(24).optional(),
   checkout_margin_hours: z.coerce.number().min(0).max(24).optional(),
   status: z.enum(['planning', 'active', 'completed', 'cancelled']).optional(),
+  fight_card_csv_url: z.string().url('URL inválida').optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 

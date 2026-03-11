@@ -6,43 +6,45 @@ export type DivergenceType = 'pre_booking' | 'early_checkin' | 'late_checkout';
 
 export interface Hotel {
   id: string;
-  enrollment_id: string; // Renamed from enrolled_id
-  event_id: string;
-  hotel_name: string;
-  room_type: string | null;
+  enrollment_id: string;
   
-  // Calculated dates (based on flights + event margins)
-  calculated_checkin: string;
-  calculated_checkout: string;
+  // Suggested dates (based on flights + event margins)
+  suggested_checkin_date: string | null;
+  suggested_checkin_time: string | null;
+  suggested_checkout_date: string | null;
+  suggested_checkout_time: string | null;
   
   // Actual dates (may differ, creating divergences)
-  actual_checkin: string;
-  actual_checkout: string;
+  checkin_date: string | null;
+  checkin_time: string | null;
+  checkout_date: string | null;
+  checkout_time: string | null;
   
   // Divergence tracking
   has_divergence: boolean;
-  primary_divergence_type: DivergenceType | null;
-  divergence_reason: string | null;
-  divergence_approved: boolean;
-  approved_by: string | null;
-  approved_at: string | null;
+  divergence_type: string[] | null;
+  divergence_approved: boolean | null;
+  divergence_approved_by: string | null;
+  divergence_approved_at: string | null;
   
   // Booking info
-  confirmation_number: string | null;
-  room_number: string | null;
-  status: HotelStatus;
+  reservation_number: string | null;
+  status: HotelStatus | 'reserved';
   notes: string | null;
-  checked_in_at: string | null;
   
   created_at: string;
   updated_at: string;
+  created_by?: string | null;
+  updated_by?: string | null;
   
   // Joined data
   enrolled?: {
+    id: string;
+    event_id: string;
     person: {
       id: string;
-      full_name: string;
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
       fighter_id?: string | null;
       event_name?: string;
     };
@@ -57,16 +59,12 @@ export interface Hotel {
 
 export interface HotelFormData {
   enrollment_id: string;
-  hotel_name?: string;
-  room_type?: string;
-  room_number?: string;
-  actual_checkin: string;
-  actual_checkout: string;
-  checked_in_at?: string;
-  confirmation_number?: string;
-  status: HotelStatus;
+  checkin_date: string;
+  checkout_date: string;
+  reservation_number?: string;
+  status: HotelStatus | 'reserved';
   notes?: string;
-  divergence_reason?: string;
+  divergence_type?: string[];
 }
 
 export interface HotelDivergence {

@@ -70,7 +70,7 @@ function TransportContent() {
                             assignedPassengers.push({
                                 enrolled_id: p.enrolled_id,
                                 person_name: p.enrolled?.person.compiled_name,
-                                role: p.enrolled?.person.role,
+                                role: p.enrolled?.person?.role?.name || (p.enrolled as any)?.role?.name,
                                 assigned_car: c
                             });
                         }

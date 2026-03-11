@@ -28,7 +28,7 @@ const BUS_OPTIONS = [
 ];
 
 type SortDirection = 'asc' | 'desc';
-type SortKey = keyof StagingRow | 'person.full_name';
+type SortKey = keyof StagingRow | 'person.compiled_name';
 
 export function StagingTable({ data: initialData, eventId }: StagingTableProps) {
   const [data, setData] = useState<StagingRow[]>(initialData);
@@ -102,7 +102,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
       const terms = search.toLowerCase().split(',').map(t => t.trim()).filter(Boolean);
       matchesSearch = terms.some(term => {
          return (
-            row.person.full_name.toLowerCase().includes(term) ||
+            row.person.compiled_name.toLowerCase().includes(term) ||
             row.person.fighter_id?.toLowerCase().includes(term) ||
             row.corner?.toLowerCase().includes(term) ||
             row.bus_number?.toLowerCase().includes(term)
@@ -134,9 +134,9 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
     let aValue: any;
     let bValue: any;
 
-    if (key === 'person.full_name') {
-        aValue = a.person.full_name;
-        bValue = b.person.full_name;
+    if (key === 'person.compiled_name') {
+        aValue = a.person.compiled_name;
+        bValue = b.person.compiled_name;
     } else {
         aValue = a[key as keyof StagingRow];
         bValue = b[key as keyof StagingRow];
@@ -181,7 +181,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
         const tableData = dataToExport.map(row => [
             '', // Photo placeholder
             row.fight_order?.toString() || '-',
-            `${row.person.full_name}\n${row.corner || '-'}`, 
+            `${row.person.compiled_name}\n${row.corner || '-'}`, 
             row.bus_number || '-',
             row.passport_status === 'checked' ? 'OK' : row.passport_status,
             row.nails_status === 'checked' ? 'OK' : row.nails_status,
@@ -258,7 +258,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
         const tableData = dataToExport.map(row => [
             '', // Photo
             row.fight_order?.toString() || '-',
-            `${row.person.full_name}\n${row.corner || '-'}`,
+            `${row.person.compiled_name}\n${row.corner || '-'}`,
             '', // Bus
             '', // Passport
             '', // Nails
@@ -429,7 +429,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
             <TableRow className="bg-muted/50">
               {renderHeader('#', 'fight_order', 'w-[60px] text-center bg-yellow-50/50')}
               <TableHead className="w-[80px] text-center">Photo</TableHead>
-              {renderHeader('Fighter', 'person.full_name', 'w-[250px] justify-start')}
+              {renderHeader('Fighter', 'person.compiled_name', 'w-[250px] justify-start')}
               <TableHead 
                 className="w-[180px] bg-blue-50/50 cursor-pointer hover:bg-blue-100/50 transition-colors"
                 onClick={() => handleSort('bus_number')}
@@ -487,7 +487,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
                     )}>
                         <AvatarImage src={row.person.photo_url || ''} className="object-cover" />
                         <AvatarFallback className="font-bold bg-muted text-muted-foreground">
-                            {row.person.full_name.substring(0, 2).toUpperCase()}
+                            {row.person.compiled_name.substring(0, 2).toUpperCase()}
                         </AvatarFallback>
                     </Avatar>
                   </div>
@@ -497,7 +497,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
                 <TableCell>
                   <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                         <span className="font-bold text-base truncate">{row.person.full_name}</span>
+                         <span className="font-bold text-base truncate">{row.person.compiled_name}</span>
                       </div>
                       <div className="flex items-center gap-2">
                           <Badge variant="outline" className="font-mono text-[10px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4">

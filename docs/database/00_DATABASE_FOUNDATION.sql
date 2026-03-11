@@ -195,6 +195,7 @@ CREATE TABLE IF NOT EXISTS public.mma_events (
     checkin_margin_hours INTEGER NOT NULL DEFAULT 3,
     checkout_margin_hours INTEGER NOT NULL DEFAULT 4,
     status VARCHAR(20) NOT NULL DEFAULT 'planning' CHECK (status IN ('planning', 'active', 'completed', 'cancelled')),
+    fight_card_csv_url TEXT,
     notes TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

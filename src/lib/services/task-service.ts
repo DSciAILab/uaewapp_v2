@@ -132,7 +132,7 @@ export async function getEventTasks(eventId: string, filters?: TaskFilters): Pro
 
   return (results as any[]).map(task => ({
     ...task,
-    assigned_user: task.assigned_user ? { id: task.assigned_user.id, full_name: task.assigned_user.name } : null
+    assigned_user: task.assigned_user ? { id: task.assigned_user.id, compiled_name: task.assigned_user.name } : null
   }));
 }
 
@@ -156,7 +156,7 @@ export async function getTaskById(taskId: string): Promise<EventTask | null> {
   const task = data as any;
   return {
     ...task,
-    assigned_user: task.assigned_user ? { id: task.assigned_user.id, full_name: task.assigned_user.name } : null
+    assigned_user: task.assigned_user ? { id: task.assigned_user.id, compiled_name: task.assigned_user.name } : null
   };
 }
 

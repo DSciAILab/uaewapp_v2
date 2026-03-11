@@ -22,6 +22,7 @@ export interface EventFormData {
   checkin_margin_hours?: number
   checkout_margin_hours?: number
   status?: EventStatus
+  fight_card_csv_url?: string | null
   notes?: string | null
 }
 

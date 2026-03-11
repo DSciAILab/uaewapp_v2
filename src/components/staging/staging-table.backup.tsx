@@ -24,7 +24,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
   const [search, setSearch] = useState('');
 
   const filteredData = data.filter(row => 
-    row.person.full_name.toLowerCase().includes(search.toLowerCase()) ||
+    row.person.compiled_name.toLowerCase().includes(search.toLowerCase()) ||
     row.person.fighter_id?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -124,13 +124,13 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
                 <TableCell>
                   <Avatar className="h-10 w-10 border cursor-pointer hover:scale-110 transition-transform">
                     <AvatarImage src={row.person.photo_url || ''} className="object-cover" />
-                    <AvatarFallback>{row.person.full_name.substring(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{row.person.compiled_name.substring(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </TableCell>
                 
                 {/* Identity */}
                 <TableCell>
-                  <div className="font-semibold text-sm">{row.person.full_name}</div>
+                  <div className="font-semibold text-sm">{row.person.compiled_name}</div>
                   <div className="text-xs text-muted-foreground">ID: {row.person.fighter_id || 'N/A'}</div>
                   <div className="text-[10px] text-muted-foreground truncate max-w-[150px]">{row.event_name}</div>
                 </TableCell>

@@ -39,7 +39,7 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
           ) : (
             stats.map((s) => (
               <TableRow key={s.id}>
-                <TableCell className="font-medium">{s.person?.full_name}</TableCell>
+                <TableCell className="font-medium">{s.person?.compiled_name}</TableCell>
                 <TableCell>
                   {s.nickname ? (
                     <span className="text-muted-foreground">"{s.nickname}"</span>

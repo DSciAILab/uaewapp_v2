@@ -38,8 +38,7 @@ export function DriverTable({ drivers, onEdit, onRefresh }: DriverTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Full Name</TableHead>
-            <TableHead>Contact</TableHead>
-            <TableHead>Vehicle</TableHead>
+            <TableHead>Phone</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
@@ -59,19 +58,10 @@ export function DriverTable({ drivers, onEdit, onRefresh }: DriverTableProps) {
                 onClick={() => onEdit(driver)}
               >
                 <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-medium">{driver.full_name}</span>
-                    <span className="text-xs text-muted-foreground">{driver.license_number}</span>
-                  </div>
+                  <span className="font-medium">{driver.name}</span>
                 </TableCell>
                 <TableCell>
-                  <div className="flex flex-col text-sm">
-                     {driver.phone && <span>{driver.phone}</span>}
-                     {driver.email && <span className="text-muted-foreground">{driver.email}</span>}
-                  </div>
-                </TableCell>
-                <TableCell>
-                    {driver.vehicle_info || <span className="text-muted-foreground">-</span>}
+                   {driver.phone || <span className="text-muted-foreground">-</span>}
                 </TableCell>
                 <TableCell>
                   <Badge variant={driver.is_active ? 'default' : 'secondary'} className={driver.is_active ? 'bg-green-600 text-white hover:bg-green-700' : ''}>

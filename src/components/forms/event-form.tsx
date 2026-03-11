@@ -50,6 +50,7 @@ export function EventForm({ event, onSubmit, onCancel, loading }: EventFormProps
       checkin_margin_hours: event?.checkin_margin_hours || 3,
       checkout_margin_hours: event?.checkout_margin_hours || 4,
       status: event?.status || 'planning',
+      fight_card_csv_url: event?.fight_card_csv_url || '',
       notes: event?.notes || '',
     },
   })
@@ -133,6 +134,15 @@ export function EventForm({ event, onSubmit, onCancel, loading }: EventFormProps
             <Label htmlFor="checkout_margin_hours">Margem Check-out (horas)</Label>
             <Input id="checkout_margin_hours" type="number" min={0} max={24} {...register('checkout_margin_hours')} />
           </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Integrações</h3>
+        <div className="space-y-2">
+          <Label htmlFor="fight_card_csv_url">Google Sheets CSV URL (Fight Card)</Label>
+          <Input id="fight_card_csv_url" type="url" {...register('fight_card_csv_url')} placeholder="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv" />
+          {errors.fight_card_csv_url && <p className="text-sm text-red-500">{errors.fight_card_csv_url.message}</p>}
         </div>
       </div>
 

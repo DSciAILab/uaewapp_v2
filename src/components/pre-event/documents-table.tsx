@@ -80,7 +80,7 @@ export function DocumentsTable({ documents, onEdit, onRefresh }: DocumentsTableP
             ) : (
               documents.map((doc) => (
                 <TableRow key={doc.id}>
-                  <TableCell className="font-medium">{doc.enrolled?.person?.full_name}</TableCell>
+                  <TableCell className="font-medium">{doc.enrolled?.person?.compiled_name}</TableCell>
                   <TableCell>{doc.document_type}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">

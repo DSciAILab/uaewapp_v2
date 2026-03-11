@@ -58,7 +58,7 @@ export interface FighterStats {
   // Joined data
   person?: {
     id: string;
-    full_name: string;
+    compiled_name: string;
     role?: string;
     nationality: string | null;
     fighter_id?: string | null;
@@ -104,7 +104,7 @@ export interface CoachData {
   // Joined data
   person?: {
     id: string;
-    full_name: string;
+    compiled_name: string;
     role?: string;
     nationality: string | null;
   };
@@ -140,7 +140,7 @@ export interface EventWeighIn {
   enrolled?: {
     person: {
       id: string;
-      full_name: string;
+      compiled_name: string;
       event_name?: string;
       fighter_id?: string | number | null;
     };

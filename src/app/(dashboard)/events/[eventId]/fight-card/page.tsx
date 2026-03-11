@@ -49,15 +49,25 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
   const [matches, setMatches] = useState<MatchPair[]>([]);
 
   useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+
     async function init() {
       try {
-        const [eventData, fightersData, csvText] = await Promise.all([
+        const [eventData, fightersData] = await Promise.all([
           getEventById(eventId),
-          getEventFighterStats(eventId),
-          fetch(CSV_URL).then(r => r.text())
+          getEventFighterStats(eventId)
         ]);
 
         setEvent(eventData);
+
+        const targetUrl = eventData?.fight_card_csv_url || CSV_URL;
+        
+        if (!targetUrl) {
+            setLoading(false);
+            return;
+        }
+
+        const csvText = await fetch(targetUrl).then(r => r.text());
 
         // Parse CSV
         const rows = csvText.split('\n').slice(1); // Skip header
@@ -100,7 +110,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
             // Find stats for photo
             // Normalize names for comparison
             const fighterStats = fightersData.find(f => {
-                const pName = normalizeName(f.person?.full_name || '');
+                const pName = normalizeName(f.person?.compiled_name || '');
                 const eName = normalizeName(f.person?.event_name || '');
                 const cName = normalizeName(row.name);
                 
@@ -141,6 +151,11 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
     }
 
     init();
+
+    // Fetch every 30 seconds for dynamic updates
+    intervalId = setInterval(init, 30000);
+
+    return () => clearInterval(intervalId);
   }, [eventId]);
 
   const handleExportPDF = async () => {

@@ -21,7 +21,7 @@ export function StatsCard({ stats, compact = false }: StatsCardProps) {
       <div className="flex items-center gap-4 p-3 border rounded-lg">
         <div className="flex-1">
           <div className="flex items-center gap-2">
-            <span className="font-medium">{stats.person?.full_name}</span>
+            <span className="font-medium">{stats.person?.compiled_name}</span>
             {stats.nickname && (
               <span className="text-sm text-muted-foreground">"{stats.nickname}"</span>
             )}
@@ -44,7 +44,7 @@ export function StatsCard({ stats, compact = false }: StatsCardProps) {
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
-            {stats.person?.full_name}
+            {stats.person?.compiled_name}
             {stats.nickname && (
               <span className="text-lg font-normal text-muted-foreground">
                 "{stats.nickname}"

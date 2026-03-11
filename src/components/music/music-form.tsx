@@ -41,7 +41,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
   const [availableEnrolled, setAvailableEnrolled] = useState<Array<{
     id: string;
     corner?: string;
-    person: { id: string; full_name: string; role: string; fighter_id?: string; event_name?: string };
+    person: { id: string; compiled_name: string; role?: { name: string }; fighter_id?: string; event_name?: string };
   }>>([]);
 
   const isEditing = !!music;
@@ -74,8 +74,8 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
             corner: e.corner || undefined,
             person: {
               id: e.person.id,
-              full_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
-              role: e.role?.name || 'Fighter',
+              compiled_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
+              role: ((e.person as any)?.role as any)?.name || (e.person as any)?.role || 'Fighter',
               fighter_id: e.person.fighter_id || undefined,
               event_name: e.person.event_name || undefined
             }
@@ -174,7 +174,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
         const corner = selectedEnrolled.corner || 'Corner';
         const fighterId = selectedEnrolled.person.fighter_id || 'ID';
         const eventName = selectedEnrolled.person.event_name || 'Event';
-        const name = selectedEnrolled.person.full_name || 'Fighter';
+        const name = selectedEnrolled.person.compiled_name || 'Fighter';
         
         const clean = (str: string) => str.replace(/[^a-z0-9\s_-]/gi, '').trim().replace(/\s+/g, '_');
         
@@ -184,7 +184,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
          const p = music.enrolled.person as any;
          const fighterId = p?.fighter_id || 'ID';
          const eventName = p?.event_name || 'Event';
-         const name = p?.full_name || 'Fighter';
+         const name = p?.compiled_name || 'Fighter';
          
          const clean = (str: string) => str.replace(/[^a-z0-9\s_-]/gi, '').trim().replace(/\s+/g, '_');
          filename = `${clean(corner)}_${clean(name)}_Track-${index}.mp3`;
@@ -225,7 +225,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
                       <FormControl><SelectTrigger><SelectValue placeholder="Select fighter" /></SelectTrigger></FormControl>
                       <SelectContent>
                         {availableEnrolled.map((e) => (
-                          <SelectItem key={e.id} value={e.id}>{e.person.full_name}</SelectItem>
+                          <SelectItem key={e.id} value={e.id}>{e.person.compiled_name}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

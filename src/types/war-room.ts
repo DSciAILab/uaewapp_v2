@@ -30,7 +30,7 @@ export interface TeamMember {
   id: string;
   name: string;
   avatar?: string;
-  role: string;
+  role?: { name: string };
   status: 'online' | 'away' | 'offline';
   current_section?: string;
   last_seen: string;

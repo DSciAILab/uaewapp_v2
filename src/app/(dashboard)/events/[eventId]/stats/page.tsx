@@ -98,7 +98,7 @@ export default function StatsPage() {
     if (terms.length === 0) return true;
 
     return terms.some(term => {
-      const nameMatch = s.person?.full_name?.toLowerCase().includes(term);
+      const nameMatch = s.person?.compiled_name?.toLowerCase().includes(term);
       const nicknameMatch = s.nickname?.toLowerCase().includes(term);
       const weightMatch = s.weight_class?.toLowerCase().includes(term);
       const teamMatch = s.team_gym?.toLowerCase().includes(term);
@@ -204,7 +204,7 @@ export default function StatsPage() {
                   if (terms.length === 0) return true;
 
                   return terms.some(term => {
-                    const nameMatch = c.person?.full_name?.toLowerCase().includes(term);
+                    const nameMatch = c.person?.compiled_name?.toLowerCase().includes(term);
                     const nationalityMatch = c.person?.nationality?.toLowerCase().includes(term);
                     const uniformMatch = c.uniform_size?.toLowerCase().includes(term);
                     return nameMatch || nationalityMatch || uniformMatch;
@@ -213,7 +213,7 @@ export default function StatsPage() {
                 .map((c) => (
                 <Card key={c.id} className="cursor-pointer hover:bg-muted/50 transition-colors" onClick={() => handleEditCoach(c)}>
                   <CardHeader>
-                    <CardTitle>{c.person?.full_name}</CardTitle>
+                    <CardTitle>{c.person?.compiled_name}</CardTitle>
                     <CardDescription>{c.person?.nationality}</CardDescription>
                   </CardHeader>
                   <CardContent>
@@ -241,7 +241,7 @@ export default function StatsPage() {
       {isFormOpen && editingStats && (
         <StatsForm
           personId={editingStats.person_id}
-          personName={editingStats.person?.full_name || ''}
+          personName={editingStats.person?.compiled_name || ''}
           stats={editingStats}
           open={isFormOpen}
           onOpenChange={handleFormClose}
@@ -253,7 +253,7 @@ export default function StatsPage() {
          <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
            <DialogContent>
              <DialogHeader>
-               <DialogTitle>Edit Coach: {editingCoach.person?.full_name}</DialogTitle>
+               <DialogTitle>Edit Coach: {editingCoach.person?.compiled_name}</DialogTitle>
              </DialogHeader>
              <CoachStatsForm 
                 personId={editingCoach.person_id}

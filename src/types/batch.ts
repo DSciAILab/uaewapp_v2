@@ -88,8 +88,8 @@ export interface BatchParticipant {
     id: string;
     person: {
       id: string;
-      full_name: string;
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
     };
   };
 }

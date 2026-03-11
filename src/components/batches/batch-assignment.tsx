@@ -89,7 +89,7 @@ export function BatchAssignment({ eventId, batch, open, onOpenChange, onRefresh 
   };
 
   const filteredAvailable = available.filter(e => 
-    e.person.full_name.toLowerCase().includes(search.toLowerCase())
+    e.person.compiled_name.toLowerCase().includes(search.toLowerCase())
   );
 
   const getStatusIcon = (status: BatchParticipantStatus) => {
@@ -123,8 +123,8 @@ export function BatchAssignment({ eventId, batch, open, onOpenChange, onRefresh 
                   participants.map((p) => (
                     <div key={p.id} className="flex items-center justify-between p-2 rounded border bg-card text-sm">
                       <div className="flex-1 min-w-0 mr-2">
-                        <p className="font-medium truncate">{p.enrolled?.person.full_name}</p>
-                        <p className="text-xs text-muted-foreground">{p.enrolled?.person.role}</p>
+                        <p className="font-medium truncate">{p.enrolled?.person.compiled_name}</p>
+                        <p className="text-xs text-muted-foreground">{p.enrolled?.person?.role?.name || (p.enrolled as any)?.role?.name}</p>
                       </div>
                       <div className="flex items-center gap-1">
                         <Button 
@@ -181,8 +181,8 @@ export function BatchAssignment({ eventId, batch, open, onOpenChange, onRefresh 
                   filteredAvailable.map((e) => (
                     <div key={e.id} className="flex items-center justify-between p-2 rounded hover:bg-muted/50 text-xs">
                       <div className="flex-1 min-w-0 mr-2">
-                        <p className="font-medium truncate">{e.person.full_name}</p>
-                        <p className="text-muted-foreground">{e.person.role}</p>
+                        <p className="font-medium truncate">{e.person.compiled_name}</p>
+                        <p className="text-muted-foreground">{(e.person?.role as any)?.name || e.person?.role}</p>
                       </div>
                       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleAdd(e.id)}>
                         <UserPlus className="h-3 w-3" />

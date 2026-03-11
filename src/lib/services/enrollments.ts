@@ -229,10 +229,10 @@ async function syncRelatedModules(enrollment: Enrollment) {
           enrollment_id: enrolled_id,
           hotel_name: 'TBD',
           status: 'pending',
-          calculated_checkin: checkin.toISOString(),
-          calculated_checkout: checkout.toISOString(),
-          actual_checkin: checkin.toISOString().split('T')[0],
-          actual_checkout: checkout.toISOString().split('T')[0],
+          suggested_checkin_date: checkin.toISOString(),
+          suggested_checkout_date: checkout.toISOString(),
+          checkin_date: checkin.toISOString().split('T')[0],
+          checkout_date: checkout.toISOString().split('T')[0],
           has_divergence: false
         })
         if (hotelError) console.error('Error auto-creating hotel:', hotelError)

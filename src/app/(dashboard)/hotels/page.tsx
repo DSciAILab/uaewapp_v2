@@ -114,7 +114,7 @@ export default function GlobalHotelsPage() {
                         <HotelTable 
                             hotels={hotels} 
                             onEdit={(hotel) => {
-                                const eventId = hotel.event_id;
+                                const eventId = hotel.enrolled?.event_id;
                                 if (eventId) {
                                     router.push(`/events/${eventId}/hotels`)
                                 } else {

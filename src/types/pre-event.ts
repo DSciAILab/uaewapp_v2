@@ -47,8 +47,8 @@ export interface BloodTest {
   enrolled?: {
     person: {
       id: string;
-      full_name: string;
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
     };
   };
 }
@@ -103,8 +103,8 @@ export interface MedicalExam {
   enrolled?: {
     person: {
       id: string;
-      full_name: string;
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
     };
   };
 }
@@ -157,8 +157,8 @@ export interface RequiredDocument {
   enrolled?: {
     person: {
       id: string;
-      full_name: string;
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
     };
   };
 }
@@ -202,8 +202,8 @@ export interface PreEventClearance {
   enrolled?: {
     person: {
       id: string;
-      full_name: string;
-      role: string;
+      compiled_name: string;
+      role?: { name: string };
     };
   };
 }
@@ -211,7 +211,7 @@ export interface PreEventClearance {
 export interface PreEventSummary {
   enrolled_id: string;
   person_name: string;
-  role: string;
+  role?: { name: string };
   
   blood_tests: {
     total: number;
@@ -243,8 +243,8 @@ export interface PreEventSummary {
 export interface LogisticsRow {
   enrolled_id: string;
   person_id: string;
-  full_name: string;
-  role: string;
+  compiled_name: string;
+  role?: { name: string };
   checklist: {
     blood_test: ClearanceStatus;
     medical_exam: ClearanceStatus;

@@ -16,10 +16,17 @@ import { toast } from 'sonner';
 
 const carSchema = z.object({
   driver_id: z.string().optional().or(z.literal('')),
-  car_label: z.string().optional(),
-  capacity: z.coerce.number().min(1, 'Capacity must be at least 1'),
+  type: z.enum(['arrival', 'departure', 'event']),
+  status: z.enum(['scheduled', 'in_progress', 'completed', 'cancelled']),
   vehicle_type: z.string().optional(),
-  license_plate: z.string().optional(),
+  flight_number: z.string().optional(),
+  flight_date: z.string().optional(),
+  flight_time: z.string().optional(),
+  airport: z.string().optional(),
+  route_from: z.string().optional(),
+  route_to: z.string().optional(),
+  scheduled_date: z.string().optional(),
+  scheduled_time: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -40,31 +47,54 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
     resolver: zodResolver(carSchema) as any,
     defaultValues: {
       driver_id: '',
-      car_label: '',
-      capacity: 4,
+      type: 'arrival',
+      status: 'scheduled',
       vehicle_type: '',
-      license_plate: '',
+      flight_number: '',
+      flight_date: '',
+      flight_time: '',
+      airport: '',
+      route_from: '',
+      route_to: '',
+      scheduled_date: '',
+      scheduled_time: '',
       notes: '',
     },
   });
+
+  const carType = form.watch('type');
 
   useEffect(() => {
     if (car) {
       form.reset({
         driver_id: car.driver_id || '',
-        car_label: car.car_label || '',
-        capacity: car.capacity,
+        type: car.type,
+        status: car.status,
         vehicle_type: car.vehicle_type || '',
-        license_plate: car.license_plate || '',
+        flight_number: car.flight_number || '',
+        flight_date: car.flight_date || '',
+        flight_time: car.flight_time || '',
+        airport: car.airport || '',
+        route_from: car.route_from || '',
+        route_to: car.route_to || '',
+        scheduled_date: car.scheduled_date || '',
+        scheduled_time: car.scheduled_time || '',
         notes: car.notes || '',
       });
     } else {
       form.reset({
         driver_id: '',
-        car_label: '',
-        capacity: 4,
-        vehicle_type: 'sedan',
-        license_plate: '',
+        type: 'arrival',
+        status: 'scheduled',
+        vehicle_type: 'van',
+        flight_number: '',
+        flight_date: '',
+        flight_time: '',
+        airport: '',
+        route_from: '',
+        route_to: '',
+        scheduled_date: '',
+        scheduled_time: '',
         notes: '',
       });
     }
@@ -75,50 +105,87 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
     try {
       if (isEditing && car) {
         await updateEventCar(car.id, data);
-        toast.success('Car updated successfully');
+        toast.success('Transfer updated successfully');
       } else {
         await createEventCar(eventId, data);
-        toast.success('Car added successfully');
+        toast.success('Transfer added successfully');
       }
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      toast.error(error.message || 'Failed to save car');
+      toast.error(error.message || 'Failed to save transfer');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDriverChange = (driverId: string) => {
-      form.setValue('driver_id', driverId);
-      // Auto-fill vehicle info if available and empty in form
-      const driver = drivers.find(d => d.id === driverId);
-      if (driver && driver.vehicle_info && !form.getValues('vehicle_type')) {
-          // Simple heuristic: check if info contains keywords
-          const info = driver.vehicle_info.toLowerCase();
-          if (info.includes('van')) form.setValue('vehicle_type', 'van');
-          else if (info.includes('suv')) form.setValue('vehicle_type', 'suv');
-          else if (info.includes('bus')) form.setValue('vehicle_type', 'bus');
-          else form.setValue('vehicle_type', 'sedan');
-      }
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Event Car' : 'Add Car to Event'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Transfer' : 'Add New Transfer'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Transfer Type *</FormLabel>
+                      <Select 
+                        onValueChange={(val) => {
+                          field.onChange(val);
+                          // Clear unrelated fields when type changes if needed
+                        }} 
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="arrival">Arrival (Airport → Hotel)</SelectItem>
+                          <SelectItem value="departure">Departure (Hotel → Airport)</SelectItem>
+                          <SelectItem value="event">Event (Hotel ↔ Venue / Other)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Status *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="scheduled">Scheduled</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="completed">Completed</SelectItem>
+                          <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+            </div>
+
             <FormField
               control={form.control}
               name="driver_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Driver (Optional)</FormLabel>
-                  <Select onValueChange={handleDriverChange} value={field.value || ''}>
+                  <Select onValueChange={field.onChange} value={field.value || 'unassigned'}>
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a driver" />
@@ -126,10 +193,8 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
                     </FormControl>
                     <SelectContent>
                       <SelectItem value="unassigned">-- No Driver --</SelectItem>
-                      {drivers.filter(d => d.is_active).map((d) => (
-                        <SelectItem key={d.id} value={d.id}>
-                          {d.full_name} {d.vehicle_info ? `(${d.vehicle_info})` : ''}
-                        </SelectItem>
+                      {drivers.filter(d => d.is_active || d.id === car?.driver_id).map((d) => (
+                        <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -138,30 +203,110 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
-                 <FormField
-                  control={form.control}
-                  name="car_label"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Label</FormLabel>
-                      <FormControl><Input placeholder="e.g. VAN 1" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            {(carType === 'arrival' || carType === 'departure') && (
+                <div className="space-y-4 border p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+                    <h4 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Flight Information</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="flight_number"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Flight Number</FormLabel>
+                                    <FormControl><Input placeholder="EK123" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="airport"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Airport Code</FormLabel>
+                                    <FormControl><Input placeholder="DXB" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="flight_date"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Flight Date</FormLabel>
+                                    <FormControl><Input type="date" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="flight_time"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Flight Time</FormLabel>
+                                    <FormControl><Input type="time" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+            )}
 
-                <FormField
-                  control={form.control}
-                  name="capacity"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Capacity</FormLabel>
-                      <FormControl><Input type="number" min="1" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+            <div className="space-y-4 border p-3 rounded-lg">
+                <h4 className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Schedule & Route</h4>
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="route_from"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>From</FormLabel>
+                                <FormControl><Input placeholder="e.g. Airport" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="route_to"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>To</FormLabel>
+                                <FormControl><Input placeholder="e.g. Hotel" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="scheduled_date"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Scheduled Date</FormLabel>
+                                <FormControl><Input type="date" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="scheduled_time"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Scheduled Time</FormLabel>
+                                <FormControl><Input type="time" {...field} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -176,25 +321,12 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
                           <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="sedan">Sedan (4)</SelectItem>
-                          <SelectItem value="suv">SUV (6)</SelectItem>
-                          <SelectItem value="van">Van (10+)</SelectItem>
-                          <SelectItem value="bus">Bus (30+)</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectItem value="sedan">Sedan</SelectItem>
+                          <SelectItem value="suv">SUV</SelectItem>
+                          <SelectItem value="van">Van</SelectItem>
+                          <SelectItem value="bus">Bus</SelectItem>
                         </SelectContent>
                       </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="license_plate"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>License Plate</FormLabel>
-                      <FormControl><Input placeholder="ABC-123" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -218,7 +350,7 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
                 Cancel
               </Button>
               <Button type="submit" disabled={isLoading}>
-                {isLoading ? 'Saving...' : isEditing ? 'Update' : 'Add Car'}
+                {isLoading ? 'Saving...' : isEditing ? 'Update Transfer' : 'Add Transfer'}
               </Button>
             </div>
           </form>

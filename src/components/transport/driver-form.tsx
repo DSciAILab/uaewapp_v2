@@ -15,11 +15,8 @@ import { createDriver, updateDriver } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
 
 const driverSchema = z.object({
-  full_name: z.string().min(1, 'Full name is required'),
+  name: z.string().min(1, 'Full name is required'),
   phone: z.string().optional(),
-  email: z.string().email('Invalid email').optional().or(z.literal('')),
-  license_number: z.string().optional(),
-  vehicle_info: z.string().optional(),
   is_active: z.boolean().default(true),
   notes: z.string().optional(),
 });
@@ -38,11 +35,8 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
   const form = useForm<DriverFormData>({
     resolver: zodResolver(driverSchema) as any,
     defaultValues: {
-      full_name: '',
+      name: '',
       phone: '',
-      email: '',
-      license_number: '',
-      vehicle_info: '',
       is_active: true,
       notes: '',
     },
@@ -51,21 +45,15 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
   useEffect(() => {
     if (driver) {
       form.reset({
-        full_name: driver.full_name,
+        name: driver.name,
         phone: driver.phone || '',
-        email: driver.email || '',
-        license_number: driver.license_number || '',
-        vehicle_info: driver.vehicle_info || '',
         is_active: driver.is_active,
         notes: driver.notes || '',
       });
     } else {
       form.reset({
-        full_name: '',
+        name: '',
         phone: '',
-        email: '',
-        license_number: '',
-        vehicle_info: '',
         is_active: true,
         notes: '',
       });
@@ -102,7 +90,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="full_name"
+              name="name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name *</FormLabel>
@@ -112,7 +100,6 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
               )}
             />
 
-            <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}
                 name="phone"
@@ -124,43 +111,6 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
                   </FormItem>
                 )}
               />
-
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email</FormLabel>
-                    <FormControl><Input type="email" placeholder="john@example.com" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <FormField
-              control={form.control}
-              name="license_number"
-              render={({ field }) => (
-                <FormItem>
-                    <FormLabel>License Number</FormLabel>
-                    <FormControl><Input placeholder="DL-12345" {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-               )}
-            />
-
-            <FormField
-              control={form.control}
-              name="vehicle_info"
-              render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Vehicle Info (Default)</FormLabel>
-                    <FormControl><Input placeholder="White Toyota Camry" {...field} /></FormControl>
-                    <FormMessage />
-                </FormItem>
-               )}
-            />
 
             <FormField
               control={form.control}

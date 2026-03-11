@@ -44,7 +44,7 @@ export function TeamPresence({ members }: TeamPresenceProps) {
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-bold text-white truncate">{member.name}</p>
                     <Badge variant="outline" className="text-[8px] h-4 px-1 bg-primary/5 text-primary border-primary/20">
-                      {member.role}
+                      {member.role?.name || (typeof member.role === 'string' ? member.role : '')}
                     </Badge>
                   </div>
                   <div className="flex items-center gap-1.5 mt-0.5">

@@ -88,7 +88,7 @@ export function BloodTestTable({ bloodTests, onEdit, onRefresh }: BloodTestTable
             ) : (
               bloodTests.map((test) => (
                 <TableRow key={test.id}>
-                  <TableCell className="font-medium">{test.enrolled?.person?.full_name}</TableCell>
+                  <TableCell className="font-medium">{test.enrolled?.person?.compiled_name}</TableCell>
                   <TableCell>{test.test_type}</TableCell>
                   <TableCell>
                     {test.scheduled_date ? format(new Date(test.scheduled_date + 'T00:00:00'), 'MMM dd, yyyy') : '-'}
