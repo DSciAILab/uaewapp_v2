@@ -297,7 +297,8 @@ export async function getTransportStats(eventId: string) {
     total_cars: totalCars,
     total_drivers: totalDrivers,
     active_drivers: activeDrivers,
-    assigned_cars: assignedCars
+    assigned_cars: assignedCars,
+    total_capacity: 0
   };
 }
 
@@ -382,7 +383,7 @@ export async function getFlightGroups(eventId: string): Promise<import('@/types/
         role: f.enrollment.role,
         assigned_car: assignedCar ? {
           ...assignedCar,
-          passengers: assignedCar.passengers // We don't need the full passenger list here usually but just in case
+          passengers: assignedCar.passengers
         } : undefined
       });
 

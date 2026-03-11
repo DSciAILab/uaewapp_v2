@@ -51,58 +51,66 @@ function TransportContent() {
                 getTransportStats(targetEventId)
             ]);
             
-            // Build Flight Groups
             const unassigned = await getUnassignedPassengers(targetEventId);
-            // We also need flights to group them
             const flights = await getFlightsByEvent(targetEventId);
             
-            // Group logic
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            // Build a map of enrollment_id -> car for assigned passengers
+            const enrollmentCarMap = new Map<string, EventCar>();
+            carsData.forEach((c: EventCar) => {
+                c.passengers?.forEach((p: any) => {
+                    enrollmentCarMap.set(p.enrollment_id, c);
+                });
+            });
+
             const groups: FlightGroup[] = flights.map((f: any) => {
-                // Find passengers for this flight (assigned + unassigned)
-                // Assigned ones are in cars.passengers with flight_id
-                // Unassigned are in 'unassigned' array with flight_id
+                const flightEnrollmentId = f.enrollment_id;
+                
+                const assignedCar = enrollmentCarMap.get(flightEnrollmentId);
                 
                 const assignedPassengers: any[] = [];
-                carsData.forEach(c => {
-                    c.passengers?.forEach(p => {
-                        if (p.flight_id === f.id || p.flight?.id === f.id) {
-                            assignedPassengers.push({
-                                enrolled_id: p.enrolled_id,
-                                person_name: p.enrolled?.person.compiled_name,
-                                role: p.enrolled?.person?.role?.name || (p.enrolled as any)?.role?.name,
-                                assigned_car: c
-                            });
-                        }
+                if (assignedCar) {
+                    assignedPassengers.push({
+                        enrolled_id: flightEnrollmentId,
+                        person_name: f.enrollment?.person?.compiled_name,
+                        role: f.enrollment?.role?.name,
+                        assigned_car: assignedCar
                     });
+                }
+
+                const groupUnassigned = unassigned.filter((u: any) => {
+                    const uFlights = u.enrollment?.flights || [];
+                    return uFlights.some((fl: any) => fl.id === f.id) || u.flight?.id === f.id;
                 });
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const groupUnassigned = unassigned.filter((u: any) => u.flight?.id === f.id || u.enrollment?.flights?.find((fl: any) => fl.id === f.id));
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const unassignedFormatted = groupUnassigned.map((u: any) => ({
                     enrolled_id: u.enrollment.id,
                     person_name: u.enrollment.person.compiled_name,
-                    role: u.enrollment.role.name,
-                    assigned_car: undefined // explicitly undefined
+                    role: u.enrollment.role?.name || 'N/A',
+                    assigned_car: undefined
                 }));
 
-                const allPassengers = [...assignedPassengers, ...unassignedFormatted];
+                const assignedIds = new Set(assignedPassengers.map((p: any) => p.enrolled_id));
+                const filteredUnassigned = unassignedFormatted.filter(
+                    (u: any) => !assignedIds.has(u.enrolled_id)
+                );
+
+                const allPassengers = [...assignedPassengers, ...filteredUnassigned];
 
                 return {
                     flight: {
                         id: f.id,
-                        flight_number: f.type === 'arrival_only' ? f.arrival_flight_number : f.departure_flight_number, // simpification
-                        datetime: f.type === 'arrival_only' ? (f.arrival_date + 'T' + f.arrival_time) : (f.departure_date + 'T' + f.departure_time),
-                        type: f.type === 'arrival_only' ? 'arrival' : 'departure'
+                        flight_number: f.type === 'arrival_only' || f.type === 'full' 
+                            ? f.arrival_flight_number 
+                            : f.departure_flight_number,
+                        datetime: f.type === 'arrival_only' || f.type === 'full'
+                            ? (f.arrival_date + 'T' + (f.arrival_time || '00:00:00'))
+                            : (f.departure_date + 'T' + (f.departure_time || '00:00:00')),
+                        type: f.type === 'departure_only' ? 'departure' as const : 'arrival' as const
                     },
                     passengers: allPassengers,
-                    unassigned_count: groupUnassigned.length
+                    unassigned_count: filteredUnassigned.length
                 } as FlightGroup;
             });
-
-            // Filter out empty groups or handle "full" flight types better (split into arrival/departure groups?)
-            // For now simple mapping.
 
             setDrivers(driversData);
             setCars(carsData);
@@ -215,7 +223,6 @@ function TransportContent() {
                         onEdit={handleEditCar} 
                         onRefresh={() => eventId && loadData(eventId)} 
                         onManagePassengers={(car) => {
-                            // TODO: Open passenger assignment dialog
                             console.log('Manage passengers for car', car.id);
                             handleEditCar(car);
                         }}

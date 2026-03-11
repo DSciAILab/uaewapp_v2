@@ -35,9 +35,7 @@ export function LogisticsTable({ data, cars, eventId, onRefresh }: LogisticsTabl
       // For MVP: Simplest flow -> Assign.
       
       const formData: CarPassengerFormData = {
-        enrolled_id: enrolledId,
-        transport_type: type,
-        notes: 'Assigned from Logistics Board'
+        enrollment_id: enrolledId,
       };
       
       await assignPassenger(carId, formData);
@@ -127,7 +125,7 @@ export function LogisticsTable({ data, cars, eventId, onRefresh }: LogisticsTabl
                             <SelectContent>
                                 {cars.map(c => (
                                     <SelectItem key={c.id} value={c.id} className="text-xs">
-                                        Car {c.car_number} ({c.capacity} seats)
+                                        Car {c.car_number} {c.vehicle_type ? `(${c.vehicle_type})` : ""}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -151,7 +149,7 @@ export function LogisticsTable({ data, cars, eventId, onRefresh }: LogisticsTabl
                             <SelectContent>
                                 {cars.map(c => (
                                     <SelectItem key={c.id} value={c.id} className="text-xs">
-                                        Car {c.car_number} ({c.capacity} seats)
+                                        Car {c.car_number} {c.vehicle_type ? `(${c.vehicle_type})` : ""}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
