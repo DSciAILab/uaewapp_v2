@@ -12,6 +12,7 @@ import { EntranceMusic, MusicStatus } from '@/types/music';
 import { getEventMusic } from '@/lib/services/music-service';
 import { MusicCSVImport } from '@/components/music/music-csv-import';
 import { MusicBulkDownload } from '@/components/music/music-bulk-download';
+import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
 
 export default function MusicPage() {
   const params = useParams();
@@ -22,6 +23,7 @@ export default function MusicPage() {
   const [previewMusic, setPreviewMusic] = useState<EntranceMusic | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   const loadMusic = useCallback(async () => {
     setIsLoading(true);
@@ -69,7 +71,10 @@ export default function MusicPage() {
         </div>
         <div className="flex gap-2">
           <MusicBulkDownload music={music} eventName={music[0]?.enrolled?.person?.event_name || 'Event'} />
-          <MusicCSVImport onSuccess={loadMusic} />
+          <CSVImportDropdown
+            onImportClick={() => setCsvOpen(true)}
+            onTemplateDownload={() => downloadCSVTemplate('music_import_template.csv', 'Fighter ID,Links 1,Links 2,Links 3,Notes\nF001,https://youtube.com/watch?v=abc,,, Walk fast\n')}
+          />
           <Button onClick={() => setIsFormOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />Add Music
           </Button>
@@ -171,6 +176,8 @@ export default function MusicPage() {
         onOpenChange={handleFormClose}
         onSuccess={loadMusic}
       />
+
+      {csvOpen && <MusicCSVImport onSuccess={() => { setCsvOpen(false); loadMusic(); }} />}
     </div>
   );
 }

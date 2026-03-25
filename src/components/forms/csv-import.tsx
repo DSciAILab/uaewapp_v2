@@ -28,7 +28,7 @@ import type { CSVMapping, PersonFormData } from '@/types/database'
 import type { ImportError } from '@/lib/services/people'
 
 interface CSVImportProps {
-  onImport: (data: PersonFormData[], onProgress: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>) => Promise<{ success: number; errors: ImportError[]; duplicates: string[] }>
+  onImport: (data: PersonFormData[], onProgress: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>, upsertMode?: boolean) => Promise<{ success: number; updated: number; errors: ImportError[]; duplicates: string[] }>
   onCancel: () => void
 }
 
@@ -57,9 +57,10 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
   const [mappings, setMappings] = useState<CSVMapping[]>([])
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0, message: '' })
-  const [result, setResult] = useState<{ success: number; errors: ImportError[]; duplicates: string[] } | null>(null)
+  const [result, setResult] = useState<{ success: number; updated: number; errors: ImportError[]; duplicates: string[] } | null>(null)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [checkDuplicates, setCheckDuplicates] = useState(true)
+  const [upsertMode, setUpsertMode] = useState(false)
 
   const parseCSV = (text: string): { headers: string[]; rows: Record<string, string>[] } => {
     const cleanedText = text.replace(/^\uFEFF/, '').replace(/\0/g, '')
@@ -267,7 +268,7 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
 
       const res = await onImport(data, (current, total, message) => {
         setProgress({ current, total, message: message || '' })
-      }, checkDuplicates, mapping)
+      }, checkDuplicates, mapping, upsertMode)
       setResult(res)
       setStep('result')
     } finally {
@@ -496,9 +497,15 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
                     </p>
                   </div>
                   <div className="flex items-center space-x-2 pl-8">
-                    <Switch id="dup-check" checked={checkDuplicates} onCheckedChange={setCheckDuplicates} disabled={loading} />
+                    <Switch id="dup-check" checked={checkDuplicates} onCheckedChange={(v) => { setCheckDuplicates(v); if (!v) setUpsertMode(false); }} disabled={loading || upsertMode} />
                     <Label htmlFor="dup-check" className="text-xs font-medium cursor-pointer">
                       Verificar nomes duplicados no banco
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2 pl-8">
+                    <Switch id="upsert-mode" checked={upsertMode} onCheckedChange={(v) => { setUpsertMode(v); if (v) setCheckDuplicates(true); }} disabled={loading} />
+                    <Label htmlFor="upsert-mode" className="text-xs font-medium cursor-pointer">
+                      Atualizar dados de pessoas existentes
                     </Label>
                   </div>
                 </div>
@@ -573,17 +580,25 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
     <Card className="border-none shadow-none">
       <CardHeader className="px-0 pt-0"><CardTitle>Resultado da Importação</CardTitle></CardHeader>
       <CardContent className="space-y-6 px-0 pb-0">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className={`grid grid-cols-1 gap-4 ${(result?.updated ?? 0) > 0 ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-center space-y-1">
             <CheckCircle2 className="mx-auto h-6 w-6 text-green-600" />
             <p className="text-2xl font-bold text-green-700">{result?.success}</p>
-            <p className="text-xs font-medium text-green-600/80 uppercase tracking-wider">Sucesso</p>
+            <p className="text-xs font-medium text-green-600/80 uppercase tracking-wider">Novos</p>
           </div>
+
+          {(result?.updated ?? 0) > 0 && (
+            <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-center space-y-1">
+              <CheckCircle2 className="mx-auto h-6 w-6 text-blue-600" />
+              <p className="text-2xl font-bold text-blue-700">{result?.updated}</p>
+              <p className="text-xs font-medium text-blue-600/80 uppercase tracking-wider">Atualizados</p>
+            </div>
+          )}
           
           <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-center space-y-1">
             <Copy className="mx-auto h-6 w-6 text-amber-600" />
             <p className="text-2xl font-bold text-amber-700">{result?.duplicates.length}</p>
-            <p className="text-xs font-medium text-amber-600/80 uppercase tracking-wider">Duplicados</p>
+            <p className="text-xs font-medium text-amber-600/80 uppercase tracking-wider">{upsertMode ? 'Sem Alteração' : 'Duplicados'}</p>
           </div>
 
           <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-center space-y-1">

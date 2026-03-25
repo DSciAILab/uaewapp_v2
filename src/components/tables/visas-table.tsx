@@ -23,7 +23,7 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  ExternalLink,
+  FolderOpen,
   CheckCircle2,
 } from 'lucide-react'
 import type { VisaWithEnrollment } from '@/lib/services/visas'
@@ -56,7 +56,7 @@ export function VisasTable({
           <TableHead>Pessoa</TableHead>
           <TableHead>Nacionalidade</TableHead>
           <TableHead>Aeroporto</TableHead>
-          <TableHead>Documento</TableHead>
+          <TableHead>Documentos</TableHead>
           <TableHead>Status</TableHead>
           <TableHead className="w-12"></TableHead>
         </TableRow>
@@ -69,117 +69,125 @@ export function VisasTable({
             </TableCell>
           </TableRow>
         ) : (
-          visas.map((visa) => (
-            <TableRow
-              key={visa.id}
-              className={cn(
-                "cursor-pointer hover:bg-muted/50",
-                visa.is_done && "opacity-60"
-              )}
-              onClick={() => onEdit(visa)}
-            >
-              <TableCell>
-                <Checkbox
-                  checked={visa.is_done}
-                  onCheckedChange={() => onToggleDone(visa)}
-                  disabled={!canEdit}
-                />
-              </TableCell>
-              <TableCell>
-                <Badge variant="outline" className="font-mono">
-                  {visa.enrollment?.event_code}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-8 w-8">
-                    {visa.enrollment?.person?.fighter_id && (
-                      <AvatarImage
-                        src={getFighterPhotoUrl(visa.enrollment.person.fighter_id)}
-                      />
-                    )}
-                    <AvatarFallback className="text-xs">
-                      {visa.enrollment?.person?.compiled_name?.slice(0, 2)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">
-                      {visa.passport_name || visa.enrollment?.person?.compiled_name}
-                    </p>
-                    {visa.enrollment?.person?.passport_number && (
-                      <p className="text-sm text-muted-foreground">
-                        {visa.enrollment.person.passport_number}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </TableCell>
-              <TableCell>
-                <Badge variant="secondary">
-                  {visa.nationality || visa.enrollment?.person?.nationality || '-'}
-                </Badge>
-              </TableCell>
-              <TableCell>
-                {visa.departure_airport || '-'}
-              </TableCell>
-              <TableCell>
-                {visa.document_link ? (
-                  <a
-                    href={visa.document_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline flex items-center gap-1"
-                    onClick={(e) => e.stopPropagation()} // Prevent row click
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    Ver
-                  </a>
-                ) : (
-                  <span className="text-muted-foreground">-</span>
+          visas.map((visa) => {
+            const documentFolder = (visa.enrollment?.person as any)?.document_folder
+
+            return (
+              <TableRow
+                key={visa.id}
+                className={cn(
+                  "cursor-pointer hover:bg-muted/50",
+                  visa.is_done && "opacity-60"
                 )}
-              </TableCell>
-              <TableCell>
-                <Badge className={VISA_STATUS_COLORS[visa.status]}>
-                  {VISA_STATUS_LABELS[visa.status]}
-                </Badge>
-              </TableCell>
-              <TableCell onClick={(e) => e.stopPropagation()}>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    {canEdit && (
-                      <>
-                        <DropdownMenuItem onClick={() => onEdit(visa)}>
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Editar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onToggleDone(visa)}>
-                          <CheckCircle2 className="mr-2 h-4 w-4" />
-                          {visa.is_done ? 'Marcar pendente' : 'Marcar concluído'}
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                    {canDelete && (
-                      <>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          className="text-red-500"
-                          onClick={() => onDelete(visa)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </TableCell>
-            </TableRow>
-          ))
+                onClick={() => onEdit(visa)}
+              >
+                <TableCell>
+                  <Checkbox
+                    checked={visa.is_done}
+                    onCheckedChange={() => onToggleDone(visa)}
+                    disabled={!canEdit}
+                  />
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline" className="font-mono">
+                    {visa.enrollment?.event_code}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Avatar className="h-8 w-8">
+                      {visa.enrollment?.person?.fighter_id && (
+                        <AvatarImage
+                          src={getFighterPhotoUrl(visa.enrollment.person.fighter_id)}
+                        />
+                      )}
+                      <AvatarFallback className="text-xs">
+                        {visa.enrollment?.person?.compiled_name?.slice(0, 2)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">
+                        {visa.passport_name || visa.enrollment?.person?.compiled_name}
+                      </p>
+                      {visa.enrollment?.person?.passport_number && (
+                        <p className="text-sm text-muted-foreground">
+                          {visa.enrollment.person.passport_number}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="secondary">
+                    {visa.nationality || visa.enrollment?.person?.nationality || '-'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {visa.departure_airport || '-'}
+                </TableCell>
+                <TableCell>
+                  {documentFolder ? (
+                    <a
+                      href={documentFolder}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Badge
+                        variant="outline"
+                        className="cursor-pointer hover:bg-primary/10 gap-1.5"
+                      >
+                        <FolderOpen className="h-3 w-3" />
+                        Documents
+                      </Badge>
+                    </a>
+                  ) : (
+                    <span className="text-muted-foreground">-</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <Badge className={VISA_STATUS_COLORS[visa.status]}>
+                    {VISA_STATUS_LABELS[visa.status]}
+                  </Badge>
+                </TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {canEdit && (
+                        <>
+                          <DropdownMenuItem onClick={() => onEdit(visa)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Editar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => onToggleDone(visa)}>
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            {visa.is_done ? 'Marcar pendente' : 'Marcar concluído'}
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                      {canDelete && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="text-red-500"
+                            onClick={() => onDelete(visa)}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            )
+          })
         )}
       </TableBody>
     </Table>

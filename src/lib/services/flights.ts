@@ -286,3 +286,167 @@ export async function getFlightStats(eventId: string) {
     fullTrip: flights.filter(f => f.type === 'full').length,
   }
 }
+
+export interface FlightCSVRow {
+  passport_name: string
+  flight_type?: string
+  arrival_reservation?: string
+  arrival_flight_number?: string
+  arrival_date?: string
+  arrival_time?: string
+  arrival_airport?: string
+  arrival_ticket_link?: string
+  departure_reservation?: string
+  departure_flight_number?: string
+  departure_date?: string
+  departure_time?: string
+  departure_airport?: string
+  departure_ticket_link?: string
+  notes?: string
+}
+
+export interface FlightImportError {
+  row: number
+  name: string
+  message: string
+}
+
+export async function importFlightsFromCSV(
+  eventId: string,
+  rows: FlightCSVRow[],
+  upsertMode: boolean = true,
+  onProgress?: (current: number, total: number, message?: string) => void
+): Promise<{ created: number; updated: number; skipped: FlightImportError[]; errors: FlightImportError[] }> {
+  const supabase = getClient()
+  const errors: FlightImportError[] = []
+  const skipped: FlightImportError[] = []
+  let created = 0
+  let updated = 0
+  const total = rows.length
+
+  const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0))
+
+  // 1. Fetch all enrollments for this event with person names
+  if (onProgress) onProgress(0, total, 'Buscando participantes do evento...')
+
+  const { data: enrollments, error: enrollError } = await supabase
+    .from('mma_enrollments')
+    .select(`
+      id,
+      person:mma_people(id, compiled_name, event_name),
+      needs_flight
+    `)
+    .eq('event_id', eventId)
+    .eq('status', 'active')
+
+  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+
+  // Build a name→enrollment map (case insensitive)
+  const nameMap = new Map<string, { enrollmentId: string; needsFlight: string }>()
+  for (const e of (enrollments || []) as any[]) {
+    const person = e.person
+    if (!person) continue
+    const compiledName = (person.compiled_name || '').trim().toLowerCase()
+    const eventName = (person.event_name || '').trim().toLowerCase()
+    const entry = { enrollmentId: e.id, needsFlight: e.needs_flight || 'none' }
+    if (compiledName) nameMap.set(compiledName, entry)
+    if (eventName && eventName !== compiledName) nameMap.set(eventName, entry)
+  }
+
+  // 2. Fetch existing flights for this event
+  if (onProgress) onProgress(0, total, 'Verificando voos existentes...')
+
+  const enrollmentIds = (enrollments || []).map((e: any) => e.id)
+  const { data: existingFlights } = await supabase
+    .from('mma_flights')
+    .select('id, enrollment_id')
+    .in('enrollment_id', enrollmentIds.length > 0 ? enrollmentIds : ['__none__'])
+
+  const existingFlightMap = new Map<string, string>()
+  for (const f of (existingFlights || [])) {
+    existingFlightMap.set(f.enrollment_id, f.id)
+  }
+
+  // 3. Process each CSV row
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowNum = i + 1
+
+    if (onProgress && i % 5 === 0) {
+      onProgress(i, total, `Processando linha ${rowNum} de ${total}...`)
+      await yieldToUI()
+    }
+
+    const passportName = (row.passport_name || '').trim()
+    if (!passportName) {
+      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome do passaporte é obrigatório' })
+      continue
+    }
+
+    const match = nameMap.get(passportName.toLowerCase())
+    if (!match) {
+      skipped.push({ row: rowNum, name: passportName, message: 'Pessoa não encontrada no evento' })
+      continue
+    }
+
+    const flightType: FlightType = (() => {
+      const t = (row.flight_type || '').toLowerCase().trim()
+      if (t === 'arrival_only' || t === 'arrival') return 'arrival_only'
+      if (t === 'departure_only' || t === 'departure') return 'departure_only'
+      return 'full'
+    })()
+
+    const flightData: any = {
+      enrollment_id: match.enrollmentId,
+      type: flightType,
+      arrival_reservation: row.arrival_reservation || null,
+      arrival_flight_number: row.arrival_flight_number || null,
+      arrival_date: row.arrival_date || null,
+      arrival_time: row.arrival_time || null,
+      arrival_airport: row.arrival_airport || null,
+      arrival_ticket_link: row.arrival_ticket_link || null,
+      departure_reservation: row.departure_reservation || null,
+      departure_flight_number: row.departure_flight_number || null,
+      departure_date: row.departure_date || null,
+      departure_time: row.departure_time || null,
+      departure_airport: row.departure_airport || null,
+      departure_ticket_link: row.departure_ticket_link || null,
+      notes: row.notes || null,
+      status: 'booked',
+    }
+
+    const existingFlightId = existingFlightMap.get(match.enrollmentId)
+
+    if (existingFlightId) {
+      if (upsertMode) {
+        const { enrollment_id, ...updateData } = flightData
+        const { error: updateError } = await supabase
+          .from('mma_flights')
+          .update(updateData)
+          .eq('id', existingFlightId)
+
+        if (updateError) {
+          errors.push({ row: rowNum, name: passportName, message: updateError.message })
+        } else {
+          updated++
+        }
+      } else {
+        skipped.push({ row: rowNum, name: passportName, message: 'Voo já existe (upsert desativado)' })
+      }
+    } else {
+      const { error: insertError } = await supabase
+        .from('mma_flights')
+        .insert(flightData)
+
+      if (insertError) {
+        errors.push({ row: rowNum, name: passportName, message: insertError.message })
+      } else {
+        created++
+        existingFlightMap.set(match.enrollmentId, 'new')
+      }
+    }
+  }
+
+  if (onProgress) onProgress(total, total, 'Concluído!')
+  return { created, updated, skipped, errors }
+}

@@ -405,3 +405,69 @@ export async function getFlightGroups(eventId: string): Promise<import('@/types/
 export const addPassengerToCar = assignPassenger;
 export const removePassengerFromCar = removePassenger;
 export const getUnassignedPassengersForEvent = getUnassignedPassengers;
+
+// ==================== CSV IMPORT ====================
+
+export interface DriverCSVRow {
+  name: string
+  phone?: string
+  is_active?: string
+  notes?: string
+}
+
+export interface DriverImportError {
+  row: number
+  name: string
+  message: string
+}
+
+export async function importDriversFromCSV(
+  rows: DriverCSVRow[],
+  upsertMode: boolean = true,
+  onProgress?: (current: number, total: number, message?: string) => void
+): Promise<{ created: number; updated: number; skipped: DriverImportError[]; errors: DriverImportError[] }> {
+  const supabase = getClient()
+  const errors: DriverImportError[] = []
+  const skipped: DriverImportError[] = []
+  let created = 0
+  let updated = 0
+  const total = rows.length
+
+  if (onProgress) onProgress(0, total, 'Buscando motoristas...')
+  const { data: existing } = await supabase.from('mma_transport_drivers').select('id, name')
+  const nameIdMap = new Map<string, string>()
+  for (const d of (existing || [])) nameIdMap.set(d.name.toLowerCase().trim(), d.id)
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowNum = i + 1
+    if (onProgress && i % 5 === 0) onProgress(i, total, `Processando ${rowNum} de ${total}...`)
+
+    const name = (row.name || '').trim()
+    if (!name) { errors.push({ row: rowNum, name: '(vazio)', message: 'Nome é obrigatório' }); continue }
+
+    const existingId = nameIdMap.get(name.toLowerCase())
+    const isActive = row.is_active ? row.is_active.toLowerCase() === 'true' || row.is_active === '1' : true
+
+    if (existingId) {
+      if (upsertMode) {
+        const { error: err } = await supabase.from('mma_transport_drivers').update({
+          phone: row.phone || null, is_active: isActive, notes: row.notes || null
+        }).eq('id', existingId)
+        if (err) errors.push({ row: rowNum, name, message: err.message })
+        else updated++
+      } else {
+        skipped.push({ row: rowNum, name, message: 'Motorista já existe' })
+      }
+    } else {
+      const { error: err } = await supabase.from('mma_transport_drivers').insert({
+        name, phone: row.phone || null, is_active: isActive, notes: row.notes || null
+      })
+      if (err) errors.push({ row: rowNum, name, message: err.message })
+      else { created++; nameIdMap.set(name.toLowerCase(), 'new') }
+    }
+  }
+
+  if (onProgress) onProgress(total, total, 'Concluído!')
+  return { created, updated, skipped, errors }
+}

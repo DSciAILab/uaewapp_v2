@@ -36,6 +36,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-permissions'
+import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown'
 import type { Person, PeopleFilters } from '@/types/database'
 import type { PersonSchema } from '@/lib/validations/person'
 import {
@@ -226,8 +227,8 @@ export default function PeoplePage() {
     }
   }
 
-  const handleCSVImport = async (data: any[], onProgress?: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>) => {
-    return await importPeopleFromCSV(data, onProgress, checkDuplicates, mapping)
+  const handleCSVImport = async (data: any[], onProgress?: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>, upsertMode?: boolean) => {
+    return await importPeopleFromCSV(data, onProgress, checkDuplicates, mapping, upsertMode)
   }
 
   const handleCSVComplete = () => {
@@ -274,15 +275,16 @@ export default function PeoplePage() {
               </SelectContent>
             </Select>
             
-            {canEditPeople && (
-              <>
-                <Button variant="outline" onClick={() => setCsvOpen(true)}>
-                  <Upload className="mr-2 h-4 w-4" />Importar CSV
-                </Button>
-                <Button onClick={handleCreate}>
-                  <Plus className="mr-2 h-4 w-4" />Nova Pessoa
-                </Button>
-              </>
+              {canEditPeople && (
+                <>
+                  <CSVImportDropdown
+                    onImportClick={() => setCsvOpen(true)}
+                    onTemplateDownload={() => downloadCSVTemplate('people_import_template.csv', 'Name,Surname,Date of Birth (YYYY-MM-DD),Gender,Nationality,Phone,Passport Name,Passport Number,Passport Expiry,Fighter ID\nJohn,Doe,1990-01-15,male,USA,+1234567890,JOHN DOE,AB123456,2028-12-31,F001\n')}
+                  />
+                  <Button onClick={handleCreate}>
+                    <Plus className="mr-2 h-4 w-4" />Nova Pessoa
+                  </Button>
+                </>
             )}
           </div>
         </div>

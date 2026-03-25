@@ -46,6 +46,97 @@ export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
   return data || [];
 }
 
+export async function getAllActiveEventsMusic(): Promise<(EntranceMusic & { event_name?: string })[]> {
+  const supabase = getClient();
+
+  // Get active event IDs
+  const { data: activeEvents, error: evError } = await supabase
+    .from('mma_events')
+    .select('id, name')
+    .eq('status', 'active');
+
+  if (evError || !activeEvents?.length) return [];
+
+  const eventIds = activeEvents.map((e: { id: string; name: string }) => e.id);
+  const eventNameMap = Object.fromEntries(activeEvents.map((e: { id: string; name: string }) => [e.id, e.name]));
+
+  const { data, error } = await supabase
+    .from('mma_entrance_music')
+    .select(`
+      *,
+      enrolled:mma_enrollments!inner(
+        id,
+        corner,
+        person:mma_people!inner(id, compiled_name:compiled_name, fighter_id, event_name)
+      )
+    `)
+    .in('event_id', eventIds)
+    .order('created_at', { ascending: true });
+
+  if (error) throw new Error('Failed to fetch all music');
+
+  return (data || []).map((m: any) => ({
+    ...m,
+    event_name: eventNameMap[m.event_id] || 'Unknown Event',
+  }));
+}
+
+export async function getActiveEventsFighters(): Promise<Array<{
+  enrollment_id: string;
+  event_id: string;
+  event_name: string;
+  person_name: string;
+  fighter_id: string | null;
+  corner: string | null;
+  has_music: boolean;
+}>> {
+  const supabase = getClient();
+
+  const { data: activeEvents, error: evError } = await supabase
+    .from('mma_events')
+    .select('id, name')
+    .eq('status', 'active');
+
+  if (evError || !activeEvents?.length) return [];
+
+  const eventIds = activeEvents.map((e: { id: string; name: string }) => e.id);
+  const eventNameMap = Object.fromEntries(activeEvents.map((e: { id: string; name: string }) => [e.id, e.name]));
+
+  // Get all fighter enrollments from active events
+  const { data: enrollments, error: enError } = await supabase
+    .from('mma_enrollments')
+    .select(`
+      id,
+      event_id,
+      corner,
+      role:mma_roles!inner(code),
+      person:mma_people!inner(id, compiled_name:compiled_name, fighter_id)
+    `)
+    .in('event_id', eventIds)
+    .eq('status', 'active')
+    .eq('role.code', 'F');
+
+  if (enError) throw new Error('Failed to fetch fighters');
+
+  // Get existing music entries
+  const { data: musicEntries } = await supabase
+    .from('mma_entrance_music')
+    .select('enrolled_id')
+    .in('event_id', eventIds);
+
+  const musicSet = new Set((musicEntries || []).map((m: { enrolled_id: string }) => m.enrolled_id));
+
+  return (enrollments || []).map((e: any) => ({
+    enrollment_id: e.id,
+    event_id: e.event_id,
+    event_name: eventNameMap[e.event_id] || 'Unknown',
+    person_name: e.person?.compiled_name || 'Unknown',
+    fighter_id: e.person?.fighter_id || null,
+    corner: e.corner || null,
+    has_music: musicSet.has(e.id),
+  }));
+}
+
 export async function createAthleteMusic(eventId: string, formData: EntranceMusicFormData): Promise<EntranceMusic> {
   const supabase = getClient();
   const { data, error } = await supabase

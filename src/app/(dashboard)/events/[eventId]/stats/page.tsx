@@ -14,7 +14,27 @@ import { StatsCard } from '@/components/stats/stats-card';
 import { StatsHistory } from '@/components/stats/stats-history';
 import { UniformsTab } from '@/components/stats/uniforms-tab';
 import { FighterStats, EventWeighIn, CoachData } from '@/types/stats';
-import { getEventFighterStats, getEventWeighIns, getEventCoachData } from '@/lib/services/stats-service';
+import { getEventFighterStats, getEventWeighIns, getEventCoachData, importStatsFromCSV, type StatsCSVRow } from '@/lib/services/stats-service';
+import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
+import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
+
+const STATS_FIELDS: FieldDef[] = [
+  { value: 'passport_name', label: 'Nome Passaporte' },
+  { value: 'nickname', label: 'Apelido' },
+  { value: 'weight_class', label: 'Categoria' },
+  { value: 'height_cm', label: 'Altura (cm)' },
+  { value: 'reach_cm', label: 'Alcance (cm)' },
+  { value: 'fighting_style', label: 'Estilo' },
+  { value: 'team_gym', label: 'Equipe/Gym' },
+  { value: 'wins', label: 'Vitórias' },
+  { value: 'losses', label: 'Derrotas' },
+  { value: 'draws', label: 'Empates' },
+  { value: 'corner', label: 'Corner' },
+  { value: 'uniform_size', label: 'Uniforme' },
+  { value: 'shoe_size', label: 'Calçado' },
+  { value: 'tshirt_size', label: 'Camiseta' },
+  { value: 'shorts_size', label: 'Shorts' },
+];
 
 export default function StatsPage() {
   const params = useParams();
@@ -32,6 +52,7 @@ export default function StatsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [weighIns, setWeighIns] = useState<EventWeighIn[]>([]);
   const [isLoadingWeighIns, setIsLoadingWeighIns] = useState(false);
+  const [csvOpen, setCsvOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -114,6 +135,10 @@ export default function StatsPage() {
           <p className="text-muted-foreground">Manage stats, uniforms, and physical data for athletes and coaches</p>
         </div>
         <div className="flex gap-2">
+          <CSVImportDropdown
+            onImportClick={() => setCsvOpen(true)}
+            onTemplateDownload={() => downloadCSVTemplate('stats_import_template.csv', 'Passport Name,Nickname,Weight Class,Height (cm),Reach (cm),Fighting Style,Team Gym,Wins,Losses,Draws,Corner,Uniform Size,Shoe Size\nJohn Doe,The Beast,welterweight,180,185,Boxing,Team Alpha,15,3,1,RED,L,42\n')}
+          />
           {activeTab !== 'history' && activeTab !== 'uniforms' && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'cards')}>
               <TabsList>
@@ -266,7 +291,24 @@ export default function StatsPage() {
            </DialogContent>
          </Dialog>
       )}
+
+      <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
+          <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
+              <GenericCSVImport
+                title="Importar Stats via CSV"
+                subtitle="Estatísticas de Lutadores"
+                fields={STATS_FIELDS}
+                requiredField="passport_name"
+                showUpsert={false}
+                onImport={(rows, _upsert, progress) => importStatsFromCSV(eventId, rows as any, progress)}
+                onComplete={() => { setCsvOpen(false); loadData(); }}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-

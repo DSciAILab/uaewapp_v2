@@ -55,7 +55,7 @@ export default function GlobalHotelsPage() {
     <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
         <Header 
             title="Global Hotel Logistics" 
-            description="Manage hotel accommodations across all events."
+            description="Hotel accommodations for active events."
         />
 
         <main className="flex-1 p-6 space-y-8 w-full">

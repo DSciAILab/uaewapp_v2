@@ -14,9 +14,19 @@ import { DriverForm } from '@/components/transport/driver-form';
 import { PassengerAssignment } from '@/components/transport/passenger-assignment';
 import { FlightGroupingView } from '@/components/transport/flight-grouping-view';
 import { EventCar, Driver } from '@/types/transport';
-import { getEventCars, getDrivers, getTransportStats, getFlightGroups } from '@/lib/services/transport-service';
+import { getEventCars, getDrivers, getTransportStats, getFlightGroups, importDriversFromCSV } from '@/lib/services/transport-service';
 import { FlightGroup } from '@/types/transport';
 import { TransportStats } from '@/components/transport/transport-stats';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
+import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
+
+const DRIVER_FIELDS: FieldDef[] = [
+  { value: 'name', label: 'Nome' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'is_active', label: 'Ativo (true/false)' },
+  { value: 'notes', label: 'Observações' },
+];
 
 export default function TransportPage() {
   const params = useParams();
@@ -39,6 +49,7 @@ export default function TransportPage() {
     assigned_cars: 0,
     total_capacity: 0
   });
+  const [csvOpen, setCsvOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -99,6 +110,11 @@ export default function TransportPage() {
           <p className="text-muted-foreground mt-1">Manage cars, drivers, and passenger assignments for this event</p>
         </div>
         <div className="flex gap-2">
+          <CSVImportDropdown
+            label="CSV Motoristas"
+            onImportClick={() => setCsvOpen(true)}
+            onTemplateDownload={() => downloadCSVTemplate('drivers_import_template.csv', 'Name,Phone,Is Active,Notes\nMohamed Ali,+971501234567,true,Local driver\nAhmed Hassan,+971502345678,true,\n')}
+          />
           <Button variant="outline" onClick={() => setIsDriverFormOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />Global Drivers
           </Button>
@@ -189,6 +205,23 @@ export default function TransportPage() {
           onSuccess={loadData}
         />
       )}
+
+      <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
+          <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
+              <GenericCSVImport
+                title="Importar Motoristas via CSV"
+                subtitle="Motoristas globais"
+                fields={DRIVER_FIELDS}
+                requiredField="name"
+                onImport={(rows, upsert, progress) => importDriversFromCSV(rows as any, upsert, progress)}
+                onComplete={() => { setCsvOpen(false); loadData(); }}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

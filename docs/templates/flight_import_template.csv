@@ -1,0 +1,4 @@
+Passport Name,Flight Type,Arrival Reservation,Arrival Flight Number,Arrival Date,Arrival Time,Arrival Airport,Arrival Ticket Link,Departure Reservation,Departure Flight Number,Departure Date,Departure Time,Departure Airport,Departure Ticket Link,Notes
+John Doe,full,ABC123,EK204,2026-04-15,14:30,DXB,https://link.com/ticket1,DEF456,EK205,2026-04-20,09:00,DXB,https://link.com/ticket2,VIP arrival
+Jane Smith,arrival_only,GHI789,QR501,2026-04-14,22:15,DOH,,,,,,,,Arriving from Doha
+Carlos Silva,departure_only,,,,,,,JKL012,AA100,2026-04-21,11:45,AUH,https://link.com/ticket3,Late checkout requested

@@ -20,7 +20,7 @@ export async function getEventHotels(
       person:mma_people(id, compiled_name, fighter_id),
       role:mma_roles(name),
       flights:mma_flights(*),
-      event:mma_events(name, event_date, event_end_date),
+      event:mma_events!inner(name, status, event_date, event_end_date),
       hotel:mma_hotels(*)
     `)
     .eq('needs_hotel', true)
@@ -28,6 +28,9 @@ export async function getEventHotels(
 
   if (eventId) {
     query = query.eq('event_id', eventId);
+  } else {
+    // Global view: only show enrollments from active events
+    query = query.eq('event.status', 'active');
   }
 
   const { data: enrollments, error } = await query;
@@ -556,4 +559,122 @@ export async function updateHotelBatch(
     .in('id', hotelIds);
 
   if (error) throw new Error('Failed to batch update hotels: ' + error.message);
+}
+
+// ==================== CSV IMPORT ====================
+
+export interface HotelCSVRow {
+  passport_name: string
+  checkin_date?: string
+  checkin_time?: string
+  checkout_date?: string
+  checkout_time?: string
+  reservation_number?: string
+  status?: string
+  notes?: string
+}
+
+export interface HotelImportError {
+  row: number
+  name: string
+  message: string
+}
+
+export async function importHotelsFromCSV(
+  eventId: string,
+  rows: HotelCSVRow[],
+  upsertMode: boolean = true,
+  onProgress?: (current: number, total: number, message?: string) => void
+): Promise<{ created: number; updated: number; skipped: HotelImportError[]; errors: HotelImportError[] }> {
+  const supabase = getClient()
+  const errors: HotelImportError[] = []
+  const skipped: HotelImportError[] = []
+  let created = 0
+  let updated = 0
+  const total = rows.length
+  const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0))
+
+  if (onProgress) onProgress(0, total, 'Buscando participantes do evento...')
+
+  const { data: enrollments, error: enrollError } = await supabase
+    .from('mma_enrollments')
+    .select('id, person:mma_people(id, compiled_name, event_name)')
+    .eq('event_id', eventId)
+    .eq('status', 'active')
+    .eq('needs_hotel', true)
+
+  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+
+  const nameMap = new Map<string, string>()
+  for (const e of (enrollments || []) as any[]) {
+    const person = e.person
+    if (!person) continue
+    const compiledName = (person.compiled_name || '').trim().toLowerCase()
+    const eventName = (person.event_name || '').trim().toLowerCase()
+    if (compiledName) nameMap.set(compiledName, e.id)
+    if (eventName && eventName !== compiledName) nameMap.set(eventName, e.id)
+  }
+
+  if (onProgress) onProgress(0, total, 'Verificando hotéis existentes...')
+  const enrollmentIds = (enrollments || []).map((e: any) => e.id)
+  const { data: existingHotels } = await supabase
+    .from('mma_hotels')
+    .select('id, enrollment_id')
+    .in('enrollment_id', enrollmentIds.length > 0 ? enrollmentIds : ['__none__'])
+
+  const existingMap = new Map<string, string>()
+  for (const h of (existingHotels || [])) {
+    existingMap.set(h.enrollment_id, h.id)
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowNum = i + 1
+    if (onProgress && i % 5 === 0) {
+      onProgress(i, total, `Processando linha ${rowNum} de ${total}...`)
+      await yieldToUI()
+    }
+
+    const passportName = (row.passport_name || '').trim()
+    if (!passportName) {
+      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome do passaporte é obrigatório' })
+      continue
+    }
+
+    const enrollmentId = nameMap.get(passportName.toLowerCase())
+    if (!enrollmentId) {
+      skipped.push({ row: rowNum, name: passportName, message: 'Pessoa não encontrada no evento ou não precisa de hotel' })
+      continue
+    }
+
+    const hotelData: any = {
+      enrollment_id: enrollmentId,
+      checkin_date: row.checkin_date || null,
+      checkin_time: row.checkin_time || null,
+      checkout_date: row.checkout_date || null,
+      checkout_time: row.checkout_time || null,
+      reservation_number: row.reservation_number || null,
+      status: row.status || 'confirmed',
+      notes: row.notes || null,
+    }
+
+    const existingId = existingMap.get(enrollmentId)
+    if (existingId) {
+      if (upsertMode) {
+        const { enrollment_id, ...updateData } = hotelData
+        const { error: updateError } = await supabase.from('mma_hotels').update(updateData).eq('id', existingId)
+        if (updateError) errors.push({ row: rowNum, name: passportName, message: updateError.message })
+        else updated++
+      } else {
+        skipped.push({ row: rowNum, name: passportName, message: 'Hotel já existe (upsert desativado)' })
+      }
+    } else {
+      const { error: insertError } = await supabase.from('mma_hotels').insert(hotelData)
+      if (insertError) errors.push({ row: rowNum, name: passportName, message: insertError.message })
+      else { created++; existingMap.set(enrollmentId, 'new') }
+    }
+  }
+
+  if (onProgress) onProgress(total, total, 'Concluído!')
+  return { created, updated, skipped, errors }
 }

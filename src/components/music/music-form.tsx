@@ -34,9 +34,10 @@ interface MusicFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  defaultEnrolledId?: string;
 }
 
-export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: MusicFormProps) {
+export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defaultEnrolledId }: MusicFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [availableEnrolled, setAvailableEnrolled] = useState<Array<{
     id: string;
@@ -50,7 +51,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     resolver: zodResolver(musicSchema) as any,
     defaultValues: {
-      enrolled_id: '',
+      enrolled_id: defaultEnrolledId || '',
       source_type: 'url',
       source_url: '',
       start_time_seconds: 0,
@@ -100,7 +101,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
       });
     } else {
       form.reset({
-        enrolled_id: '',
+        enrolled_id: defaultEnrolledId || '',
         source_type: 'url',
         source_url: '',
         start_time_seconds: 0,
@@ -112,7 +113,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess }: Mus
         notes: '',
       });
     }
-  }, [music, form, open]);
+  }, [music, form, open, defaultEnrolledId]);
 
   const onSubmit = async (data: EntranceMusicFormData) => {
     setIsLoading(true);

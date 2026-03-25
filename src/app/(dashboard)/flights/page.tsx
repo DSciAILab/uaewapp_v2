@@ -36,7 +36,9 @@ import { FlightBatchGrid } from '@/components/flights/flight-batch-grid'
 import { FlightForm } from '@/components/forms/flight-form'
 import { FlightStats } from '@/components/flights/flight-stats'
 import { FlightToolbar } from '@/components/flights/flight-toolbar'
-import { Plus, Search, Plane, Clock, CheckCircle2, XCircle, LayoutList, Table2 } from 'lucide-react'
+import { FlightCSVImport } from '@/components/flights/flight-csv-import'
+import { Plus, Search, Plane, Clock, CheckCircle2, XCircle, LayoutList, Table2, Upload } from 'lucide-react'
+import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown'
 import {
   getFlightsByEvent,
   createFlight,
@@ -73,6 +75,9 @@ function FlightsContent() {
   // Delete dialog
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [flightToDelete, setFlightToDelete] = useState<FlightWithEnrollment | null>(null)
+
+  // CSV import
+  const [csvOpen, setCsvOpen] = useState(false)
 
   // Load events
   useEffect(() => {
@@ -217,6 +222,14 @@ function FlightsContent() {
                         onAddClick={handleNewFlight}
                         canEdit={canEdit('flights')}
                     />
+                    {canEdit('flights') && selectedEventId && (
+                      <div className="flex justify-end -mt-2">
+                        <CSVImportDropdown
+                          onImportClick={() => setCsvOpen(true)}
+                          onTemplateDownload={() => downloadCSVTemplate('flight_import_template.csv', 'Passport Name,Flight Type,Arrival Reservation,Arrival Flight Number,Arrival Date,Arrival Time,Arrival Airport,Arrival Ticket Link,Departure Reservation,Departure Flight Number,Departure Date,Departure Time,Departure Airport,Departure Ticket Link,Notes\nJohn Doe,full,ABC123,EK204,2026-04-15,14:30,DXB,,DEF456,EK205,2026-04-20,09:00,DXB,,\n')}
+                        />
+                      </div>
+                    )}
 
                     {loading ? (
                         <Card className="min-h-[300px] flex items-center justify-center">
@@ -294,6 +307,21 @@ function FlightsContent() {
               Delete Flight
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* CSV Import Dialog */}
+      <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
+        <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
+          <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
+              <FlightCSVImport
+                eventId={selectedEventId}
+                eventName={selectedEvent?.name || ''}
+                onComplete={() => { setCsvOpen(false); fetchFlights(); }}
+              />
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

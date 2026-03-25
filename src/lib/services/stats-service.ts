@@ -605,3 +605,156 @@ export async function getFightCardData(): Promise<any[]> {
 }
 
 // ... existing code ...
+
+// ==================== CSV IMPORT ====================
+
+export interface StatsCSVRow {
+  passport_name: string
+  nickname?: string
+  weight_class?: string
+  height_cm?: string
+  reach_cm?: string
+  fighting_style?: string
+  team_gym?: string
+  wins?: string
+  losses?: string
+  draws?: string
+  no_contests?: string
+  wins_ko?: string
+  wins_submission?: string
+  wins_decision?: string
+  losses_ko?: string
+  losses_submission?: string
+  losses_decision?: string
+  corner?: string
+  uniform_size?: string
+  shoe_size?: string
+  tshirt_size?: string
+  shorts_size?: string
+  jacket_size?: string
+  gloves_size?: string
+}
+
+export interface StatsImportError {
+  row: number
+  name: string
+  message: string
+}
+
+export async function importStatsFromCSV(
+  eventId: string,
+  rows: StatsCSVRow[],
+  onProgress?: (current: number, total: number, message?: string) => void
+): Promise<{ created: number; updated: number; skipped: StatsImportError[]; errors: StatsImportError[] }> {
+  const supabase = getClient()
+  const errors: StatsImportError[] = []
+  const skipped: StatsImportError[] = []
+  let created = 0
+  let updated = 0
+  const total = rows.length
+  const yieldToUI = () => new Promise(resolve => setTimeout(resolve, 0))
+
+  if (onProgress) onProgress(0, total, 'Buscando lutadores do evento...')
+
+  const { data: enrollments, error: enrollError } = await supabase
+    .from('mma_enrollments')
+    .select(`
+      person_id,
+      person:mma_people(id, compiled_name, event_name),
+      role:mma_roles!inner(code)
+    `)
+    .eq('event_id', eventId)
+    .eq('role.code', 'F')
+    .eq('status', 'active')
+
+  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+
+  const nameMap = new Map<string, string>()
+  for (const e of (enrollments || []) as any[]) {
+    const person = e.person
+    if (!person) continue
+    const compiledName = (person.compiled_name || '').trim().toLowerCase()
+    const eventName = (person.event_name || '').trim().toLowerCase()
+    if (compiledName) nameMap.set(compiledName, e.person_id)
+    if (eventName && eventName !== compiledName) nameMap.set(eventName, e.person_id)
+  }
+
+  // Get existing stats
+  const personIds = [...new Set(nameMap.values())]
+  const { data: existingStats } = await supabase
+    .from('mma_fighter_stats')
+    .select('id, person_id')
+    .in('person_id', personIds.length > 0 ? personIds : ['__none__'])
+
+  const statsMap = new Map<string, string>()
+  for (const s of (existingStats || [])) {
+    statsMap.set(s.person_id, s.id)
+  }
+
+  const toNum = (v?: string) => { const n = parseInt(v || ''); return isNaN(n) ? 0 : n }
+  const toNumNull = (v?: string) => { const n = parseFloat(v || ''); return isNaN(n) ? null : n }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const rowNum = i + 1
+    if (onProgress && i % 5 === 0) {
+      onProgress(i, total, `Processando linha ${rowNum} de ${total}...`)
+      await yieldToUI()
+    }
+
+    const passportName = (row.passport_name || '').trim()
+    if (!passportName) {
+      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome é obrigatório' })
+      continue
+    }
+
+    const personId = nameMap.get(passportName.toLowerCase())
+    if (!personId) {
+      skipped.push({ row: rowNum, name: passportName, message: 'Lutador não encontrado no evento' })
+      continue
+    }
+
+    const statsData: any = {
+      person_id: personId,
+      nickname: row.nickname || null,
+      weight_class: row.weight_class || null,
+      height_cm: toNumNull(row.height_cm),
+      reach_cm: toNumNull(row.reach_cm),
+      fighting_style: row.fighting_style || null,
+      team_gym: row.team_gym || null,
+      wins: toNum(row.wins),
+      losses: toNum(row.losses),
+      draws: toNum(row.draws),
+      no_contests: toNum(row.no_contests),
+      wins_ko: toNum(row.wins_ko),
+      wins_submission: toNum(row.wins_submission),
+      wins_decision: toNum(row.wins_decision),
+      losses_ko: toNum(row.losses_ko),
+      losses_submission: toNum(row.losses_submission),
+      losses_decision: toNum(row.losses_decision),
+      corner: row.corner || null,
+      uniform_size: row.uniform_size || null,
+      shoe_size: row.shoe_size || null,
+      tshirt_size: row.tshirt_size || null,
+      shorts_size: row.shorts_size || null,
+      jacket_size: row.jacket_size || null,
+      gloves_size: row.gloves_size || null,
+      updated_at: new Date().toISOString(),
+    }
+
+    const existingId = statsMap.get(personId)
+    if (existingId) {
+      const { person_id, ...updateData } = statsData
+      const { error: updateError } = await supabase.from('mma_fighter_stats').update(updateData).eq('id', existingId)
+      if (updateError) errors.push({ row: rowNum, name: passportName, message: updateError.message })
+      else updated++
+    } else {
+      const { error: insertError } = await supabase.from('mma_fighter_stats').insert(statsData)
+      if (insertError) errors.push({ row: rowNum, name: passportName, message: insertError.message })
+      else { created++; statsMap.set(personId, 'new') }
+    }
+  }
+
+  if (onProgress) onProgress(total, total, 'Concluído!')
+  return { created, updated, skipped, errors }
+}
