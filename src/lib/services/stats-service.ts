@@ -160,6 +160,8 @@ export async function createFighterStats(personId: string, formData: FighterStat
       fighting_style: formData.fighting_style || null,
       team_gym: formData.team_gym || null,
       nickname: formData.nickname || null,
+      residency: formData.residency || null,
+      weight_kg: formData.weight_kg || null,
       updated_at: new Date().toISOString(),
     })
     .select()
@@ -181,7 +183,7 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     'wins', 'losses', 'draws', 'no_contests',
     'wins_ko', 'wins_submission', 'wins_decision',
     'losses_ko', 'losses_submission', 'losses_decision',
-    'fighting_style', 'team_gym', 'nickname'
+    'fighting_style', 'team_gym', 'nickname', 'residency', 'weight_kg'
   ];
 
   const updatePayload: any = {
@@ -200,7 +202,7 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     .eq('id', statsId)
     .select(`
       *,
-      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name, passport_photo)
     `)
     .single();
 
@@ -690,6 +692,8 @@ export interface StatsCSVRow {
   shorts_size?: string
   jacket_size?: string
   gloves_size?: string
+  residency?: string
+  weight_kg?: string
 }
 
 export interface StatsImportError {
@@ -774,6 +778,8 @@ export async function importStatsFromCSV(
     const statsData: any = {
       person_id: personId,
       nickname: row.nickname || null,
+      residency: row.residency || null,
+      weight_kg: toNumNull(row.weight_kg),
       weight_class: row.weight_class || null,
       height_cm: toNumNull(row.height_cm),
       reach_cm: toNumNull(row.reach_cm),

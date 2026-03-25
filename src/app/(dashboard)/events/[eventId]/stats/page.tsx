@@ -20,8 +20,9 @@ import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv
 
 const STATS_FIELDS: FieldDef[] = [
   { value: 'passport_name', label: 'Nome Passaporte' },
-  { value: 'nickname', label: 'Apelido' },
   { value: 'weight_class', label: 'Categoria' },
+  { value: 'weight_kg', label: 'Peso (kg)' },
+  { value: 'residency', label: 'Residência' },
   { value: 'height_cm', label: 'Altura (cm)' },
   { value: 'reach_cm', label: 'Alcance (cm)' },
   { value: 'fighting_style', label: 'Estilo' },
@@ -137,7 +138,7 @@ export default function StatsPage() {
         <div className="flex gap-2">
           <CSVImportDropdown
             onImportClick={() => setCsvOpen(true)}
-            onTemplateDownload={() => downloadCSVTemplate('stats_import_template.csv', 'Passport Name,Nickname,Weight Class,Height (cm),Reach (cm),Fighting Style,Team Gym,Wins,Losses,Draws,Corner,Uniform Size,Shoe Size\nJohn Doe,The Beast,welterweight,180,185,Boxing,Team Alpha,15,3,1,RED,L,42\n')}
+            onTemplateDownload={() => downloadCSVTemplate('stats_import_template.csv', 'Passport Name,Weight Class,Weight (kg),Residency,Height (cm),Reach (cm),Fighting Style,Team Gym,Wins,Losses,Draws,Corner,Uniform Size,Shoe Size\nJohn Doe,welterweight,77.5,Dubai UAE,180,185,Boxing,Team Alpha,15,3,1,RED,L,42\n')}
           />
           {activeTab !== 'history' && activeTab !== 'uniforms' && (
             <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as 'table' | 'cards')}>

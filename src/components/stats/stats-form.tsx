@@ -9,8 +9,11 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
 import { FighterStats, FighterStatsFormData, WeightClass, WEIGHT_CLASS_LABELS } from '@/types/stats';
 import { upsertFighterStats } from '@/lib/services/stats-service';
+import { getFighterPhotoUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 
 const statsSchema = z.object({
@@ -29,7 +32,8 @@ const statsSchema = z.object({
   losses_decision: z.coerce.number().min(0),
   fighting_style: z.string().optional(),
   team_gym: z.string().optional(),
-  nickname: z.string().optional(),
+  residency: z.string().optional(),
+  weight_kg: z.coerce.number().min(0).optional(),
 });
 
 interface StatsFormProps {
@@ -63,7 +67,8 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
       losses_decision: 0,
       fighting_style: '',
       team_gym: '',
-      nickname: '',
+      residency: '',
+      weight_kg: undefined,
     },
   });
 
@@ -85,7 +90,8 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
         losses_decision: stats.losses_decision,
         fighting_style: stats.fighting_style || '',
         team_gym: stats.team_gym || '',
-        nickname: stats.nickname || '',
+        residency: stats.residency || '',
+        weight_kg: stats.weight_kg || undefined,
       });
     }
   }, [stats, form]);
@@ -110,8 +116,32 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Fighter Stats - {personName}</DialogTitle>
+          <DialogTitle>Fighter Stats</DialogTitle>
         </DialogHeader>
+
+        {stats?.person && (
+          <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 border border-muted/50 mb-4">
+             <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
+                {stats.person.fighter_id ? (
+                  <AvatarImage src={getFighterPhotoUrl(stats.person.fighter_id)} alt={stats.person.compiled_name} />
+                ) : stats.person.passport_photo ? (
+                  <AvatarImage src={stats.person.passport_photo} alt={stats.person.compiled_name} />
+                ) : null}
+                <AvatarFallback>{stats.person.compiled_name[0]}</AvatarFallback>
+             </Avatar>
+             <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-lg truncate leading-tight">{stats.person.compiled_name}</h4>
+                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">ID: {stats.person.fighter_id || '-'}</Badge>
+                </div>
+                <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground italic">
+                   <span>{stats.person.event_name || 'UAEW'}</span>
+                   <span>•</span>
+                   <span>{stats.person.nationality || 'Unknown'}</span>
+                </div>
+             </div>
+          </div>
+        )}
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -119,17 +149,6 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
             <div className="space-y-4">
               <h3 className="font-medium">Basic Info</h3>
               <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="nickname"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nickname</FormLabel>
-                      <FormControl><Input placeholder="e.g., The Notorious" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <FormField
                   control={form.control}
                   name="weight_class"
@@ -148,13 +167,24 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                     </FormItem>
                   )}
                 />
+                 <FormField
+                  control={form.control}
+                  name="weight_kg"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Current Weight (kg)</FormLabel>
+                      <FormControl><Input type="number" step="0.1" placeholder="77.5" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
             </div>
 
             {/* Physical Stats */}
             <div className="space-y-4">
               <h3 className="font-medium">Physical Stats</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                 <FormField
                   control={form.control}
                   name="height_cm"
@@ -173,6 +203,17 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                     <FormItem>
                       <FormLabel>Reach (cm)</FormLabel>
                       <FormControl><Input type="number" placeholder="180" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="residency"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Residency</FormLabel>
+                      <FormControl><Input placeholder="City, Country" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -52,6 +52,8 @@ export interface FighterStats {
   fighting_style: string | null;
   team_gym: string | null;
   nickname: string | null;
+  residency?: string | null;
+  weight_kg?: number | null;
   
   created_at: string;
   updated_at: string;
@@ -64,6 +66,7 @@ export interface FighterStats {
     nationality: string | null;
     fighter_id?: string | null;
     event_name?: string;
+    passport_photo?: string | null;
   };
 }
 
@@ -88,6 +91,8 @@ export interface FighterStatsFormData {
   fighting_style?: string;
   team_gym?: string;
   nickname?: string;
+  residency?: string;
+  weight_kg?: number;
 }
 
 export interface CoachData {
