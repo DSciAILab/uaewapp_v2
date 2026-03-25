@@ -45,6 +45,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
   const router = useRouter();
   
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [event, setEvent] = useState<any>(null);
   const [matches, setMatches] = useState<MatchPair[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -61,10 +62,13 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
         setEvent(eventData);
 
-        const targetUrl = eventData?.fight_card_csv_url || CSV_URL;
+        // Add cache buster to avoid stale data
+        const baseUrl = eventData?.fight_card_csv_url || CSV_URL;
+        const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
         
         if (!targetUrl) {
             setLoading(false);
+            setRefreshing(false);
             return;
         }
 
@@ -90,7 +94,10 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                 nationality: row['NATIONALITY'],
                 residency: row['RESIDENCY']
             };
-        }).filter(r => r.name);
+        }).filter(r => 
+            r.name && 
+            r.event?.toString().toUpperCase() === eventData?.code?.toUpperCase()
+        );
 
         // Identify Photos
         const matchesMap = new Map<number, MatchPair>();
@@ -147,6 +154,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
         toast.error('Failed to load fight card data');
       } finally {
         setLoading(false);
+        setRefreshing(false);
       }
     }
 
@@ -342,9 +350,19 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Event
              </Button>
-             <Button variant="outline" size="sm" onClick={() => setRefreshKey(prev => prev + 1)} className="animate-in fade-in slide-in-from-right-2 duration-500">
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-                Force Refresh
+             <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => {
+                    setRefreshing(true);
+                    setRefreshKey(prev => prev + 1);
+                    toast.info('Refreshing fight card...');
+                }} 
+                disabled={refreshing}
+                className="animate-in fade-in slide-in-from-right-2 duration-500"
+             >
+                <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Force Refresh'}
              </Button>
               <Button variant="outline" size="sm" onClick={handleDownloadCollectionTemplate} className="bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">
                  <FileText className="mr-2 h-4 w-4 text-slate-500" />
