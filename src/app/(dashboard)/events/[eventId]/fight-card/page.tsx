@@ -7,14 +7,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Swords, Download } from 'lucide-react';
-import { toast } from 'sonner';
+import { ArrowLeft, Swords, Download, FileText, RefreshCw } from 'lucide-react';
 import { getEventById } from '@/lib/services/events';
 import { getEventFighterStats } from '@/lib/services/stats-service';
 import { getFighterPhotoUrl, normalizeName, getDataUrl } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { FileText } from 'lucide-react';
+import { toast } from 'sonner';
+import Papa from 'papaparse';
 
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
 const GLOVE_SIZES = ['S', 'M', 'L', 'XL'];
@@ -47,6 +47,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
   const [loading, setLoading] = useState(true);
   const [event, setEvent] = useState<any>(null);
   const [matches, setMatches] = useState<MatchPair[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
@@ -69,28 +70,27 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
         const csvText = await fetch(targetUrl).then(r => r.text());
 
-        // Parse CSV
-        const rows = csvText.split('\n').slice(1); // Skip header
-        const parsedRows: FighterCSV[] = rows.map(row => {
-            // Simple split handling comma inside quotes if needed, 
-            // but for this specific sheet structure simple split mostly works unless commas in names.
-            // Let's use a slightly more robust regex for CSV split if needed, 
-            // but standard split is usually okay for this specific data source format shown in prompt.
-            // Using a simple regex to handle quoted fields just in case.
-            const cols = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(col => col.replace(/^"(.*)"$/, '$1')) || [];
-            
+        // Parse CSV with PapaParse
+        const { data: rawData } = Papa.parse(csvText, {
+            header: true,
+            skipEmptyLines: true,
+            dynamicTyping: true
+        });
+
+        const parsedRows: FighterCSV[] = (rawData as any[]).map(row => {
+            // Map header names to our interface
             return {
-                matchNumber: parseInt(cols[0]) || 0,
-                event: cols[1],
-                corner: cols[2] as 'RED' | 'BLUE',
-                division: cols[3],
-                name: cols[4],
-                nickname: cols[5],
-                record: cols[6],
-                nationality: cols[7],
-                residency: cols[8]
+                matchNumber: row['#'] || 0,
+                event: row['EVENT'],
+                corner: row['CORNER'] as 'RED' | 'BLUE',
+                division: row['DIVISION'],
+                name: row['NAME'],
+                nickname: row['NICKNAME'],
+                record: row['RECORD'],
+                nationality: row['NATIONALITY'],
+                residency: row['RESIDENCY']
             };
-        }).filter(r => r.name); // Filter empty rows
+        }).filter(r => r.name);
 
         // Identify Photos
         const matchesMap = new Map<number, MatchPair>();
@@ -156,7 +156,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
     intervalId = setInterval(init, 30000);
 
     return () => clearInterval(intervalId);
-  }, [eventId]);
+  }, [eventId, refreshKey]);
 
   const handleExportPDF = async () => {
      try {
@@ -341,6 +341,10 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
              <Button variant="ghost" size="sm" onClick={() => router.push(`/events/${eventId}`)}>
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Event
+             </Button>
+             <Button variant="outline" size="sm" onClick={() => setRefreshKey(prev => prev + 1)} className="animate-in fade-in slide-in-from-right-2 duration-500">
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Force Refresh
              </Button>
               <Button variant="outline" size="sm" onClick={handleDownloadCollectionTemplate} className="bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">
                  <FileText className="mr-2 h-4 w-4 text-slate-500" />
