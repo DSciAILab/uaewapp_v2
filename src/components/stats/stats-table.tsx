@@ -19,6 +19,7 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-[60px]">#</TableHead>
             <TableHead>Fighter</TableHead>
             <TableHead>Nickname</TableHead>
             <TableHead>Weight Class</TableHead>
@@ -39,6 +40,13 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
           ) : (
             stats.map((s) => (
               <TableRow key={s.id}>
+                <TableCell>
+                  {s.matchNumber ? (
+                    <div className="flex items-center justify-center h-6 w-6 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[10px] font-black">
+                      {s.matchNumber}
+                    </div>
+                  ) : '-'}
+                </TableCell>
                 <TableCell className="font-medium">{s.person?.compiled_name}</TableCell>
                 <TableCell>
                   {s.nickname ? (

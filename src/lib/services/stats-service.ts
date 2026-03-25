@@ -1,5 +1,6 @@
 // @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
+import Papa from 'papaparse';
 import { FighterStats, FighterStatsFormData, EventWeighIn, EventWeighInFormData, WEIGHT_CLASS_LIMITS, CoachData, CoachDataFormData } from '@/types/stats';
 
 function getClient() {
@@ -69,7 +70,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
   // 3. Merge results - ensure everyone enrolled shows up
   const statsMap = new Map(stats?.map(s => [s.person_id, s]));
   
-  return enrolled.map(e => {
+  const merged = enrolled.map(e => {
     const existing = statsMap.get(e.person_id);
     const corner = e.corner || existing?.corner; // Enrollment corner takes precedence
     
@@ -96,6 +97,35 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
       updated_at: new Date().toISOString(),
     } as FighterStats;
   });
+
+  // 4. Enrich with CSV data (Fight Card) in background replacement logic style
+  // but done here for consistency across all stats views
+  try {
+     const fightCard = await getFightCardData(eventId);
+     if (fightCard && fightCard.length > 0) {
+        return merged.map(f => {
+           const match = fightCard.find((c: any) => {
+              const pName = (f.person?.compiled_name || '').trim().toLowerCase();
+              const cName = (c.name || '').trim().toLowerCase();
+              return pName === cName || pName.includes(cName) || cName.includes(pName);
+           });
+
+           if (match) {
+              return {
+                 ...f,
+                 matchNumber: match.matchNumber,
+                 // Also sync corner if not set
+                 corner: f.corner || (match.corner?.charAt(0).toUpperCase() + match.corner?.slice(1).toLowerCase())
+              };
+           }
+           return f;
+        });
+     }
+  } catch (err) {
+     console.warn('Failed to enrich stats with CSV data:', err);
+  }
+
+  return merged;
 }
 
 export async function createFighterStats(personId: string, formData: FighterStatsFormData): Promise<FighterStats> {
@@ -574,30 +604,57 @@ export async function getEventFighterHierarchy(eventId: string): Promise<Fighter
   
   return hierarchy;
 }
-export async function getFightCardData(): Promise<any[]> {
-  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8I30mTm8ZyuBttmebz9wv-41TIZ-8HzHiLEYcEhXD2Y5JXCn7AD3aDmOIBpYSp-9tMF7F7obDdQsw/pub?gid=1830739607&single=true&output=csv';
-  
+export async function getFightCardData(eventId?: string): Promise<any[]> {
+  let csvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8I30mTm8ZyuBttmebz9wv-41TIZ-8HzHiLEYcEhXD2Y5JXCn7AD3aDmOIBpYSp-9tMF7F7obDdQsw/pub?gid=1830739607&single=true&output=csv';
+  let eventCode = '';
+
+  if (eventId) {
+    const supabase = getClient();
+    const { data: event } = await supabase
+      .from('mma_events')
+      .select('fight_card_csv_url, code')
+      .eq('id', eventId)
+      .single();
+    
+    if (event?.fight_card_csv_url) {
+      csvUrl = event.fight_card_csv_url;
+    }
+    if (event?.code) {
+      eventCode = event.code;
+    }
+  }
+
+  // Add cache buster
+  const targetUrl = csvUrl + (csvUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
+
   try {
-    const response = await fetch(CSV_URL, { cache: 'no-store' });
+    const response = await fetch(targetUrl, { cache: 'no-store' });
     if (!response.ok) throw new Error('Failed to fetch CSV');
     const csvText = await response.text();
     
-    // Simple CSV parser
-    const rows = csvText.split('\n').slice(1); // Skip header
-    return rows.map(row => {
-      const cols = row.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(col => col.replace(/^"(.*)"$/, '$1')) || [];
-      return {
-        matchNumber: parseInt(cols[0]) || 0,
-        event: cols[1],
-        corner: cols[2]?.toUpperCase() as 'RED' | 'BLUE',
-        division: cols[3],
-        name: cols[4],
-        nickname: cols[5],
-        record: cols[6],
-        nationality: cols[7],
-        residency: cols[8]
-      };
-    }).filter(r => r.name);
+    const { data: rawData } = Papa.parse(csvText, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true
+    });
+
+    return (rawData as any[])
+      .map(row => ({
+        matchNumber: row['#'] || 0,
+        event: row['EVENT'],
+        corner: row['CORNER']?.toUpperCase() as 'RED' | 'BLUE',
+        division: row['DIVISION'],
+        name: row['NAME'],
+        nickname: row['NICKNAME'],
+        record: row['RECORD'],
+        nationality: row['NATIONALITY'],
+        residency: row['RESIDENCY']
+      }))
+      .filter(r => {
+        const matchesName = !!r.name;
+        const matchesEvent = eventCode ? r.event?.toString().toUpperCase() === eventCode.toUpperCase() : true;
+        return matchesName && matchesEvent;
+      });
   } catch (error) {
     console.error('Error fetching fight card data:', error);
     return [];

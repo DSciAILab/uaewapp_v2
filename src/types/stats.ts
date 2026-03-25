@@ -29,6 +29,7 @@ export interface FighterStats {
   coach1_size?: string | null;
   coach2_size?: string | null;
   coach3_size?: string | null;
+  matchNumber?: number;
 
   
   // Fight record

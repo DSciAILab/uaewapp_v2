@@ -128,51 +128,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
       
       setFighters(data);
       setEventData(event);
-      setLoading(false); // Valid data is ready, stop spinner
-
-      // 2. Load external data (Fight Card CSV) in background
-      try {
-        const fightCard = await getFightCardData();
-        
-        if (fightCard && fightCard.length > 0) {
-          setFighters(prevFighters => {
-            return prevFighters.map((f: FighterStats) => {
-              // Only auto-fill if corner is null
-              if (!f.corner) {
-                const match = fightCard.find((c: any) => {
-                  const pName = normalizeName(f.person?.compiled_name || '');
-                  const cName = normalizeName(c.name);
-                  return pName === cName || pName.includes(cName) || cName.includes(pName);
-                });
-                
-                if (match) {
-                  return { 
-                    ...f, 
-                    corner: (match.corner.charAt(0).toUpperCase() + match.corner.slice(1).toLowerCase()) as any,
-                    matchNumber: match.matchNumber,
-                    _auto_corner: true
-                  } as FighterStats & { _auto_corner?: boolean; matchNumber?: number };
-                }
-              } else {
-                 // Even if corner is set, we might want to attach match number
-                 const match = fightCard.find((c: any) => {
-                  const pName = normalizeName(f.person?.compiled_name || '');
-                  const cName = normalizeName(c.name);
-                  return pName === cName || pName.includes(cName) || cName.includes(pName);
-                });
-                if (match) {
-                   return { ...f, matchNumber: match.matchNumber } as any;
-                }
-              }
-              return f;
-            });
-          });
-        }
-      } catch (externalError) {
-        console.warn('Background fetch of fight card data failed:', externalError);
-        // Do not block UI or show error toast for this non-critical failure
-      }
-
+      setLoading(false);
     } catch (error) {
       toast.error('Failed to load fighter data');
       console.error(error);
