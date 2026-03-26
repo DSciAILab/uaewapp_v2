@@ -20,7 +20,9 @@ export default async function DashboardPage() {
     .from('mma_events')
     .select('id, name, event_date, city, status')
     .eq('status', 'active')
-    .single();
+    .order('event_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   let dashboardData = null;
   let modules: ReturnType<typeof calculateModuleStatuses> = [];

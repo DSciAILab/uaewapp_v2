@@ -151,12 +151,12 @@ export function calculateModuleStatuses(metrics: EventMetrics): ModuleStatus[] {
       module: 'transport',
       label: 'Logistics: Transport',
       icon: 'Car',
-      total: metrics.total_enrolled,
-      completed: Math.max(0, metrics.total_enrolled - (metrics.unassigned_arrivals + metrics.unassigned_departures)),
-      pending: metrics.unassigned_arrivals + metrics.unassigned_departures,
+      total: metrics.total_enrolled || 0,
+      completed: Math.max(0, (metrics.total_enrolled || 0) - ((metrics.unassigned_arrivals || 0) + (metrics.unassigned_departures || 0))),
+      pending: (metrics.unassigned_arrivals || 0) + (metrics.unassigned_departures || 0),
       alerts: 0,
-      progress: calculateProgress(metrics.total_enrolled - (metrics.unassigned_arrivals + metrics.unassigned_departures), metrics.total_enrolled),
-      status: (metrics.unassigned_arrivals + metrics.unassigned_departures) > 0 ? 'warning' : 'good',
+      progress: calculateProgress((metrics.total_enrolled || 0) - ((metrics.unassigned_arrivals || 0) + (metrics.unassigned_departures || 0)), metrics.total_enrolled || 0),
+      status: ((metrics.unassigned_arrivals || 0) + (metrics.unassigned_departures || 0)) > 0 ? 'warning' : 'good',
     }
   ];
 }
