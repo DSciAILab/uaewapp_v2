@@ -230,24 +230,33 @@ export async function importPeopleFromCSV(
     // Map: dedup key → existing record (with id + all fields)
     const existingMap = new Map<string, any>()
 
-    // 1. Fetch existing records
+    // 1. Fetch existing records (paginated — PostgREST caps each response at 1000 rows)
     if (checkDuplicates || upsertMode) {
       if (onProgress) onProgress(0, total, upsertMode ? 'Buscando registros existentes para comparação...' : 'Verificando duplicados no banco...')
-      
-      const { data: existingData, error: fetchError } = await supabase
-        .from('mma_people')
-        .select('id, name, surname, dob, event_name, fighter_id, gender, phone, nationality, passport_number, passport_expiry, passport_photo, document_folder, height, reach')
-        .limit(10000)
-      
-      if (fetchError) throw fetchError;
 
-      (existingData || []).forEach((p: any) => {
-        const namePart = normalizeName(p.name);
-        const surnamePart = p.surname ? normalizeName(p.surname) : '';
-        const dobPart = p.dob || '';
-        const key = `${namePart}|${surnamePart}|${dobPart}`;
-        existingMap.set(key, p);
-      });
+      const PAGE_SIZE = 1000
+      let from = 0
+      while (true) {
+        const { data: page, error: fetchError } = await supabase
+          .from('mma_people')
+          .select('id, name, surname, dob, event_name, fighter_id, gender, phone, nationality, passport_number, passport_expiry, passport_photo, document_folder, height, reach')
+          .order('created_at', { ascending: true })
+          .range(from, from + PAGE_SIZE - 1)
+
+        if (fetchError) throw fetchError
+        if (!page || page.length === 0) break
+
+        page.forEach((p: any) => {
+          const namePart = normalizeName(p.name)
+          const surnamePart = p.surname ? normalizeName(p.surname) : ''
+          const dobPart = p.dob || ''
+          const key = `${namePart}|${surnamePart}|${dobPart}`
+          existingMap.set(key, p)
+        })
+
+        if (page.length < PAGE_SIZE) break
+        from += PAGE_SIZE
+      }
     }
 
     // 2. Normalization, Filtering & Upsert detection
@@ -556,6 +565,12 @@ export async function syncPeopleFromGoogleSheet(): Promise<{
   }
 
   const rows: PersonFormData[] = (parsed.data || [])
+    .filter((raw) => {
+      // Drop the alternate header row some sheets ship as row 2 (NAME, SURNAME, ...)
+      const n = (raw['NAME'] ?? '').trim().toUpperCase()
+      const s = (raw['SURNAME'] ?? '').trim().toUpperCase()
+      return !(n === 'NAME' && s === 'SURNAME')
+    })
     .map(mapSheetRow)
     .filter((r) => r.name && r.name.trim().length > 0)
 
