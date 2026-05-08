@@ -31,7 +31,7 @@ import { PersonForm } from '@/components/forms/person-form'
 import { CSVImport } from '@/components/forms/csv-import'
 import { QuickEnrollDialog } from '@/components/forms/quick-enroll-dialog'
 import { PeopleBatchEnrollment } from '@/components/forms/people-batch-enrollment'
-import { Plus, Upload, Search, X, Users } from 'lucide-react'
+import { Plus, Upload, Search, X, Users, RefreshCw } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -47,6 +47,7 @@ import {
   bulkDeletePeople,
   getNationalities,
   importPeopleFromCSV,
+  syncPeopleFromGoogleSheet,
 } from '@/lib/services/people'
 import { getActiveEvents } from '@/lib/services/events'
 import { getEnrollmentsByEvent } from '@/lib/services/enrollments'
@@ -73,6 +74,7 @@ export default function PeoplePage() {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null)
   const [activeEvent, setActiveEvent] = useState<Event | null>(null)
   const [enrolledIds, setEnrolledIds] = useState<Set<string>>(new Set())
+  const [syncing, setSyncing] = useState(false)
 
   const { canEdit, isAdmin, loading: permissionsLoading } = usePermissions()
   const canEditPeople = canEdit('people')
@@ -237,6 +239,31 @@ export default function PeoplePage() {
     fetchNationalities()
   }
 
+  const handleSyncSheet = async () => {
+    setSyncing(true)
+    try {
+      const result = await syncPeopleFromGoogleSheet()
+      const parts = [`${result.success} novos`]
+      if (result.duplicates.length > 0) parts.push(`${result.duplicates.length} já existiam`)
+      if (result.errors.length > 0) parts.push(`${result.errors.length} com erro`)
+      const summary = parts.join(', ')
+
+      if (result.errors.length > 0) {
+        toast.warning(`Sincronização concluída: ${summary}`, {
+          description: result.errors.slice(0, 3).map((e) => `${e.fullName}: ${e.message}`).join(' • '),
+        })
+      } else {
+        toast.success(`Sincronização concluída: ${summary}`)
+      }
+      fetchPeople()
+      fetchNationalities()
+    } catch (error: any) {
+      toast.error(error.message || 'Erro ao sincronizar com Google Sheet')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <Header 
@@ -277,6 +304,15 @@ export default function PeoplePage() {
             
               {canEditPeople && (
                 <>
+                  <Button
+                    variant="outline"
+                    onClick={handleSyncSheet}
+                    disabled={syncing || !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL}
+                    title={!process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL ? 'Configure NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL no .env.local' : undefined}
+                  >
+                    <RefreshCw className={cn('mr-2 h-4 w-4', syncing && 'animate-spin')} />
+                    {syncing ? 'Sincronizando...' : 'Sync Google Sheet'}
+                  </Button>
                   <CSVImportDropdown
                     onImportClick={() => setCsvOpen(true)}
                     onTemplateDownload={() => downloadCSVTemplate('people_import_template.csv', 'Name,Surname,Date of Birth (YYYY-MM-DD),Gender,Nationality,Phone,Passport Name,Passport Number,Passport Expiry,Fighter ID\nJohn,Doe,1990-01-15,male,USA,+1234567890,JOHN DOE,AB123456,2028-12-31,F001\n')}
