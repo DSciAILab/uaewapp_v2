@@ -6,6 +6,24 @@ function getClient() {
   return createClient();
 }
 
+/**
+ * Convert DD/MM/YYYY to YYYY-MM-DD (Postgres date format).
+ * Returns null for empty input or invalid format.
+ */
+function parseDDMMYYYY(s: string | undefined | null): string | null {
+  if (!s) return null
+  const trimmed = String(s).trim()
+  if (!trimmed) return null
+  const match = trimmed.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (!match) return null
+  const [, dd, mm, yyyy] = match
+  const day = parseInt(dd, 10)
+  const month = parseInt(mm, 10)
+  if (month < 1 || month > 12) return null
+  if (day < 1 || day > 31) return null
+  return `${yyyy}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
 export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedResponse<Person>> {
   const {
     search,
