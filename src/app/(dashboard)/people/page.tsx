@@ -304,18 +304,18 @@ export default function PeoplePage() {
             
               {canEditPeople && (
                 <>
-                  <Button
-                    variant="outline"
-                    onClick={handleSyncSheet}
-                    disabled={syncing || !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL}
-                    title={!process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL ? 'Configure NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL no .env.local' : undefined}
-                  >
-                    <RefreshCw className={cn('mr-2 h-4 w-4', syncing && 'animate-spin')} />
-                    {syncing ? 'Sincronizando...' : 'Sync Google Sheet'}
-                  </Button>
                   <CSVImportDropdown
                     onImportClick={() => setCsvOpen(true)}
                     onTemplateDownload={() => downloadCSVTemplate('people_import_template.csv', 'Name,Surname,Date of Birth (YYYY-MM-DD),Gender,Nationality,Phone,Passport Name,Passport Number,Passport Expiry,Fighter ID\nJohn,Doe,1990-01-15,male,USA,+1234567890,JOHN DOE,AB123456,2028-12-31,F001\n')}
+                    extraItems={[
+                      {
+                        label: syncing ? 'Sincronizando...' : 'Sync Google Sheet',
+                        icon: <RefreshCw className={cn('h-4 w-4', syncing && 'animate-spin')} />,
+                        onClick: handleSyncSheet,
+                        disabled: syncing || !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL,
+                        title: !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL ? 'Configure NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL no .env.local' : undefined,
+                      },
+                    ]}
                   />
                   <Button onClick={handleCreate}>
                     <Plus className="mr-2 h-4 w-4" />Nova Pessoa
