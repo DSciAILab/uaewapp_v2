@@ -1,26 +1,38 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Upload, Download, FileUp, ChevronDown } from 'lucide-react'
+
+export interface ImportDropdownExtraItem {
+  label: string
+  icon?: ReactNode
+  onClick: () => void
+  disabled?: boolean
+  title?: string
+}
 
 interface CSVImportDropdownProps {
   onImportClick: () => void
   onTemplateDownload: () => void
   label?: string
   disabled?: boolean
+  extraItems?: ImportDropdownExtraItem[]
 }
 
 export function CSVImportDropdown({
   onImportClick,
   onTemplateDownload,
-  label = 'CSV',
+  label = 'Import',
   disabled = false,
+  extraItems,
 }: CSVImportDropdownProps) {
   return (
     <DropdownMenu>
@@ -31,7 +43,7 @@ export function CSVImportDropdown({
           <ChevronDown className="h-3 w-3 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onClick={onTemplateDownload} className="gap-2 cursor-pointer">
           <Download className="h-4 w-4" />
           Baixar Template
@@ -40,6 +52,19 @@ export function CSVImportDropdown({
           <FileUp className="h-4 w-4" />
           Importar CSV
         </DropdownMenuItem>
+        {extraItems && extraItems.length > 0 && <DropdownMenuSeparator />}
+        {extraItems?.map((item, i) => (
+          <DropdownMenuItem
+            key={i}
+            onClick={item.onClick}
+            disabled={item.disabled}
+            title={item.title}
+            className="gap-2 cursor-pointer"
+          >
+            {item.icon}
+            {item.label}
+          </DropdownMenuItem>
+        ))}
       </DropdownMenuContent>
     </DropdownMenu>
   )
