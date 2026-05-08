@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Person, PeopleFilters, PaginatedResponse, PersonFormData } from '@/types/database'
 import { normalizeName } from '@/lib/utils'
+import Papa from 'papaparse'
 
 function getClient() {
   return createClient();
@@ -464,4 +465,116 @@ export async function checkDuplicatePerson(name: string, surname?: string | null
 
   const { data } = await query
   return (data?.length || 0) > 0
+}
+
+const SHEET_HEADERS = [
+  'NAME',
+  'SURNAME',
+  'FULL NAME',
+  'EVENT NAME',
+  'GENDER',
+  'PHONE',
+  'DOB',
+  'NATIONALITY',
+  'PASSPORT',
+  'EXPIRY DATE',
+  'PASSPORT IMAGE',
+  'DOCUMENT FOLDER',
+  'ID',
+] as const
+
+/**
+ * Map a parsed Google Sheet row (string→string) to PersonFormData.
+ * Empty strings become null. Dates are converted DD/MM/YYYY → YYYY-MM-DD.
+ * FULL NAME is intentionally ignored: compiled_name is a STORED generated
+ * column in the DB (computed from name).
+ */
+function mapSheetRow(row: Record<string, string>): PersonFormData {
+  const get = (key: string) => {
+    const v = row[key]
+    return v === undefined || v === null ? '' : String(v).trim()
+  }
+  const orNull = (v: string) => (v === '' ? null : v)
+
+  return {
+    name: get('NAME'),
+    surname: orNull(get('SURNAME')),
+    event_name: orNull(get('EVENT NAME')),
+    fighter_id: orNull(get('ID')),
+    gender: orNull(get('GENDER').toLowerCase()),
+    phone: orNull(get('PHONE')),
+    dob: parseDDMMYYYY(get('DOB')),
+    nationality: orNull(get('NATIONALITY')),
+    passport_number: orNull(get('PASSPORT')),
+    passport_expiry: parseDDMMYYYY(get('EXPIRY DATE')),
+    passport_photo: orNull(get('PASSPORT IMAGE')),
+    document_folder: orNull(get('DOCUMENT FOLDER')),
+  }
+}
+
+/**
+ * Sync new athletes from the public Google Sheet CSV into mma_people.
+ * Insert-only: existing records (matched by name|surname|dob) are skipped,
+ * never updated. URL is configured via NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL.
+ *
+ * Returns the same shape as importPeopleFromCSV.
+ */
+export async function syncPeopleFromGoogleSheet(): Promise<{
+  success: number
+  updated: number
+  errors: ImportError[]
+  duplicates: string[]
+}> {
+  const url = process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL
+  if (!url) {
+    throw new Error('NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL não configurada no .env.local')
+  }
+
+  // Cache busting (same pattern used in fight-card)
+  const fetchUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
+  const response = await fetch(fetchUrl)
+  if (!response.ok) {
+    throw new Error(`Não foi possível buscar a planilha (HTTP ${response.status}). Verifique se está pública e a URL está correta.`)
+  }
+  const csvText = await response.text()
+
+  const parsed = Papa.parse<Record<string, string>>(csvText, {
+    header: true,
+    skipEmptyLines: true,
+    transformHeader: (h) => h.trim(),
+  })
+
+  if (parsed.errors && parsed.errors.length > 0) {
+    const first = parsed.errors[0]
+    throw new Error(`Erro ao processar CSV: ${first.message} (linha ${first.row ?? '?'})`)
+  }
+
+  const headers = parsed.meta.fields ?? []
+  const missing = SHEET_HEADERS.filter((h) => !headers.includes(h))
+  if (missing.length > 0) {
+    throw new Error(`Coluna(s) ausente(s) na planilha: ${missing.join(', ')}. Headers esperados: ${SHEET_HEADERS.join(', ')}`)
+  }
+
+  const rows: PersonFormData[] = (parsed.data || [])
+    .map(mapSheetRow)
+    .filter((r) => r.name && r.name.trim().length > 0)
+
+  // Reuse the existing importer with upsertMode=false → insert-only behavior.
+  // columnMapping helps make error messages reference the original Sheet headers.
+  const columnMapping: Record<string, string> = {
+    name: 'NAME',
+    surname: 'SURNAME',
+    event_name: 'EVENT NAME',
+    fighter_id: 'ID',
+    gender: 'GENDER',
+    phone: 'PHONE',
+    dob: 'DOB',
+    nationality: 'NATIONALITY',
+    passport_number: 'PASSPORT',
+    passport_expiry: 'EXPIRY DATE',
+    passport_photo: 'PASSPORT IMAGE',
+    document_folder: 'DOCUMENT FOLDER',
+  }
+
+  return await importPeopleFromCSV(rows, undefined, true, columnMapping, false)
 }
