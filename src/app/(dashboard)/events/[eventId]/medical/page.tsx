@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { createClient } from '@/lib/supabase/client'
+import { getDataUrl } from '@/lib/utils'
 import {
   getMedicalData,
   updateMedicalStatus,
@@ -109,18 +110,31 @@ export default function MedicalPage() {
     }
     const toastId = toast.loading('Generating PDF report...')
     try {
-      // Fetch every athlete's history in parallel
-      const histories = await Promise.all(
-        rows.map(async (r) => {
-          try {
-            const log = await getMedicalHistory(eventId, r.enrolled_id)
-            return [r.enrolled_id, log] as const
-          } catch {
-            return [r.enrolled_id, [] as MedicalLogEntry[]] as const
-          }
-        })
-      )
+      // Sort by fight order for the report (matches default sort)
+      const ordered = [...rows].sort((a, b) => (a.fight_order ?? 999) - (b.fight_order ?? 999))
+
+      // Fetch histories AND photos in parallel
+      const [histories, photoEntries] = await Promise.all([
+        Promise.all(
+          ordered.map(async (r) => {
+            try {
+              const log = await getMedicalHistory(eventId, r.enrolled_id)
+              return [r.enrolled_id, log] as const
+            } catch {
+              return [r.enrolled_id, [] as MedicalLogEntry[]] as const
+            }
+          })
+        ),
+        Promise.all(
+          ordered.map(async (r) => {
+            if (!r.person.photo_url) return [r.enrolled_id, null] as const
+            const dataUrl = await getDataUrl(r.person.photo_url)
+            return [r.enrolled_id, dataUrl] as const
+          })
+        ),
+      ])
       const historyMap = new Map(histories)
+      const photoMap = new Map(photoEntries)
 
       const doc = new jsPDF({ orientation: 'landscape' })
 
@@ -139,9 +153,6 @@ export default function MedicalPage() {
         14,
         27
       )
-
-      // Sort by fight order for the report (matches default sort)
-      const ordered = [...rows].sort((a, b) => (a.fight_order ?? 999) - (b.fight_order ?? 999))
 
       const body = ordered.map((r) => {
         const log = historyMap.get(r.enrolled_id) || []
@@ -163,6 +174,7 @@ export default function MedicalPage() {
         const wasHospital = r.was_at_hospital && r.status !== 'sent_to_hospital' ? ' (was at hospital)' : ''
         return [
           r.fight_order?.toString() ?? '-',
+          '', // Photo placeholder — drawn in didDrawCell
           r.corner ?? '-',
           r.person.compiled_name,
           r.person.fighter_id ?? '-',
@@ -174,30 +186,31 @@ export default function MedicalPage() {
 
       autoTable(doc, {
         startY: 32,
-        head: [['#', 'Corner', 'Fighter', 'ID', 'Current Status', 'Notes', 'History']],
+        head: [['#', 'Photo', 'Corner', 'Fighter', 'ID', 'Current Status', 'Notes', 'History']],
         body,
         theme: 'striped',
-        styles: { fontSize: 8, valign: 'top', cellPadding: 2 },
+        styles: { fontSize: 8, valign: 'top', cellPadding: 2, minCellHeight: 16 },
         headStyles: { fillColor: [38, 38, 38], textColor: 255, fontSize: 9 },
         columnStyles: {
-          0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 18, halign: 'center' },
-          2: { cellWidth: 50 },
-          3: { cellWidth: 18, halign: 'center' },
-          4: { cellWidth: 45 },
-          5: { cellWidth: 50 },
-          6: { cellWidth: 'auto' },
+          0: { cellWidth: 10, halign: 'center', valign: 'middle' },
+          1: { cellWidth: 16, halign: 'center', valign: 'middle' },
+          2: { cellWidth: 16, halign: 'center', valign: 'middle' },
+          3: { cellWidth: 46 },
+          4: { cellWidth: 16, halign: 'center' },
+          5: { cellWidth: 42 },
+          6: { cellWidth: 46 },
+          7: { cellWidth: 'auto' },
         },
         didParseCell: (data) => {
           if (data.section !== 'body') return
           const row = ordered[data.row.index]
           if (!row) return
           // Tint Corner cell + Status cell by corner / status
-          if (data.column.index === 1) {
+          if (data.column.index === 2) {
             if (row.corner === 'RED') data.cell.styles.fillColor = [254, 226, 226]
             else if (row.corner === 'BLUE') data.cell.styles.fillColor = [219, 234, 254]
           }
-          if (data.column.index === 4) {
+          if (data.column.index === 5) {
             if (row.status === 'cleared_by_doctor') {
               data.cell.styles.fillColor = [220, 252, 231]
               data.cell.styles.textColor = [21, 128, 61]
@@ -205,6 +218,30 @@ export default function MedicalPage() {
               data.cell.styles.fillColor = [254, 226, 226]
               data.cell.styles.textColor = [185, 28, 28]
             }
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== 'body' || data.column.index !== 1) return
+          const row = ordered[data.row.index]
+          if (!row) return
+          const dataUrl = photoMap.get(row.enrolled_id)
+          if (!dataUrl) return
+          try {
+            const dim = Math.min(data.cell.height, data.cell.width) - 2
+            const x = data.cell.x + (data.cell.width - dim) / 2
+            const y = data.cell.y + (data.cell.height - dim) / 2
+            // Detect format from data URL prefix
+            const fmt = dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
+            doc.addImage(dataUrl, fmt, x, y, dim, dim)
+            // Corner-colored ring
+            if (row.corner === 'RED' || row.corner === 'BLUE') {
+              const ringColor: [number, number, number] = row.corner === 'RED' ? [220, 38, 38] : [37, 99, 235]
+              doc.setDrawColor(...ringColor)
+              doc.setLineWidth(0.6)
+              doc.rect(x, y, dim, dim)
+            }
+          } catch (err) {
+            console.warn('[medical pdf] image add failed:', err)
           }
         },
       })
