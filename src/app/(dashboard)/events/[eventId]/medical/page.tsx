@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Copy, Download, ExternalLink, RefreshCw } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { AlertTriangle, Copy, Download, ExternalLink, RefreshCw, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
 import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -14,6 +23,7 @@ import {
   updateMedicalStatus,
   updateMedicalNotes,
   getMedicalHistory,
+  resetEventMedicalStatus,
   computeMedicalSummary,
 } from '@/lib/services/medical-service'
 import { MedicalSummaryCard } from '@/components/medical/medical-summary-card'
@@ -33,6 +43,9 @@ export default function MedicalPage() {
   const [rows, setRows] = useState<MedicalRow[]>([])
   const [eventName, setEventName] = useState<string>('')
   const [loading, setLoading] = useState(true)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [resetConfirm, setResetConfirm] = useState('')
+  const [resetting, setResetting] = useState(false)
 
   const { canEdit, isAdmin, loading: permissionsLoading } = usePermissions()
   const canEditMedical = isAdmin || canEdit('pre_event')
@@ -101,6 +114,21 @@ export default function MedicalPage() {
 
   const handleOpenPublic = () => {
     window.open(`/public/medical/${eventId}`, '_blank')
+  }
+
+  const handleResetConfirm = async () => {
+    setResetting(true)
+    try {
+      const deleted = await resetEventMedicalStatus(eventId)
+      toast.success(`Reset complete — ${deleted} record${deleted === 1 ? '' : 's'} cleared`)
+      setResetOpen(false)
+      setResetConfirm('')
+      loadData()
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to reset statuses')
+    } finally {
+      setResetting(false)
+    }
   }
 
   const handleDownloadPdf = async () => {
@@ -281,8 +309,80 @@ export default function MedicalPage() {
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
+          {canEditMedical && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setResetOpen(true)}
+              disabled={rows.length === 0}
+              className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800 dark:border-red-900/40 dark:text-red-400 dark:hover:bg-red-950/30"
+            >
+              <RotateCcw className="mr-2 h-4 w-4" /> Reset Status
+            </Button>
+          )}
         </div>
       </div>
+
+      <Dialog
+        open={resetOpen}
+        onOpenChange={(o) => {
+          if (resetting) return
+          setResetOpen(o)
+          if (!o) setResetConfirm('')
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700 dark:text-red-400">
+              <AlertTriangle className="h-5 w-5" />
+              Reset all medical statuses?
+            </DialogTitle>
+            <DialogDescription className="space-y-2 pt-2">
+              <span className="block">
+                This will permanently delete the medical clearance and history for{' '}
+                <span className="font-bold text-foreground">every athlete</span> in{' '}
+                <span className="font-bold text-foreground">{eventName || 'this event'}</span>.
+              </span>
+              <span className="block">All athletes will return to <strong>Pending</strong> and the timeline log will be wiped. This action cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <label htmlFor="reset-confirm" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Type <span className="font-mono text-foreground">RESET</span> to confirm
+            </label>
+            <Input
+              id="reset-confirm"
+              value={resetConfirm}
+              onChange={(e) => setResetConfirm(e.target.value)}
+              placeholder="RESET"
+              autoComplete="off"
+              autoFocus
+              disabled={resetting}
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setResetOpen(false)
+                setResetConfirm('')
+              }}
+              disabled={resetting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleResetConfirm}
+              disabled={resetConfirm !== 'RESET' || resetting}
+            >
+              {resetting ? 'Resetting…' : 'Reset all statuses'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <MedicalSummaryCard summary={summary} />
 

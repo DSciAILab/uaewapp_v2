@@ -162,6 +162,22 @@ export async function updateMedicalNotes(
 }
 
 /**
+ * Destructive — wipes every clearance row for this event. Cascades into
+ * mma_medical_clearance_log via FK. Returns the number of rows deleted.
+ */
+export async function resetEventMedicalStatus(eventId: string): Promise<number> {
+  const supabase = getClient()
+  const { data, error } = await supabase
+    .from('mma_medical_clearance')
+    .delete()
+    .eq('event_id', eventId)
+    .select('id')
+
+  if (error) throw error
+  return data?.length ?? 0
+}
+
+/**
  * Returns the chronological log of status changes for a single athlete,
  * ordered most recent first.
  */
