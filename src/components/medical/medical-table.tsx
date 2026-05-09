@@ -7,11 +7,13 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { ArrowDown, ArrowUp, ArrowUpDown, Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ArrowDown, ArrowUp, ArrowUpDown, History, Hospital, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { MedicalRow, MedicalStatus } from '@/types/medical'
+import type { MedicalLogEntry, MedicalRow, MedicalStatus } from '@/types/medical'
 import { MedicalStatusCell } from './medical-status-cell'
 import { MedicalWhatsAppLink } from './medical-whatsapp-link'
+import { MedicalHistoryDrawer } from './medical-history-drawer'
 
 type CornerFilter = 'ALL' | 'RED' | 'BLUE'
 type ShowFilter = 'pending' | 'all' | 'cleared_by_doctor' | 'sent_to_hospital'
@@ -45,14 +47,22 @@ interface Props {
   rows: MedicalRow[]
   onChangeStatus: (enrolledId: string, status: MedicalStatus) => void
   onChangeNotes: (enrolledId: string, notes: string | null) => void
+  fetchHistory: (enrolledId: string) => Promise<MedicalLogEntry[]>
   readOnly?: boolean
 }
 
-export function MedicalTable({ rows, onChangeStatus, onChangeNotes, readOnly }: Props) {
+export function MedicalTable({
+  rows,
+  onChangeStatus,
+  onChangeNotes,
+  fetchHistory,
+  readOnly,
+}: Props) {
   const [search, setSearch] = useState('')
   const [cornerFilter, setCornerFilter] = useState<CornerFilter>('ALL')
   const [showFilter, setShowFilter] = useState<ShowFilter>('pending')
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({ key: 'order', dir: 'asc' })
+  const [historyOpenFor, setHistoryOpenFor] = useState<MedicalRow | null>(null)
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase()
@@ -157,12 +167,13 @@ export function MedicalTable({ rows, onChangeStatus, onChangeNotes, readOnly }: 
                 <HeaderButton k="status" label="Status" />
               </TableHead>
               <TableHead>Notes</TableHead>
+              <TableHead className="w-[60px] text-center">Log</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sorted.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                   No athletes match the current filters.
                 </TableCell>
               </TableRow>
@@ -208,11 +219,21 @@ export function MedicalTable({ rows, onChangeStatus, onChangeNotes, readOnly }: 
                 </TableCell>
 
                 <TableCell>
-                  <MedicalStatusCell
-                    value={row.status}
-                    onChange={(status) => onChangeStatus(row.enrolled_id, status)}
-                    disabled={readOnly}
-                  />
+                  <div className="flex items-center gap-2">
+                    <MedicalStatusCell
+                      value={row.status}
+                      onChange={(status) => onChangeStatus(row.enrolled_id, status)}
+                      disabled={readOnly}
+                    />
+                    {row.was_at_hospital && row.status !== 'sent_to_hospital' && (
+                      <span
+                        title="This athlete was sent to hospital previously"
+                        className="text-red-600 dark:text-red-400 shrink-0"
+                      >
+                        <Hospital className="h-4 w-4" />
+                      </span>
+                    )}
+                  </div>
                 </TableCell>
 
                 <TableCell>
@@ -221,6 +242,18 @@ export function MedicalTable({ rows, onChangeStatus, onChangeNotes, readOnly }: 
                     disabled={readOnly}
                     onSave={(value) => onChangeNotes(row.enrolled_id, value)}
                   />
+                </TableCell>
+
+                <TableCell className="text-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="View status history"
+                    onClick={() => setHistoryOpenFor(row)}
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}
@@ -284,14 +317,31 @@ export function MedicalTable({ rows, onChangeStatus, onChangeNotes, readOnly }: 
             {/* Status + notes */}
             <div className="px-3 pb-3 pt-1 space-y-2 border-t border-border/40">
               <div className="flex items-center justify-between gap-2">
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium flex items-center gap-1.5">
                   Medical Status
+                  {row.was_at_hospital && row.status !== 'sent_to_hospital' && (
+                    <Hospital
+                      className="h-3.5 w-3.5 text-red-600 dark:text-red-400"
+                      aria-label="Was at hospital"
+                    />
+                  )}
                 </span>
-                <MedicalStatusCell
-                  value={row.status}
-                  onChange={(status) => onChangeStatus(row.enrolled_id, status)}
-                  disabled={readOnly}
-                />
+                <div className="flex items-center gap-1">
+                  <MedicalStatusCell
+                    value={row.status}
+                    onChange={(status) => onChangeStatus(row.enrolled_id, status)}
+                    disabled={readOnly}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    title="View status history"
+                    onClick={() => setHistoryOpenFor(row)}
+                  >
+                    <History className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <NotesCell
                 initial={row.notes}
@@ -303,6 +353,15 @@ export function MedicalTable({ rows, onChangeStatus, onChangeNotes, readOnly }: 
           </div>
         ))}
       </div>
+
+      <MedicalHistoryDrawer
+        open={historyOpenFor !== null}
+        onOpenChange={(open) => !open && setHistoryOpenFor(null)}
+        athleteName={historyOpenFor?.person.compiled_name ?? ''}
+        fetchHistory={() =>
+          historyOpenFor ? fetchHistory(historyOpenFor.enrolled_id) : Promise.resolve([])
+        }
+      />
     </div>
   )
 }

@@ -1,7 +1,12 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/server'
-import type { MedicalClearance, MedicalRow, MedicalStatus } from '@/types/medical'
+import type {
+  MedicalClearance,
+  MedicalLogEntry,
+  MedicalRow,
+  MedicalStatus,
+} from '@/types/medical'
 import { getFightCardData } from '@/lib/services/stats-service'
 import { normalizeName, getFighterPhotoUrl } from '@/lib/utils'
 
@@ -9,7 +14,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
   const supabase = await createAdminClient()
 
   try {
-    const [enrollmentRes, clearanceRes, fightCard] = await Promise.all([
+    const [enrollmentRes, clearanceRes, hospitalLogRes, fightCard] = await Promise.all([
       supabase
         .from('mma_enrollments')
         .select(`
@@ -22,17 +27,28 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         .eq('status', 'active')
         .eq('role.code', 'F'),
       supabase.from('mma_medical_clearance').select('*').eq('event_id', eventId),
+      supabase
+        .from('mma_medical_clearance_log')
+        .select('enrolled_id')
+        .eq('event_id', eventId)
+        .eq('new_status', 'sent_to_hospital'),
       getFightCardData(),
     ])
 
     if (enrollmentRes.error) console.error('[PublicMedical] enrollment error:', enrollmentRes.error)
     if (clearanceRes.error) console.error('[PublicMedical] clearance error:', clearanceRes.error)
+    if (hospitalLogRes.error) console.error('[PublicMedical] log error:', hospitalLogRes.error)
 
     const enrollments = enrollmentRes.data || []
     const clearances = clearanceRes.data || []
 
     const clearanceMap = new Map<string, MedicalClearance>()
     clearances.forEach((c: MedicalClearance) => clearanceMap.set(c.enrolled_id, c))
+
+    const wasAtHospital = new Set<string>()
+    ;(hospitalLogRes.data || []).forEach((l: { enrolled_id: string }) =>
+      wasAtHospital.add(l.enrolled_id)
+    )
 
     const rows: MedicalRow[] = []
     for (const enr of enrollments as any[]) {
@@ -64,6 +80,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         enrolled_id: enr.id,
         status: (existing?.status as MedicalStatus) ?? 'pending',
         notes: existing?.notes ?? null,
+        was_at_hospital: wasAtHospital.has(enr.id),
         corner: (match.corner as 'RED' | 'BLUE' | null) ?? null,
         fight_order: match.matchNumber ?? null,
         person: {
@@ -165,4 +182,23 @@ export async function updateMedicalNotesPublic(
 
   if (error) return { success: false, error: error.message }
   return { success: true }
+}
+
+export async function getPublicMedicalHistory(
+  eventId: string,
+  enrolledId: string
+): Promise<MedicalLogEntry[]> {
+  const supabase = await createAdminClient()
+  const { data, error } = await supabase
+    .from('mma_medical_clearance_log')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('enrolled_id', enrolledId)
+    .order('changed_at', { ascending: false })
+
+  if (error) {
+    console.error('[PublicMedical] history error:', error)
+    return []
+  }
+  return (data || []) as MedicalLogEntry[]
 }

@@ -1,5 +1,11 @@
 import { createClient } from '@/lib/supabase/client'
-import type { MedicalClearance, MedicalRow, MedicalStatus, MedicalSummary } from '@/types/medical'
+import type {
+  MedicalClearance,
+  MedicalLogEntry,
+  MedicalRow,
+  MedicalStatus,
+  MedicalSummary,
+} from '@/types/medical'
 import { getFightCardData } from './stats-service'
 import { normalizeName, getFighterPhotoUrl } from '@/lib/utils'
 
@@ -36,6 +42,17 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
     .eq('event_id', eventId)
 
   if (clearErr) throw clearErr
+
+  // Pull every "sent_to_hospital" log entry for this event in one shot,
+  // then build a Set of enrolled_ids that have ever been to hospital.
+  const { data: hospitalLogs } = await supabase
+    .from('mma_medical_clearance_log')
+    .select('enrolled_id')
+    .eq('event_id', eventId)
+    .eq('new_status', 'sent_to_hospital')
+
+  const wasAtHospital = new Set<string>()
+  ;(hospitalLogs || []).forEach((l: { enrolled_id: string }) => wasAtHospital.add(l.enrolled_id))
 
   let fightCard: any[] = []
   try {
@@ -78,6 +95,7 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
       enrolled_id: enr.id,
       status: (existing?.status as MedicalStatus) ?? 'pending',
       notes: existing?.notes ?? null,
+      was_at_hospital: wasAtHospital.has(enr.id),
       corner: (match.corner as 'RED' | 'BLUE' | null) ?? null,
       fight_order: match.matchNumber ?? null,
       person: {
@@ -141,6 +159,26 @@ export async function updateMedicalNotes(
     )
 
   if (error) throw error
+}
+
+/**
+ * Returns the chronological log of status changes for a single athlete,
+ * ordered most recent first.
+ */
+export async function getMedicalHistory(
+  eventId: string,
+  enrolledId: string
+): Promise<MedicalLogEntry[]> {
+  const supabase = getClient()
+  const { data, error } = await supabase
+    .from('mma_medical_clearance_log')
+    .select('*')
+    .eq('event_id', eventId)
+    .eq('enrolled_id', enrolledId)
+    .order('changed_at', { ascending: false })
+
+  if (error) throw error
+  return (data || []) as MedicalLogEntry[]
 }
 
 /**

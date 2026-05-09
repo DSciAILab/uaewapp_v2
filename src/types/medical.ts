@@ -17,6 +17,7 @@ export interface MedicalRow {
   enrolled_id: string
   status: MedicalStatus
   notes: string | null
+  was_at_hospital: boolean
   corner: 'RED' | 'BLUE' | null
   fight_order: number | null
   person: {
@@ -34,4 +35,15 @@ export interface MedicalSummary {
   red: { pending: number; cleared: number; hospital: number }
   blue: { pending: number; cleared: number; hospital: number }
   total: { pending: number; cleared: number; hospital: number }
+}
+
+export interface MedicalLogEntry {
+  id: string
+  clearance_id: string
+  event_id: string
+  enrolled_id: string
+  old_status: MedicalStatus | null
+  new_status: MedicalStatus
+  changed_at: string
+  changed_by: string | null
 }

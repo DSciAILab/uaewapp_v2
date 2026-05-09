@@ -7,6 +7,7 @@ import {
   getPublicMedicalData,
   updateMedicalStatusPublic,
   updateMedicalNotesPublic,
+  getPublicMedicalHistory,
 } from '@/lib/actions/public-medical'
 import { computeMedicalSummary } from '@/lib/services/medical-service'
 import { MedicalSummaryCard } from '@/components/medical/medical-summary-card'
@@ -90,6 +91,7 @@ export default function PublicMedicalPage({ params }: Props) {
             rows={rows}
             onChangeStatus={handleChangeStatus}
             onChangeNotes={handleChangeNotes}
+            fetchHistory={(enrolledId) => getPublicMedicalHistory(eventId, enrolledId)}
           />
         )}
       </div>
