@@ -6,7 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Copy, ExternalLink, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { getMedicalData, updateMedicalStatus, computeMedicalSummary } from '@/lib/services/medical-service'
+import {
+  getMedicalData,
+  updateMedicalStatus,
+  updateMedicalNotes,
+  computeMedicalSummary,
+} from '@/lib/services/medical-service'
 import { MedicalSummaryCard } from '@/components/medical/medical-summary-card'
 import { MedicalTable } from '@/components/medical/medical-table'
 import { usePermissions } from '@/hooks/use-permissions'
@@ -68,6 +73,16 @@ export default function MedicalPage() {
     }
   }
 
+  const handleChangeNotes = async (enrolledId: string, notes: string | null) => {
+    setRows((prev) => prev.map((r) => (r.enrolled_id === enrolledId ? { ...r, notes } : r)))
+    try {
+      await updateMedicalNotes(eventId, enrolledId, notes)
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to save notes')
+      loadData()
+    }
+  }
+
   const handleCopyLink = () => {
     const url = `${window.location.origin}/public/medical/${eventId}`
     navigator.clipboard.writeText(url)
@@ -116,6 +131,7 @@ export default function MedicalPage() {
         <MedicalTable
           rows={rows}
           onChangeStatus={handleChangeStatus}
+          onChangeNotes={handleChangeNotes}
           readOnly={!permissionsLoading && !canEditMedical}
         />
       )}

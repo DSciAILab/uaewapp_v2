@@ -1,6 +1,5 @@
 'use client'
 
-import { Card, CardContent } from '@/components/ui/card'
 import type { MedicalSummary } from '@/types/medical'
 import { cn } from '@/lib/utils'
 
@@ -8,37 +7,81 @@ interface Props {
   summary: MedicalSummary
 }
 
-const ROW_LABELS: Array<{ key: 'pending' | 'cleared' | 'hospital'; label: string; tone: string }> = [
+type Bucket = { key: 'pending' | 'cleared' | 'hospital'; label: string; tone: string }
+
+const BUCKETS: Bucket[] = [
   { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
-  { key: 'cleared', label: 'Cleared by Doctor', tone: 'text-green-700 dark:text-green-400' },
-  { key: 'hospital', label: 'Sent to Hospital', tone: 'text-red-700 dark:text-red-400' },
+  { key: 'cleared', label: 'Cleared', tone: 'text-emerald-700 dark:text-emerald-400' },
+  { key: 'hospital', label: 'Hospital', tone: 'text-red-700 dark:text-red-400' },
 ]
+
+interface PanelProps {
+  title: string
+  totals: { pending: number; cleared: number; hospital: number }
+  variant: 'red' | 'blue' | 'total'
+}
+
+function CornerPanel({ title, totals, variant }: PanelProps) {
+  const styles = {
+    red: {
+      container:
+        'bg-red-50/70 border-red-200 dark:bg-red-950/20 dark:border-red-900/40',
+      title: 'text-red-700 dark:text-red-400',
+    },
+    blue: {
+      container:
+        'bg-blue-50/70 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/40',
+      title: 'text-blue-700 dark:text-blue-400',
+    },
+    total: {
+      container: 'bg-card border-border',
+      title: 'text-foreground',
+    },
+  }[variant]
+
+  const total = totals.pending + totals.cleared + totals.hospital
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-4 flex flex-col gap-3 transition-colors',
+        styles.container
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn('text-xs font-bold uppercase tracking-wider', styles.title)}>
+          {title}
+        </span>
+        <span className="text-xs font-medium text-muted-foreground">
+          {total} total
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        {BUCKETS.map((b) => (
+          <div
+            key={b.key}
+            className="flex flex-col items-center justify-center rounded-md bg-background/60 dark:bg-background/30 px-2 py-2 border border-border/50"
+          >
+            <span className={cn('text-2xl font-bold leading-none tabular-nums', b.tone)}>
+              {totals[b.key]}
+            </span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-medium">
+              {b.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 export function MedicalSummaryCard({ summary }: Props) {
   return (
-    <Card>
-      <CardContent className="p-4">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-muted-foreground text-xs uppercase tracking-wider">
-              <th className="text-left pb-2 font-medium"></th>
-              <th className="text-center pb-2 font-medium text-red-600 dark:text-red-400">Red</th>
-              <th className="text-center pb-2 font-medium text-blue-600 dark:text-blue-400">Blue</th>
-              <th className="text-center pb-2 font-medium">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {ROW_LABELS.map((row) => (
-              <tr key={row.key} className="border-t">
-                <td className={cn('py-2 font-medium', row.tone)}>{row.label}</td>
-                <td className="py-2 text-center font-bold">{summary.red[row.key]}</td>
-                <td className="py-2 text-center font-bold">{summary.blue[row.key]}</td>
-                <td className="py-2 text-center font-bold">{summary.total[row.key]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </CardContent>
-    </Card>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <CornerPanel title="Red Corner" totals={summary.red} variant="red" />
+      <CornerPanel title="Blue Corner" totals={summary.blue} variant="blue" />
+      <CornerPanel title="Total" totals={summary.total} variant="total" />
+    </div>
   )
 }

@@ -3,7 +3,11 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { getPublicMedicalData, updateMedicalStatusPublic } from '@/lib/actions/public-medical'
+import {
+  getPublicMedicalData,
+  updateMedicalStatusPublic,
+  updateMedicalNotesPublic,
+} from '@/lib/actions/public-medical'
 import { computeMedicalSummary } from '@/lib/services/medical-service'
 import { MedicalSummaryCard } from '@/components/medical/medical-summary-card'
 import { MedicalTable } from '@/components/medical/medical-table'
@@ -59,6 +63,15 @@ export default function PublicMedicalPage({ params }: Props) {
     }
   }
 
+  const handleChangeNotes = async (enrolledId: string, notes: string | null) => {
+    setRows((prev) => prev.map((r) => (r.enrolled_id === enrolledId ? { ...r, notes } : r)))
+    const result = await updateMedicalNotesPublic(eventId, enrolledId, notes)
+    if (!result.success) {
+      toast.error(result.error || 'Failed to save notes')
+      loadData()
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background text-foreground p-2 sm:p-4">
       <div className="max-w-6xl mx-auto space-y-4">
@@ -73,7 +86,11 @@ export default function PublicMedicalPage({ params }: Props) {
         ) : rows.length === 0 ? (
           <div className="text-center p-8 text-muted-foreground">No athletes found for this event.</div>
         ) : (
-          <MedicalTable rows={rows} onChangeStatus={handleChangeStatus} />
+          <MedicalTable
+            rows={rows}
+            onChangeStatus={handleChangeStatus}
+            onChangeNotes={handleChangeNotes}
+          />
         )}
       </div>
     </div>

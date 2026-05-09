@@ -77,6 +77,7 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
       id: existing?.id ?? null,
       enrolled_id: enr.id,
       status: (existing?.status as MedicalStatus) ?? 'pending',
+      notes: existing?.notes ?? null,
       corner: (match.corner as 'RED' | 'BLUE' | null) ?? null,
       fight_order: match.matchNumber ?? null,
       person: {
@@ -110,6 +111,30 @@ export async function updateMedicalStatus(
         event_id: eventId,
         enrolled_id: enrolledId,
         status,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_id,enrolled_id' }
+    )
+
+  if (error) throw error
+}
+
+/**
+ * Upsert the notes field for a clearance row.
+ */
+export async function updateMedicalNotes(
+  eventId: string,
+  enrolledId: string,
+  notes: string | null
+): Promise<void> {
+  const supabase = getClient()
+  const { error } = await supabase
+    .from('mma_medical_clearance')
+    .upsert(
+      {
+        event_id: eventId,
+        enrolled_id: enrolledId,
+        notes: notes && notes.trim() ? notes : null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'event_id,enrolled_id' }

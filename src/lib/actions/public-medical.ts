@@ -63,6 +63,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         id: existing?.id ?? null,
         enrolled_id: enr.id,
         status: (existing?.status as MedicalStatus) ?? 'pending',
+        notes: existing?.notes ?? null,
         corner: (match.corner as 'RED' | 'BLUE' | null) ?? null,
         fight_order: match.matchNumber ?? null,
         person: {
@@ -118,6 +119,45 @@ export async function updateMedicalStatusPublic(
         event_id: eventId,
         enrolled_id: enrolledId,
         status,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'event_id,enrolled_id' }
+    )
+
+  if (error) return { success: false, error: error.message }
+  return { success: true }
+}
+
+export async function updateMedicalNotesPublic(
+  eventId: string,
+  enrolledId: string,
+  notes: string | null
+): Promise<{ success: boolean; error?: string }> {
+  if (!eventId || !enrolledId) {
+    return { success: false, error: 'Missing eventId or enrolledId' }
+  }
+
+  const supabase = await createAdminClient()
+
+  const { data: enr, error: enrErr } = await supabase
+    .from('mma_enrollments')
+    .select('id, event_id')
+    .eq('id', enrolledId)
+    .eq('event_id', eventId)
+    .maybeSingle()
+
+  if (enrErr) return { success: false, error: enrErr.message }
+  if (!enr) return { success: false, error: 'Enrollment not found for this event' }
+
+  const cleaned = notes && notes.trim() ? notes : null
+
+  const { error } = await supabase
+    .from('mma_medical_clearance')
+    .upsert(
+      {
+        event_id: eventId,
+        enrolled_id: enrolledId,
+        notes: cleaned,
         updated_at: new Date().toISOString(),
       },
       { onConflict: 'event_id,enrolled_id' }

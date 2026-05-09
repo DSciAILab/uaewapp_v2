@@ -16,6 +16,7 @@ export interface MedicalRow {
   id: string | null
   enrolled_id: string
   status: MedicalStatus
+  notes: string | null
   corner: 'RED' | 'BLUE' | null
   fight_order: number | null
   person: {
