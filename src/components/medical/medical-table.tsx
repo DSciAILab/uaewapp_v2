@@ -45,16 +45,18 @@ const AVATAR_BORDER = (corner: 'RED' | 'BLUE' | null) =>
 
 interface Props {
   rows: MedicalRow[]
-  onChangeStatus: (enrolledId: string, status: MedicalStatus) => void
-  onChangeNotes: (enrolledId: string, notes: string | null) => void
+  onChangeStatus?: (enrolledId: string, status: MedicalStatus) => void
+  onChangeNotes?: (enrolledId: string, notes: string | null) => void
   fetchHistory: (enrolledId: string) => Promise<MedicalLogEntry[]>
   readOnly?: boolean
 }
 
+const noop = () => {}
+
 export function MedicalTable({
   rows,
-  onChangeStatus,
-  onChangeNotes,
+  onChangeStatus = noop,
+  onChangeNotes = noop,
   fetchHistory,
   readOnly,
 }: Props) {

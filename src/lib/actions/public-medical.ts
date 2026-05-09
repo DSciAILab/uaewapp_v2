@@ -102,87 +102,8 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
   }
 }
 
-const VALID_STATUSES: MedicalStatus[] = ['pending', 'cleared_by_doctor', 'sent_to_hospital']
-
-export async function updateMedicalStatusPublic(
-  eventId: string,
-  enrolledId: string,
-  status: MedicalStatus
-): Promise<{ success: boolean; error?: string }> {
-  if (!eventId || !enrolledId) {
-    return { success: false, error: 'Missing eventId or enrolledId' }
-  }
-  if (!VALID_STATUSES.includes(status)) {
-    return { success: false, error: `Invalid status: ${status}` }
-  }
-
-  const supabase = await createAdminClient()
-
-  // Sanity check: enrollment must belong to the event (prevents cross-event writes)
-  const { data: enr, error: enrErr } = await supabase
-    .from('mma_enrollments')
-    .select('id, event_id')
-    .eq('id', enrolledId)
-    .eq('event_id', eventId)
-    .maybeSingle()
-
-  if (enrErr) return { success: false, error: enrErr.message }
-  if (!enr) return { success: false, error: 'Enrollment not found for this event' }
-
-  const { error } = await supabase
-    .from('mma_medical_clearance')
-    .upsert(
-      {
-        event_id: eventId,
-        enrolled_id: enrolledId,
-        status,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'event_id,enrolled_id' }
-    )
-
-  if (error) return { success: false, error: error.message }
-  return { success: true }
-}
-
-export async function updateMedicalNotesPublic(
-  eventId: string,
-  enrolledId: string,
-  notes: string | null
-): Promise<{ success: boolean; error?: string }> {
-  if (!eventId || !enrolledId) {
-    return { success: false, error: 'Missing eventId or enrolledId' }
-  }
-
-  const supabase = await createAdminClient()
-
-  const { data: enr, error: enrErr } = await supabase
-    .from('mma_enrollments')
-    .select('id, event_id')
-    .eq('id', enrolledId)
-    .eq('event_id', eventId)
-    .maybeSingle()
-
-  if (enrErr) return { success: false, error: enrErr.message }
-  if (!enr) return { success: false, error: 'Enrollment not found for this event' }
-
-  const cleaned = notes && notes.trim() ? notes : null
-
-  const { error } = await supabase
-    .from('mma_medical_clearance')
-    .upsert(
-      {
-        event_id: eventId,
-        enrolled_id: enrolledId,
-        notes: cleaned,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'event_id,enrolled_id' }
-    )
-
-  if (error) return { success: false, error: error.message }
-  return { success: true }
-}
+// The public route is read-only by design — no write helpers live here.
+// All mutations go through the authenticated dashboard service.
 
 export async function getPublicMedicalHistory(
   eventId: string,
