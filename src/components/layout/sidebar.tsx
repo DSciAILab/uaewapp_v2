@@ -19,6 +19,7 @@ import {
   ShieldCheck,
   Layers,
   ClipboardList,
+  Stethoscope,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -43,6 +44,7 @@ const icons = {
   ShieldCheck,
   Layers,
   ClipboardList,
+  Stethoscope,
 }
 
 const navItems = [
@@ -58,6 +60,7 @@ const navItems = [
   { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
   { label: 'Pre-Event', href: '/pre-event', icon: 'ShieldCheck', area: 'pre_event' },
   { label: 'Pre-Departure Check', href: '/staging', icon: 'ClipboardList', area: 'pre_event' },
+  { label: 'Medical', href: '/medical', icon: 'Stethoscope', area: 'pre_event' },
   { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
   { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
   { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },
