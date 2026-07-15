@@ -205,7 +205,7 @@ export default function MedicalPage() {
           '', // Photo placeholder — drawn in didDrawCell
           r.corner ?? '-',
           r.person.compiled_name,
-          r.person.fighter_id ?? '-',
+          r.person.appadmin_fighter_id ?? '-',
           STATUS_LABEL[r.status] + wasHospital,
           r.notes || '—',
           historyText,

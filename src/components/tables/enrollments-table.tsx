@@ -72,9 +72,9 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
               <TableCell>
                 <div className="relative">
                   <Avatar className="h-9 w-9 border-2 border-slate-100 dark:border-slate-800">
-                    {enrollment.person?.fighter_id ? (
+                    {enrollment.person?.appadmin_fighter_id ? (
                        <AvatarImage 
-                         src={getFighterPhotoUrl(enrollment.person.fighter_id)} 
+                         src={getFighterPhotoUrl(enrollment.person.appadmin_fighter_id)} 
                          alt={enrollment.person.compiled_name} 
                          className="object-cover"
                        />

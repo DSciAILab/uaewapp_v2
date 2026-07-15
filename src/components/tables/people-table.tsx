@@ -119,9 +119,9 @@ export function PeopleTable({
               )}
               <TableCell>
                 <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                  {person.fighter_id !== null && person.fighter_id !== undefined ? (
+                  {person.appadmin_fighter_id !== null && person.appadmin_fighter_id !== undefined ? (
                     <AvatarImage 
-                      src={getFighterPhotoUrl(person.fighter_id)} 
+                      src={getFighterPhotoUrl(person.appadmin_fighter_id)} 
                       alt={person.compiled_name} 
                       className={cn(enrolledIds.has(person.id) && "border-2 border-green-500 rounded-full")}
                     />
@@ -136,9 +136,9 @@ export function PeopleTable({
               </TableCell>
               <TableCell>
                 <div className="flex flex-col gap-1">
-                  {person.fighter_id !== null && person.fighter_id !== undefined ? (
+                  {person.appadmin_fighter_id !== null && person.appadmin_fighter_id !== undefined ? (
                     <Badge variant="outline" className="font-mono text-[10px] bg-background w-fit">
-                      ID: {person.fighter_id}
+                      ID: {person.appadmin_fighter_id}
                     </Badge>
                   ) : (
                     <span className="text-muted-foreground text-xs font-mono">-</span>

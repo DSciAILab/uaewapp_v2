@@ -26,12 +26,12 @@ interface FighterMusicRow {
   event_id: string;
   event_name: string;
   person_name: string;
-  fighter_id: string | null;
+  appadmin_fighter_id: string | null;
   corner: string | null;
   music: EntranceMusic | null;
 }
 
-type SortKey = 'fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
+type SortKey = 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
 type SortDir = 'asc' | 'desc';
 
 function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
@@ -94,7 +94,7 @@ export default function GlobalMusicPage() {
         event_id: f.event_id,
         event_name: f.event_name,
         person_name: f.person_name,
-        fighter_id: f.fighter_id,
+        appadmin_fighter_id: f.appadmin_fighter_id,
         corner: f.corner,
         music: musicMap.get(f.enrollment_id) || null,
       }));
@@ -130,7 +130,7 @@ export default function GlobalMusicPage() {
       if (search) {
         const q = search.toLowerCase();
         const name = r.person_name.toLowerCase();
-        const fid = (r.fighter_id || '').toLowerCase();
+        const fid = (r.appadmin_fighter_id || '').toLowerCase();
         if (!name.includes(q) && !fid.includes(q)) return false;
       }
       return true;
@@ -140,8 +140,8 @@ export default function GlobalMusicPage() {
       result = [...result].sort((a, b) => {
         let cmp = 0;
         switch (sortKey) {
-          case 'fighter_id':
-            cmp = (a.fighter_id || '').localeCompare(b.fighter_id || '');
+          case 'appadmin_fighter_id':
+            cmp = (a.appadmin_fighter_id || '').localeCompare(b.appadmin_fighter_id || '');
             break;
           case 'person_name':
             cmp = a.person_name.localeCompare(b.person_name);
@@ -330,10 +330,10 @@ export default function GlobalMusicPage() {
                         <TableHead className="w-[80px]">
                           <button
                             className="flex items-center text-xs font-medium hover:text-primary transition-colors"
-                            onClick={() => toggleSort('fighter_id')}
+                            onClick={() => toggleSort('appadmin_fighter_id')}
                           >
                             ID
-                            <SortIcon column="fighter_id" sortKey={sortKey} sortDir={sortDir} />
+                            <SortIcon column="appadmin_fighter_id" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
                         <TableHead>
@@ -387,7 +387,7 @@ export default function GlobalMusicPage() {
                           >
                             <TableCell>
                               <Avatar className="h-9 w-9 border border-muted shadow-sm">
-                                <AvatarImage src={getFighterPhotoUrl(row.fighter_id)} />
+                                <AvatarImage src={getFighterPhotoUrl(row.appadmin_fighter_id)} />
                                 <AvatarFallback className="text-xs font-bold bg-muted/50">
                                   {row.person_name.substring(0, 2).toUpperCase()}
                                 </AvatarFallback>
@@ -396,7 +396,7 @@ export default function GlobalMusicPage() {
 
                             <TableCell className="text-center">
                               <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                                {row.fighter_id || '-'}
+                                {row.appadmin_fighter_id || '-'}
                               </Badge>
                             </TableCell>
 

@@ -111,7 +111,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
     render: (
       <div className="flex items-center gap-2">
         <Avatar className="h-6 w-6">
-          {person.fighter_id && <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />}
+          {person.appadmin_fighter_id && <AvatarImage src={getFighterPhotoUrl(person.appadmin_fighter_id)} />}
           <AvatarFallback className="text-xs">
             {person.name?.[0]?.toUpperCase()}
             {person.surname ? person.surname[0].toUpperCase() : ''}
@@ -139,10 +139,10 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
           />
         </div>
 
-        {selectedPerson?.fighter_id && (
+        {selectedPerson?.appadmin_fighter_id && (
           <div className="flex justify-center p-4 bg-muted rounded-lg">
             <Avatar className="h-20 w-20">
-              <AvatarImage src={getFighterPhotoUrl(selectedPerson.fighter_id)} />
+              <AvatarImage src={getFighterPhotoUrl(selectedPerson.appadmin_fighter_id)} />
               <AvatarFallback>
                 {selectedPerson.name?.[0]?.toUpperCase()}
                 {selectedPerson.surname ? selectedPerson.surname[0].toUpperCase() : ''}

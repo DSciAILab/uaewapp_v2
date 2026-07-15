@@ -53,9 +53,9 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
                 </TableCell>
                 <TableCell>
                    <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                     {s.person?.fighter_id? (
+                     {s.person?.appadmin_fighter_id? (
                        <AvatarImage 
-                         src={getFighterPhotoUrl(s.person.fighter_id)} 
+                         src={getFighterPhotoUrl(s.person.appadmin_fighter_id)} 
                          alt={s.person.compiled_name} 
                        />
                      ) : s.person?.passport_photo ? (
@@ -68,7 +68,7 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
                 </TableCell>
                 <TableCell>
                   <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                    ID: {s.person?.fighter_id || '-'}
+                    ID: {s.person?.appadmin_fighter_id || '-'}
                   </Badge>
                 </TableCell>
                 <TableCell>

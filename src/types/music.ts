@@ -34,7 +34,7 @@ export interface EntranceMusic {
     person: {
       id: string;
       compiled_name: string;
-      fighter_id?: string; 
+      appadmin_fighter_id?: string; 
       event_name?: string;
       role?: string;
     };

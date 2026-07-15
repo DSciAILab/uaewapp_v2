@@ -67,7 +67,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
 
     return terms.some(term => {
       const nameMatch = getDisplayName(f.person || {}).toLowerCase().includes(term);
-      const idMatch = (f.person as any)?.fighter_id?.toString().toLowerCase().includes(term);
+      const idMatch = (f.person as any)?.appadmin_fighter_id?.toString().toLowerCase().includes(term);
       const weightMatch = f.weight_class?.toLowerCase().includes(term);
       const cornerMatch = f.corner?.toLowerCase().includes(term);
       const eventMatch = f.person?.event_name?.toLowerCase().includes(term);
@@ -83,9 +83,9 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
     let bValue: any = '';
 
     // Handle nested person properties
-    if (sortConfig.key === 'fighter_id') {
-      aValue = (a.person as any)?.fighter_id || '';
-      bValue = (b.person as any)?.fighter_id || '';
+    if (sortConfig.key === 'appadmin_fighter_id') {
+      aValue = (a.person as any)?.appadmin_fighter_id || '';
+      bValue = (b.person as any)?.appadmin_fighter_id || '';
     } else if (sortConfig.key === 'matchNumber') {
       aValue = (a as any).matchNumber || 999;
       bValue = (b as any).matchNumber || 999;
@@ -190,7 +190,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         const photoMap = new Map<string, string>(); // person_id -> base64
 
         await Promise.all(fightersToExport.map(async (f) => {
-            const fighterId = (f.person as any)?.fighter_id;
+            const fighterId = (f.person as any)?.appadmin_fighter_id;
             const photoUrl = getFighterPhotoUrl(fighterId);
             if (photoUrl) {
                 const base64 = await getDataUrl(photoUrl);
@@ -253,7 +253,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         // 3. Prepare and add main table
         const tableData = fightersToExport.map(f => [
             '', // Placeholder for Photo
-            (f.person as any)?.fighter_id || '-',
+            (f.person as any)?.appadmin_fighter_id || '-',
             getDisplayName(f.person || {}),
             f.corner || '-',
             f.tshirt_size || '-',
@@ -313,7 +313,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         // Pre-fetch photos
         const photoMap = new Map<string, string>(); // person_id -> base64
         await Promise.all(fightersToExport.map(async (f) => {
-            const fighterId = (f.person as any)?.fighter_id;
+            const fighterId = (f.person as any)?.appadmin_fighter_id;
             const photoUrl = getFighterPhotoUrl(fighterId);
             if (photoUrl) {
                 const base64 = await getDataUrl(photoUrl);
@@ -492,7 +492,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                <TableHead className="w-12 px-4"></TableHead>
                <TableHead className="w-[80px]">Foto</TableHead>
                <SortableHeader label="Luta #" sortKey="matchNumber" currentSort={sortConfig} onSort={handleSort} className="w-[80px]" />
-               <SortableHeader label="Fighter ID" sortKey="fighter_id" currentSort={sortConfig} onSort={handleSort} />
+               <SortableHeader label="Fighter ID" sortKey="appadmin_fighter_id" currentSort={sortConfig} onSort={handleSort} />
                <SortableHeader label="Nome" sortKey="name" currentSort={sortConfig} onSort={handleSort} />
                <SortableHeader label="Corner" sortKey="corner" currentSort={sortConfig} onSort={handleSort} className="text-center" />
                <SortableHeader label="T-Shirt" sortKey="tshirt_size" currentSort={sortConfig} onSort={handleSort} className="text-center" />
@@ -520,7 +520,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                 </TableCell>
                 <TableCell>
                   <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                       <AvatarImage src={getFighterPhotoUrl(fighter.person?.fighter_id)} />
+                       <AvatarImage src={getFighterPhotoUrl(fighter.person?.appadmin_fighter_id)} />
                        <AvatarFallback className="text-xs font-bold bg-muted/50">
                            {(fighter.person?.event_name || fighter.person?.compiled_name || '??').substring(0,2).toUpperCase()}
                        </AvatarFallback>
@@ -533,7 +533,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                 </TableCell>
                 <TableCell>
                     <Badge variant="outline" className="font-mono text-[10px] bg-background w-fit">
-                        {fighter.person?.fighter_id || '-'}
+                        {fighter.person?.appadmin_fighter_id || '-'}
                     </Badge>
                 </TableCell>
                 <TableCell className="font-medium">

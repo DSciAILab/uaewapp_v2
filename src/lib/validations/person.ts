@@ -4,7 +4,7 @@ export const personSchema = z.object({
   name: z.string().min(1, 'Nome é obrigatório').max(255),
   surname: z.string().max(255).optional().nullable(),
   event_name: z.string().max(255).optional().nullable(),
-  fighter_id: z.string().optional().nullable(),
+  appadmin_fighter_id: z.string().optional().nullable(),
   gender: z.string().max(20).optional().nullable(),
   phone: z.string().max(100).optional().nullable(),
   dob: z.string().optional().nullable(),

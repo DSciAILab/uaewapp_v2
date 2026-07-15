@@ -90,7 +90,7 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
                 <TableRow key={w.id}>
                   <TableCell>
                     <Avatar className="h-8 w-8 border">
-                      <AvatarImage src={getFighterPhotoUrl(w.enrolled?.person?.fighter_id)} />
+                      <AvatarImage src={getFighterPhotoUrl(w.enrolled?.person?.appadmin_fighter_id)} />
                       <AvatarFallback className="text-[10px]">
                         {getDisplayName(w.enrolled?.person || {}).substring(0, 2).toUpperCase()}
                       </AvatarFallback>

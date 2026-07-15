@@ -84,7 +84,7 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
                   {/* FOTO */}
                   <TableCell>
                       <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                           <AvatarImage src={getFighterPhotoUrl(m.enrolled?.person?.fighter_id)} />
+                           <AvatarImage src={getFighterPhotoUrl(m.enrolled?.person?.appadmin_fighter_id)} />
                            <AvatarFallback className="text-xs font-bold bg-muted/50">
                                {(m.enrolled?.person?.compiled_name || '??').substring(0, 2).toUpperCase()}
                            </AvatarFallback>
@@ -99,7 +99,7 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
                   {/* FIGHTER ID */}
                   <TableCell className="text-center">
                     <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                        {m.enrolled?.person?.fighter_id || '-'}
+                        {m.enrolled?.person?.appadmin_fighter_id || '-'}
                     </Badge>
                   </TableCell>
 

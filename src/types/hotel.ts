@@ -45,7 +45,7 @@ export interface Hotel {
       id: string;
       compiled_name: string;
       role?: { name: string };
-      fighter_id?: string | null;
+      appadmin_fighter_id?: string | null;
       event_name?: string;
     };
     arrival_flight?: {

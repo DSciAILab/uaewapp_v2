@@ -197,8 +197,8 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-3">
                         <Avatar className="h-8 w-8">
-                          {assignment.enrollment?.person.fighter_id && (
-                            <AvatarImage src={getFighterPhotoUrl(assignment.enrollment.person.fighter_id)} />
+                          {assignment.enrollment?.person.appadmin_fighter_id && (
+                            <AvatarImage src={getFighterPhotoUrl(assignment.enrollment.person.appadmin_fighter_id)} />
                           )}
                           <AvatarFallback className="text-[10px]">
                             {assignment.enrollment?.person.name?.[0]}{assignment.enrollment?.person.surname?.[0]}
@@ -283,8 +283,8 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                                     />
                                     <label htmlFor={enrollment.id} className="flex-1 cursor-pointer flex items-center gap-3 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                         <Avatar className="h-6 w-6">
-                                          {enrollment.person?.fighter_id && (
-                                            <AvatarImage src={getFighterPhotoUrl(enrollment.person.fighter_id)} />
+                                          {enrollment.person?.appadmin_fighter_id && (
+                                            <AvatarImage src={getFighterPhotoUrl(enrollment.person.appadmin_fighter_id)} />
                                           )}
                                           <AvatarFallback className="text-[8px]">
                                             {enrollment.person?.name?.[0]}{enrollment.person?.surname?.[0]}

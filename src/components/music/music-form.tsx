@@ -42,7 +42,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defau
   const [availableEnrolled, setAvailableEnrolled] = useState<Array<{
     id: string;
     corner?: string;
-    person: { id: string; compiled_name: string; role?: { name: string }; fighter_id?: string; event_name?: string };
+    person: { id: string; compiled_name: string; role?: { name: string }; appadmin_fighter_id?: string; event_name?: string };
   }>>([]);
 
   const isEditing = !!music;
@@ -77,7 +77,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defau
               id: e.person.id,
               compiled_name: e.person.compiled_name || `${e.person.name} ${e.person.surname}`,
               role: ((e.person as any)?.role as any)?.name || (e.person as any)?.role || 'Fighter',
-              fighter_id: e.person.fighter_id || undefined,
+              appadmin_fighter_id: e.person.appadmin_fighter_id || undefined,
               event_name: e.person.event_name || undefined
             }
           })));
@@ -173,7 +173,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defau
       
       if (selectedEnrolled) {
         const corner = selectedEnrolled.corner || 'Corner';
-        const fighterId = selectedEnrolled.person.fighter_id || 'ID';
+        const fighterId = selectedEnrolled.person.appadmin_fighter_id || 'ID';
         const eventName = selectedEnrolled.person.event_name || 'Event';
         const name = selectedEnrolled.person.compiled_name || 'Fighter';
         
@@ -183,7 +183,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defau
       } else if (music && music.enrolled) {
          const corner = music.enrolled.corner || 'Corner';
          const p = music.enrolled.person as any;
-         const fighterId = p?.fighter_id || 'ID';
+         const fighterId = p?.appadmin_fighter_id || 'ID';
          const eventName = p?.event_name || 'Event';
          const name = p?.compiled_name || 'Fighter';
          

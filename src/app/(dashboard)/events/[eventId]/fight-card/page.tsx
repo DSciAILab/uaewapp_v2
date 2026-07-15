@@ -86,8 +86,8 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                       record: st ? `${st.wins}-${st.losses}${st.draws > 0 ? `-${st.draws}` : ''}${st.no_contests > 0 ? ` (${st.no_contests} NC)` : ''}` : '',
                       nationality: p?.nationality || '',
                       residency: st?.residency || '',
-                      photoUrl: p ? getFighterPhotoUrl(p.fighter_id) : '',
-                      eventValues: p ? `${p.event_name ?? ''} ${p.fighter_id ?? ''}`.trim() : ''
+                      photoUrl: p ? getFighterPhotoUrl(p.appadmin_fighter_id) : '',
+                      eventValues: p ? `${p.event_name ?? ''} ${p.appadmin_fighter_id ?? ''}`.trim() : ''
                   };
                };
 
@@ -176,9 +176,9 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
             const person = fighterStats?.person as any;
             const enrichedFighter = {
                 ...row,
-                photoUrl: person ? getFighterPhotoUrl(person.fighter_id) : '',
+                photoUrl: person ? getFighterPhotoUrl(person.appadmin_fighter_id) : '',
                 eventValues: person 
-                  ? `${person.event_name ?? ''} ${person.fighter_id ?? ''}`.trim()
+                  ? `${person.event_name ?? ''} ${person.appadmin_fighter_id ?? ''}`.trim()
                   : ''
             };
 

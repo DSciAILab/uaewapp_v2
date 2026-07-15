@@ -19,14 +19,14 @@ export async function getEventMatches(eventId: string): Promise<Match[]> {
       red_corner:mma_enrollments!red_corner_enrollment_id(
         id,
         person:mma_people(
-          id, compiled_name, event_name, fighter_id, nationality, passport_photo,
+          id, compiled_name, event_name, appadmin_fighter_id, nationality, passport_photo,
           stats:mma_fighter_stats(*)
         )
       ),
       blue_corner:mma_enrollments!blue_corner_enrollment_id(
         id,
         person:mma_people(
-          id, compiled_name, event_name, fighter_id, nationality, passport_photo,
+          id, compiled_name, event_name, appadmin_fighter_id, nationality, passport_photo,
           stats:mma_fighter_stats(*)
         )
       )

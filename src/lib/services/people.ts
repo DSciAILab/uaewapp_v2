@@ -48,7 +48,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
         `event_name.ilike.%${term}%`,
         `passport_number.ilike.%${term}%`,
         `phone.ilike.%${term}%`,
-        `fighter_id.ilike.%${term}%`
+        `appadmin_fighter_id.ilike.%${term}%`
       ]).join(',')
       query = query.or(orConditions)
     }
@@ -122,7 +122,7 @@ export async function createPerson(formData: PersonFormData): Promise<Person> {
 
 export async function updatePerson(id: string, formData: Partial<PersonFormData>): Promise<Person> {
   const allowedFields = [
-    'name', 'surname', 'compiled_name', 'event_name', 'fighter_id',
+    'name', 'surname', 'compiled_name', 'event_name', 'appadmin_fighter_id',
     'gender', 'phone', 'dob', 'nationality', 'passport_number',
     'passport_expiry', 'passport_photo', 'document_folder', 'height', 'reach'
   ];
@@ -220,7 +220,7 @@ export async function importPeopleFromCSV(
   const getCsvTitle = (dbField: string) => columnMapping?.[dbField] || dbField;
 
   const COMPARE_FIELDS = [
-    'event_name', 'fighter_id', 'gender', 'phone', 'nationality',
+    'event_name', 'appadmin_fighter_id', 'gender', 'phone', 'nationality',
     'passport_number', 'passport_expiry', 'passport_photo', 'document_folder',
     'height', 'reach'
   ] as const;
@@ -239,7 +239,7 @@ export async function importPeopleFromCSV(
       while (true) {
         const { data: page, error: fetchError } = await supabase
           .from('mma_people')
-          .select('id, name, surname, dob, event_name, fighter_id, gender, phone, nationality, passport_number, passport_expiry, passport_photo, document_folder, height, reach')
+          .select('id, name, surname, dob, event_name, appadmin_fighter_id, gender, phone, nationality, passport_number, passport_expiry, passport_photo, document_folder, height, reach')
           .order('created_at', { ascending: true })
           .range(from, from + PAGE_SIZE - 1)
 
@@ -297,7 +297,7 @@ export async function importPeopleFromCSV(
           // Compare fields and collect differences
           const cleanRow: any = {
             event_name: row.event_name ? normalizeName(row.event_name) : null,
-            fighter_id: row.fighter_id || null,
+            appadmin_fighter_id: row.appadmin_fighter_id || null,
             gender: row.gender || null,
             phone: row.phone || null,
             nationality: row.nationality || null,
@@ -337,7 +337,7 @@ export async function importPeopleFromCSV(
         name: normalizeName(row.name),
         surname: row.surname ? normalizeName(row.surname) : null,
         event_name: row.event_name ? normalizeName(row.event_name) : null,
-        fighter_id: row.fighter_id || null,
+        appadmin_fighter_id: row.appadmin_fighter_id || null,
         gender: row.gender || null,
         phone: row.phone || null,
         dob: row.dob || null,
@@ -509,7 +509,7 @@ function mapSheetRow(row: Record<string, string>): PersonFormData {
     name: get('NAME'),
     surname: orNull(get('SURNAME')),
     event_name: orNull(get('EVENT NAME')),
-    fighter_id: orNull(get('ID')),
+    appadmin_fighter_id: orNull(get('ID')),
     gender: orNull(get('GENDER').toLowerCase()),
     phone: orNull(get('PHONE')),
     dob: parseDDMMYYYY(get('DOB')),
@@ -580,7 +580,7 @@ export async function syncPeopleFromGoogleSheet(): Promise<{
     name: 'NAME',
     surname: 'SURNAME',
     event_name: 'EVENT NAME',
-    fighter_id: 'ID',
+    appadmin_fighter_id: 'ID',
     gender: 'GENDER',
     phone: 'PHONE',
     dob: 'DOB',

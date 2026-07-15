@@ -114,11 +114,11 @@ export function MusicCSVImport({ onSuccess }: MusicCSVImportProps) {
              
              const { data: personByFighterId, error: err3 } = await supabase
                 .from('mma_people')
-                .select('id, compiled_name:name, fighter_id')
-                .eq('fighter_id', cleanFighterId)
+                .select('id, compiled_name:name, appadmin_fighter_id')
+                .eq('appadmin_fighter_id', cleanFighterId)
                 .maybeSingle();
              
-             if (err3) console.error('[Import] Error finding person by fighter_id:', err3);
+             if (err3) console.error('[Import] Error finding person by appadmin_fighter_id:', err3);
 
              if (personByFighterId) {
                 console.log('[Import] Found Person:', personByFighterId);
@@ -136,7 +136,7 @@ export function MusicCSVImport({ onSuccess }: MusicCSVImportProps) {
                     console.warn(`[Import] Person found (${personByFighterId.id}) but NOT enrolled in this event (${eventId}).`);
                 }
              } else {
-                console.warn(`[Import] Person NOT found with fighter_id: "${cleanFighterId}"`);
+                console.warn(`[Import] Person NOT found with appadmin_fighter_id: "${cleanFighterId}"`);
              }
         }
 

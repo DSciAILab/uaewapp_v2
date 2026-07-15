@@ -15,7 +15,7 @@ export async function getFighterStats(personId: string): Promise<FighterStats | 
     .from('mma_fighter_stats')
     .select(`
       *,
-      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, appadmin_fighter_id, event_name)
     `)
     .eq('person_id', personId)
     .single();
@@ -37,7 +37,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .select(`
       person_id,
       corner,
-      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name),
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, appadmin_fighter_id, event_name),
       role:mma_roles!inner(code)
     `)
     .eq('event_id', eventId)
@@ -58,7 +58,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     .from('mma_fighter_stats')
     .select(`
       *,
-      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, appadmin_fighter_id, event_name)
     `)
     .in('person_id', personIds);
 
@@ -202,7 +202,7 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     .eq('id', statsId)
     .select(`
       *,
-      person:mma_people!inner(id, compiled_name:compiled_name, nationality, fighter_id, event_name, passport_photo)
+      person:mma_people!inner(id, compiled_name:compiled_name, nationality, appadmin_fighter_id, event_name, passport_photo)
     `)
     .single();
 
@@ -379,7 +379,7 @@ export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]>
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, compiled_name:compiled_name, event_name, fighter_id),
+        person:mma_people!inner(id, compiled_name:compiled_name, event_name, appadmin_fighter_id),
         person_id,
         corner
       )

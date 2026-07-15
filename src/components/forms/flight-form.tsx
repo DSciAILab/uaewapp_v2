@@ -137,8 +137,8 @@ export function FlightForm({
           // Modo edição: mostrar pessoa selecionada
           <div className="p-4 bg-muted rounded-lg flex items-center gap-4">
             <Avatar className="h-12 w-12">
-              {flight.enrollment.person?.fighter_id && (
-                <AvatarImage src={getFighterPhotoUrl(flight.enrollment.person.fighter_id)} />
+              {flight.enrollment.person?.appadmin_fighter_id && (
+                <AvatarImage src={getFighterPhotoUrl(flight.enrollment.person.appadmin_fighter_id)} />
               )}
               <AvatarFallback>
                 {flight.enrollment.person?.compiled_name?.slice(0, 2)}
@@ -190,8 +190,8 @@ export function FlightForm({
             {selectedEnrollment && (
               <div className="p-4 bg-muted rounded-lg flex items-center gap-4">
                 <Avatar className="h-12 w-12">
-                  {selectedEnrollment.person?.fighter_id && (
-                    <AvatarImage src={getFighterPhotoUrl(selectedEnrollment.person.fighter_id)} />
+                  {selectedEnrollment.person?.appadmin_fighter_id && (
+                    <AvatarImage src={getFighterPhotoUrl(selectedEnrollment.person.appadmin_fighter_id)} />
                   )}
                   <AvatarFallback>
                     {selectedEnrollment.person?.compiled_name?.slice(0, 2)}

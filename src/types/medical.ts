@@ -24,7 +24,7 @@ export interface MedicalRow {
     id: string
     compiled_name: string
     nationality: string | null
-    fighter_id: string | null
+    appadmin_fighter_id: string | null
     phone: string | null
     photo_url: string | null
   }

@@ -142,7 +142,7 @@ export function PeopleBatchEnrollment({
               {selectedPeople.map(person => (
                 <div key={person.id} className="group flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
                   <Avatar className="h-8 w-8">
-                    {person.fighter_id && <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />}
+                    {person.appadmin_fighter_id && <AvatarImage src={getFighterPhotoUrl(person.appadmin_fighter_id)} />}
                     <AvatarFallback className="text-[10px]">{person.name[0]}{(person.surname || '')[0]}</AvatarFallback>
                   </Avatar>
                   <div className="flex-1 min-w-0">

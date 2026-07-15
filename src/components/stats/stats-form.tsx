@@ -122,8 +122,8 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
         {stats?.person && (
           <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/30 border border-muted/50 mb-4">
              <Avatar className="h-12 w-12 border-2 border-background shadow-sm">
-                {stats.person.fighter_id ? (
-                  <AvatarImage src={getFighterPhotoUrl(stats.person.fighter_id)} alt={stats.person.compiled_name} />
+                {stats.person.appadmin_fighter_id ? (
+                  <AvatarImage src={getFighterPhotoUrl(stats.person.appadmin_fighter_id)} alt={stats.person.compiled_name} />
                 ) : stats.person.passport_photo ? (
                   <AvatarImage src={stats.person.passport_photo} alt={stats.person.compiled_name} />
                 ) : null}
@@ -132,7 +132,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h4 className="font-bold text-lg truncate leading-tight">{stats.person.compiled_name}</h4>
-                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">ID: {stats.person.fighter_id || '-'}</Badge>
+                  <Badge variant="outline" className="font-mono text-[10px] shrink-0">ID: {stats.person.appadmin_fighter_id || '-'}</Badge>
                 </div>
                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground italic">
                    <span>{stats.person.event_name || 'UAEW'}</span>
