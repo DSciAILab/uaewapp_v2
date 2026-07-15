@@ -39,7 +39,7 @@ export function usePermissions() {
           `)
           .eq('user_id', user.id)
 
-        if (mounted) setPermissions(data || [])
+        if (mounted) setPermissions((data || []) as unknown as UserPermission[])
       } catch (error) {
         console.error('Error fetching permissions:', error)
       } finally {

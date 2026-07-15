@@ -48,8 +48,8 @@ export async function getTaskAssignments(taskId: string): Promise<TaskAssignment
     .order('created_at', { ascending: true });
 
   if (error) throw new Error('Failed to fetch task assignments');
-  
-  return data || [];
+
+  return (data || []) as unknown as TaskAssignment[];
 }
 
 export async function createAssignments(taskId: string, enrollmentIds: string[]): Promise<void> {

@@ -10,6 +10,7 @@ import {
   BatchType,
   BatchTimeline,
 } from '@/types/batch';
+import type { Database, Json } from '@/types/supabase';
 
 function getClient() {
   return createClient();
@@ -43,22 +44,20 @@ export async function getEventBatches(eventId: string, filters?: BatchFilters): 
 
   if (error) throw new Error('Failed to fetch batches');
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let results = (data || []).map((batch: any) => ({
+  let results = (data || []).map((batch) => ({
     ...batch,
     participant_count: batch.participants?.[0]?.count || 0,
   }));
 
   if (filters?.search) {
     const searchLower = filters.search.toLowerCase();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    results = results.filter((batch: any) =>
+    results = results.filter((batch) =>
       (batch.name || '').toLowerCase().includes(searchLower) ||
       (batch.location || '').toLowerCase().includes(searchLower)
     );
   }
 
-  return results;
+  return results as unknown as Batch[];
 }
 
 export async function getBatchById(batchId: string): Promise<Batch | null> {
@@ -82,7 +81,7 @@ export async function getBatchById(batchId: string): Promise<Batch | null> {
     throw error;
   }
 
-  return data;
+  return data as unknown as Batch | null;
 }
 
 async function getNextBatchNumber(eventId: string, batchType: BatchType): Promise<number> {
@@ -104,43 +103,45 @@ export async function createBatch(eventId: string, formData: BatchFormData): Pro
   const supabase = getClient();
   const batchNumber = await getNextBatchNumber(eventId, formData.batch_type);
 
+  const payload = {
+    event_id: eventId,
+    batch_type: formData.batch_type,
+    batch_number: batchNumber,
+    name: formData.name,
+    description: formData.description || null,
+    scheduled_date: formData.scheduled_date,
+    start_time: formData.start_time,
+    end_time: formData.end_time || null,
+    location: formData.location || null,
+    room: formData.room || null,
+    max_capacity: formData.max_capacity || null,
+    status: formData.status,
+    notes: formData.notes || null,
+  };
+
   const { data, error } = await supabase
     .from('mma_batches')
-    .insert({
-      event_id: eventId,
-      batch_type: formData.batch_type,
-      batch_number: batchNumber,
-      name: formData.name,
-      description: formData.description || null,
-      scheduled_date: formData.scheduled_date,
-      start_time: formData.start_time,
-      end_time: formData.end_time || null,
-      location: formData.location || null,
-      room: formData.room || null,
-      max_capacity: formData.max_capacity || null,
-      status: formData.status,
-      notes: formData.notes || null,
-    })
+    .insert(payload as unknown as Database['public']['Tables']['mma_batches']['Insert'])
     .select()
     .single();
 
   if (error) throw new Error('Failed to create batch');
 
-  return data;
+  return data as unknown as Batch;
 }
 
 export async function updateBatch(batchId: string, formData: Partial<BatchFormData>): Promise<Batch> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_batches')
-    .update(formData)
+    .update(formData as unknown as Database['public']['Tables']['mma_batches']['Update'])
     .eq('id', batchId)
     .select()
     .single();
 
   if (error) throw new Error('Failed to update batch');
 
-  return data;
+  return data as unknown as Batch;
 }
 
 export async function deleteBatch(batchId: string): Promise<void> {
@@ -174,7 +175,7 @@ export async function updateBatchStatus(batchId: string, status: BatchStatus): P
 
   if (error) throw new Error('Failed to update batch status');
 
-  return data;
+  return data as unknown as Batch;
 }
 
 // ==================== BATCH PARTICIPANTS ====================
@@ -195,7 +196,7 @@ export async function getBatchParticipants(batchId: string): Promise<BatchPartic
 
   if (error) throw new Error('Failed to fetch batch participants');
 
-  return data || [];
+  return (data || []) as unknown as BatchParticipant[];
 }
 
 export async function addParticipantToBatch(
@@ -233,7 +234,7 @@ export async function addParticipantToBatch(
 
   if (error) throw new Error('Failed to add participant to batch');
 
-  return data;
+  return data as unknown as BatchParticipant;
 }
 
 export async function removeParticipantFromBatch(participantId: string): Promise<void> {
@@ -270,7 +271,7 @@ export async function updateParticipantStatus(
 
   if (error) throw new Error('Failed to update participant status');
 
-  return data;
+  return data as unknown as BatchParticipant;
 }
 
 export async function updateParticipantResult(
@@ -281,7 +282,7 @@ export async function updateParticipantResult(
   const { data, error } = await supabase
     .from('mma_batch_participants')
     .update({
-      result_data: resultData,
+      result_data: resultData as Json,
       status: 'completed',
       completed_at: new Date().toISOString(),
     })
@@ -291,7 +292,7 @@ export async function updateParticipantResult(
 
   if (error) throw new Error('Failed to update participant result');
 
-  return data;
+  return data as unknown as BatchParticipant;
 }
 
 export async function reorderParticipants(batchId: string, orderedIds: string[]): Promise<void> {
@@ -372,15 +373,14 @@ export async function getAvailableEnrolledForBatch(
 
   if (assignedError) throw assignedError;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const assignedIds = new Set(assigned?.map((a: any) => a.enrolled_id) || []);
+  const assignedIds = new Set(assigned?.map((a) => a.enrolled_id) || []);
 
   return (enrolled || [])
-    .map((e: any) => ({
+    .map((e) => ({
       id: e.id,
-      person: Array.isArray(e.person) ? e.person[0] : e.person
+      person: (Array.isArray(e.person) ? e.person[0] : e.person) as { id: string; compiled_name: string; role: string },
     }))
-    .filter((e: any) => !assignedIds.has(e.id));
+    .filter((e) => !assignedIds.has(e.id));
 }
 
 export async function getBatchStats(eventId: string): Promise<{
@@ -417,9 +417,7 @@ export async function getBatchStats(eventId: string): Promise<{
     by_type: byType as Record<BatchType, number>,
     by_status: byStatus,
     total_participants: allParticipants.length,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    checked_in: allParticipants.filter((p: any) => p.status === 'checked_in' || p.status === 'completed').length,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    completed: allParticipants.filter((p: any) => p.status === 'completed').length,
+    checked_in: allParticipants.filter((p) => p.status === 'checked_in' || p.status === 'completed').length,
+    completed: allParticipants.filter((p) => p.status === 'completed').length,
   };
 }

@@ -81,7 +81,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
   if (error) throw error
 
   return {
-    data: data || [],
+    data: (data || []) as Person[],
     count: count || 0,
     page,
     pageSize,
@@ -98,7 +98,7 @@ export async function getPersonById(id: string): Promise<Person | null> {
     .single()
 
   if (error) throw error
-  return data
+  return data as Person | null
 }
 
 export async function createPerson(formData: PersonFormData): Promise<Person> {
@@ -117,7 +117,7 @@ export async function createPerson(formData: PersonFormData): Promise<Person> {
     .single()
 
   if (error) throw error
-  return data
+  return data as Person
 }
 
 export async function updatePerson(id: string, formData: Partial<PersonFormData>): Promise<Person> {
@@ -148,7 +148,7 @@ export async function updatePerson(id: string, formData: Partial<PersonFormData>
     .single()
 
   if (error) throw error
-  return data
+  return data as Person
 }
 
 export async function deletePerson(id: string): Promise<void> {
@@ -189,7 +189,7 @@ export async function getNationalities(): Promise<string[]> {
 
   if (error) throw error
 
-  const unique = [...new Set(data?.map((d: any) => d.nationality).filter(Boolean))]
+  const unique = [...new Set(data?.map((d) => d.nationality).filter(Boolean))]
   return unique as string[]
 }
 
@@ -246,7 +246,7 @@ export async function importPeopleFromCSV(
         if (fetchError) throw fetchError
         if (!page || page.length === 0) break
 
-        page.forEach((p: any) => {
+        page.forEach((p) => {
           const namePart = normalizeName(p.name)
           const surnamePart = p.surname ? normalizeName(p.surname) : ''
           const dobPart = p.dob || ''

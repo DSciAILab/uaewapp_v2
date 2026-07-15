@@ -36,14 +36,14 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
         ]);
 
         const enrollments = enrollmentRes.data || [];
-        const checkins = checkinRes.data || [];
+        const checkins = (checkinRes.data || []) as unknown as StagingCheckin[];
         
         if (enrollmentRes.error) console.error('[PublicStaging] Enrollment error:', enrollmentRes.error);
         if (checkinRes.error) console.error('[PublicStaging] Checkin error:', checkinRes.error);
 
         // 2. Maps for fast lookup
         const checkinMap = new Map<string, StagingCheckin>();
-        checkins.forEach((c: StagingCheckin) => checkinMap.set(c.enrolled_id, c));
+        checkins.forEach((c) => checkinMap.set(c.enrolled_id, c));
 
         const result: StagingRow[] = [];
 

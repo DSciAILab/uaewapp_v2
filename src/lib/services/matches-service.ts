@@ -39,9 +39,9 @@ export async function getEventMatches(eventId: string): Promise<Match[]> {
     throw new Error('Failed to fetch event matches from database');
   }
 
-  // The joins above return array mapping due to how Supabase structures internal relations sometimes, 
+  // The joins above return array mapping due to how Supabase structures internal relations sometimes,
   // but if it's a direct foreign key (which it is), it returns an object or null.
-  return (data as any[]) || [];
+  return (data as unknown as Match[]) || [];
 }
 
 /**
@@ -74,7 +74,7 @@ export async function syncFightCardToDatabase(eventId: string): Promise<number> 
 
   // Build a map of name -> enrollmentId
   const nameMap = new Map<string, string>();
-  for (const e of (enrollments || []) as any[]) {
+  for (const e of (enrollments || [])) {
     const person = e.person;
     if (!person) continue;
     

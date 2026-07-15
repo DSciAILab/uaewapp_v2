@@ -2,6 +2,9 @@
 import { createClient } from '@/lib/supabase/client';
 import { DashboardData, EventMetrics, ModuleStatus, UpcomingDeadline, ActivityItem } from '@/types/dashboard';
 import { SupabaseClient } from '@supabase/supabase-js';
+import type { Database } from '@/types/supabase';
+
+type InitialEvent = Pick<Database['public']['Tables']['mma_events']['Row'], 'id' | 'name' | 'event_date' | 'city' | 'status'>;
 
 const getClient = () => createClient();
 
@@ -10,7 +13,7 @@ const getClient = () => createClient();
  * Instead of multiple client-side queries, we use a single server-side PL/pgSQL function.
  * This reduces latency from ~800ms to ~40ms.
  */
-export async function getDashboardData(eventId: string, client?: SupabaseClient, initialEvent?: any): Promise<DashboardData> {
+export async function getDashboardData(eventId: string, client?: SupabaseClient, initialEvent?: InitialEvent): Promise<DashboardData> {
   const supabase = client || getClient();
   // Parallel fetch: Event Static Info + Metrics (via RPC) + Deadlines
   const [eventResult, metricsResult, deadlinesResult] = await Promise.all([

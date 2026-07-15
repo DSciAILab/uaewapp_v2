@@ -44,7 +44,7 @@ export async function getEvents(filters: EventFilters = {}): Promise<Event[]> {
   const { data, error } = await query
 
   if (error) throw error
-  return data || []
+  return (data || []) as Event[]
 }
 
 export async function getEventById(id: string): Promise<Event | null> {
@@ -56,7 +56,7 @@ export async function getEventById(id: string): Promise<Event | null> {
     .single()
 
   if (error) throw error
-  return data
+  return data as Event | null
 }
 
 export async function createEvent(formData: EventFormData): Promise<Event> {
@@ -73,7 +73,7 @@ export async function createEvent(formData: EventFormData): Promise<Event> {
     .single()
 
   if (error) throw error
-  return data
+  return data as Event
 }
 
 export async function updateEvent(id: string, formData: Partial<EventFormData>): Promise<Event> {
@@ -86,7 +86,7 @@ export async function updateEvent(id: string, formData: Partial<EventFormData>):
     .single()
 
   if (error) throw error
-  return data
+  return data as Event
 }
 
 export async function deleteEvent(id: string): Promise<void> {
@@ -108,5 +108,5 @@ export async function getActiveEvents(): Promise<Event[]> {
     .order('event_date', { ascending: true })
 
   if (error) throw error
-  return data || []
+  return (data || []) as Event[]
 }

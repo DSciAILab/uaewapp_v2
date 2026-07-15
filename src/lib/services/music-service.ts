@@ -23,7 +23,7 @@ export async function getAthleteMusic(enrolledId: string): Promise<EntranceMusic
     throw new Error('Failed to fetch athlete music');
   }
 
-  return data || [];
+  return (data || []) as unknown as EntranceMusic[];
 }
 
 export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
@@ -43,7 +43,7 @@ export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
 
   if (error) throw new Error('Failed to fetch event music');
 
-  return data || [];
+  return (data || []) as unknown as EntranceMusic[];
 }
 
 export async function getAllActiveEventsMusic(): Promise<(EntranceMusic & { event_name?: string })[]> {
@@ -75,10 +75,10 @@ export async function getAllActiveEventsMusic(): Promise<(EntranceMusic & { even
 
   if (error) throw new Error('Failed to fetch all music');
 
-  return (data || []).map((m: any) => ({
+  return (data || []).map((m) => ({
     ...m,
     event_name: eventNameMap[m.event_id] || 'Unknown Event',
-  }));
+  })) as unknown as (EntranceMusic & { event_name?: string })[];
 }
 
 export async function getActiveEventsFighters(): Promise<Array<{
@@ -126,15 +126,18 @@ export async function getActiveEventsFighters(): Promise<Array<{
 
   const musicSet = new Set((musicEntries || []).map((m: { enrolled_id: string }) => m.enrolled_id));
 
-  return (enrollments || []).map((e: any) => ({
-    enrollment_id: e.id,
-    event_id: e.event_id,
-    event_name: eventNameMap[e.event_id] || 'Unknown',
-    person_name: e.person?.compiled_name || 'Unknown',
-    appadmin_fighter_id: e.person?.appadmin_fighter_id || null,
-    corner: e.corner || null,
-    has_music: musicSet.has(e.id),
-  }));
+  return (enrollments || []).map((e) => {
+    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as { compiled_name: string; appadmin_fighter_id: string | null } | null;
+    return {
+      enrollment_id: e.id,
+      event_id: e.event_id,
+      event_name: eventNameMap[e.event_id] || 'Unknown',
+      person_name: person?.compiled_name || 'Unknown',
+      appadmin_fighter_id: person?.appadmin_fighter_id || null,
+      corner: e.corner || null,
+      has_music: musicSet.has(e.id),
+    };
+  });
 }
 
 export async function createAthleteMusic(eventId: string, formData: EntranceMusicFormData): Promise<EntranceMusic> {
@@ -162,7 +165,7 @@ export async function createAthleteMusic(eventId: string, formData: EntranceMusi
     throw new Error('Failed to create music entry');
   }
 
-  return data;
+  return data as unknown as EntranceMusic;
 }
 
 export async function updateAthleteMusic(musicId: string, formData: Partial<EntranceMusicFormData>): Promise<EntranceMusic> {
@@ -187,7 +190,7 @@ export async function updateAthleteMusic(musicId: string, formData: Partial<Entr
 
   if (error) throw new Error('Failed to update music entry');
 
-  return data;
+  return data as unknown as EntranceMusic;
 }
 
 

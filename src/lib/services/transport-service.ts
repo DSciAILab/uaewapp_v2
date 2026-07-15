@@ -1,7 +1,15 @@
 import { createClient } from '@/lib/supabase/client';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { Driver, DriverFormData, EventCar, EventCarFormData, CarPassenger, CarPassengerFormData } from '@/types/transport';
 
-const getClient = () => createClient();
+// NOTE (F0-T5): this service queries tables `mma_transport_drivers` / `mma_transport_cars` /
+// `mma_transport_passengers` that no longer exist after the F0-T3 consolidation. The current
+// tables are `mma_drivers` / `mma_event_cars` / `mma_car_passengers`, with a DIFFERENT schema
+// (e.g. `full_name` not `name`, no `type`/`route_*`/`flight_*` columns on cars, `enrolled_id`
+// not `enrollment_id`). This is a pre-existing runtime breakage, not a typing issue — porting the
+// transport feature to the new schema is a dedicated task (INF-691 follow-up). Using an untyped
+// client here isolates that drift instead of hiding it behind ~40 scattered `as any` casts.
+const getClient = () => createClient() as unknown as SupabaseClient;
 
 // ==================== DRIVERS ====================
 

@@ -2,6 +2,7 @@
 import { createClient } from '@/lib/supabase/client';
 import Papa from 'papaparse';
 import { FighterStats, FighterStatsFormData, EventWeighIn, EventWeighInFormData, WEIGHT_CLASS_LIMITS, CoachData, CoachDataFormData } from '@/types/stats';
+import type { Database } from '@/types/supabase';
 
 function getClient() {
   return createClient();
@@ -80,7 +81,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     return {
       id: `temp_${e.person_id}`, // Temporary ID for React keys
       person_id: e.person_id,
-      person: e.person as any,
+      person: e.person as unknown as FighterStats['person'],
       
       // Defaults
       wins: 0, losses: 0, draws: 0, no_contests: 0,
@@ -104,7 +105,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
      const fightCard = await getFightCardData(eventId);
      if (fightCard && fightCard.length > 0) {
         return merged.map(f => {
-           const match = fightCard.find((c: any) => {
+           const match = fightCard.find((c) => {
               const pName = (f.person?.compiled_name || '').trim().toLowerCase();
               const cName = (c.name || '').trim().toLowerCase();
               return pName === cName || pName.includes(cName) || cName.includes(pName);
@@ -186,13 +187,13 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     'fighting_style', 'team_gym', 'nickname', 'residency', 'weight_kg'
   ];
 
-  const updatePayload: any = {
+  const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString()
   };
 
   allowedFields.forEach(field => {
     if (field in formData) {
-      updatePayload[field] = (formData as any)[field];
+      updatePayload[field] = (formData as Record<string, unknown>)[field];
     }
   });
 
@@ -295,7 +296,7 @@ export async function getEventCoachData(eventId: string): Promise<CoachData[]> {
     return {
       id: `temp_${e.person_id}`,
       person_id: e.person_id,
-      person: e.person as any,
+      person: e.person as unknown as CoachData['person'],
       
       uniform_size: null,
       shoe_size: null,
@@ -331,13 +332,13 @@ export async function updateCoachData(dataId: string, formData: Partial<CoachDat
   const supabase = getClient();
   
   const allowedFields = ['uniform_size', 'shoe_size', 'height_cm', 'weight_kg'];
-  const updatePayload: any = {
+  const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString()
   };
 
   allowedFields.forEach(field => {
     if (field in formData) {
-      updatePayload[field] = (formData as any)[field];
+      updatePayload[field] = (formData as Record<string, unknown>)[field];
     }
   });
 
@@ -465,7 +466,7 @@ export async function updateWeighIn(weighInId: string, formData: Partial<EventWe
       .single();
 
     if (current) {
-      const enrolledData: any = current.enrolled;
+      const enrolledData = current.enrolled as { person_id: string } | { person_id: string }[];
       const personId = Array.isArray(enrolledData) ? enrolledData[0].person_id : enrolledData.person_id;
       const stats = await getFighterStats(personId);
       
@@ -731,7 +732,7 @@ export async function importStatsFromCSV(
   if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
 
   const nameMap = new Map<string, string>()
-  for (const e of (enrollments || []) as any[]) {
+  for (const e of (enrollments || [])) {
     const person = e.person
     if (!person) continue
     const compiledName = (person.compiled_name || '').trim().toLowerCase()
@@ -775,7 +776,7 @@ export async function importStatsFromCSV(
       continue
     }
 
-    const statsData: any = {
+    const statsData: Database['public']['Tables']['mma_fighter_stats']['Insert'] = {
       person_id: personId,
       nickname: row.nickname || null,
       residency: row.residency || null,

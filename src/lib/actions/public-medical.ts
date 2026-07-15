@@ -40,10 +40,10 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
     if (hospitalLogRes.error) console.error('[PublicMedical] log error:', hospitalLogRes.error)
 
     const enrollments = enrollmentRes.data || []
-    const clearances = clearanceRes.data || []
+    const clearances = (clearanceRes.data || []) as unknown as MedicalClearance[]
 
     const clearanceMap = new Map<string, MedicalClearance>()
-    clearances.forEach((c: MedicalClearance) => clearanceMap.set(c.enrolled_id, c))
+    clearances.forEach((c) => clearanceMap.set(c.enrolled_id, c))
 
     const wasAtHospital = new Set<string>()
     ;(hospitalLogRes.data || []).forEach((l: { enrolled_id: string }) =>

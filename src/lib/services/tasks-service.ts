@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client';
 import { EventTask, EventTaskFormData, TaskFilters } from '@/types/task';
+import type { Json } from '@/types/supabase';
 
 function getClient() {
   return createClient();
@@ -8,10 +9,10 @@ function getClient() {
 export async function getEventTasks(eventId: string, filters: TaskFilters = {}): Promise<EventTask[]> {
   const supabase = getClient();
   let query = supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .select(`
       *,
-      assigned_user:mma_users!assigned_to(id, compiled_name),
+      assigned_user:mma_users!assigned_to(id, compiled_name:name),
       template:mma_task_templates(id, name)
     `)
     .eq('event_id', eventId);
@@ -36,25 +37,25 @@ export async function getEventTasks(eventId: string, filters: TaskFilters = {}):
     query = query.ilike('name', `%${filters.search}%`);
   }
   
-  const { data, error } = await query.order('due_date', { ascending: true });
+  const { data, error } = await query.order('due_date', { ascending: true }).returns<EventTask[]>();
 
   if (error) throw new Error('Failed to fetch tasks');
 
-  return data;
+  return data ?? [];
 }
 
 export async function getAthleteTasks(eventId: string, assignedTo: string): Promise<EventTask[]> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .select('*')
     .eq('event_id', eventId)
     .eq('assigned_to', assignedTo) // Assuming tasks are assigned to the athlete or their handler
     .order('due_date', { ascending: true });
     
   if (error) throw new Error('Failed to fetch athlete tasks');
-  
-  return data;
+
+  return (data ?? []) as unknown as EventTask[];
 }
 
 export async function createTask(eventId: string, formData: EventTaskFormData): Promise<EventTask> {
@@ -62,7 +63,7 @@ export async function createTask(eventId: string, formData: EventTaskFormData): 
   const { data: user } = await supabase.auth.getUser();
   
   const { data, error } = await supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .insert({
       event_id: eventId,
       template_id: formData.template_id || null,
@@ -89,13 +90,13 @@ export async function createTask(eventId: string, formData: EventTaskFormData): 
 
   if (error) throw new Error('Failed to create task');
 
-  return data;
+  return data as unknown as EventTask;
 }
 
 export async function updateTask(taskId: string, formData: Partial<EventTaskFormData>): Promise<EventTask> {
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .update(formData)
     .eq('id', taskId)
     .select()
@@ -103,12 +104,12 @@ export async function updateTask(taskId: string, formData: Partial<EventTaskForm
 
   if (error) throw new Error('Failed to update task');
 
-  return data;
+  return data as unknown as EventTask;
 }
 
 export async function updateTaskStatus(taskId: string, status: EventTask['status']): Promise<EventTask> {
-  const updates: any = { status };
-  
+  const updates: { status: string; completed_at?: string | null; started_at?: string } = { status };
+
   if (status === 'completed') {
     updates.completed_at = new Date().toISOString();
   } else if (status === 'in_progress') {
@@ -121,21 +122,21 @@ export async function updateTaskStatus(taskId: string, status: EventTask['status
   
   const supabase = getClient();
   const { data, error } = await supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .update(updates)
     .eq('id', taskId)
     .select()
     .single();
     
   if (error) throw new Error('Failed to update task status');
-  
-  return data;
+
+  return data as unknown as EventTask;
 }
 
 export async function toggleChecklistItem(taskId: string, itemId: string, completed: boolean): Promise<EventTask> {
   const supabase = getClient();
   const { data: currentTask } = await supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .select('checklist_items')
     .eq('id', taskId)
     .single();
@@ -144,7 +145,8 @@ export async function toggleChecklistItem(taskId: string, itemId: string, comple
   
   const { data: user } = await supabase.auth.getUser();
   
-  const newItems = currentTask.checklist_items.map((item: any) => {
+  const checklist = (currentTask.checklist_items ?? []) as Array<Record<string, unknown>>;
+  const newItems = checklist.map((item) => {
     if (item.id === itemId) {
       return {
         ...item,
@@ -157,21 +159,21 @@ export async function toggleChecklistItem(taskId: string, itemId: string, comple
   });
   
   const { data, error } = await supabase
-    .from('mma_athlete_tasks')
-    .update({ checklist_items: newItems })
+    .from('mma_event_tasks')
+    .update({ checklist_items: newItems as unknown as Json })
     .eq('id', taskId)
     .select()
     .single();
     
   if (error) throw new Error('Failed to toggle checklist item');
-  
-  return data;
+
+  return data as unknown as EventTask;
 }
 
 export async function deleteTask(taskId: string): Promise<void> {
   const supabase = getClient();
   const { error } = await supabase
-    .from('mma_athlete_tasks')
+    .from('mma_event_tasks')
     .delete()
     .eq('id', taskId);
 

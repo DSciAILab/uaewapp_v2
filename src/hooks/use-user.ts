@@ -22,7 +22,7 @@ export function useUser() {
           .single();
         
         if (mounted && data) {
-          setUser(data);
+          setUser(data as User);
         }
       } catch (error) {
         console.error('Error fetching user:', error);

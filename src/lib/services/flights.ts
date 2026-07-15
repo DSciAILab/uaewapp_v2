@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { createClient } from '@/lib/supabase/client'
 import type { Flight, FlightType, Enrollment } from '@/types/database'
+import type { Database } from '@/types/supabase'
 
 function getClient() {
   return createClient();
@@ -217,7 +218,7 @@ export async function deleteFlight(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function getEnrollmentsNeedingFlight(eventId: string): Promise<any[]> {
+export async function getEnrollmentsNeedingFlight(eventId: string) {
   const supabase = getClient();
   // Get enrollments that need flight but don't have one yet
   const { data: enrollments, error: enrollError } = await supabase
@@ -343,7 +344,7 @@ export async function importFlightsFromCSV(
 
   // Build a name→enrollment map (case insensitive)
   const nameMap = new Map<string, { enrollmentId: string; needsFlight: string }>()
-  for (const e of (enrollments || []) as any[]) {
+  for (const e of (enrollments || [])) {
     const person = e.person
     if (!person) continue
     const compiledName = (person.compiled_name || '').trim().toLowerCase()
@@ -356,7 +357,7 @@ export async function importFlightsFromCSV(
   // 2. Fetch existing flights for this event
   if (onProgress) onProgress(0, total, 'Verificando voos existentes...')
 
-  const enrollmentIds = (enrollments || []).map((e: any) => e.id)
+  const enrollmentIds = (enrollments || []).map((e) => e.id)
   const { data: existingFlights } = await supabase
     .from('mma_flights')
     .select('id, enrollment_id')
@@ -396,7 +397,7 @@ export async function importFlightsFromCSV(
       return 'full'
     })()
 
-    const flightData: any = {
+    const flightData: Database['public']['Tables']['mma_flights']['Insert'] = {
       enrollment_id: match.enrollmentId,
       type: flightType,
       arrival_reservation: row.arrival_reservation || null,
