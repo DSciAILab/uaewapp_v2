@@ -187,3 +187,33 @@ export const WEIGHT_CLASS_LABELS: Record<WeightClass, string> = {
   heavyweight: 'Heavyweight',
   catch_weight: 'Catch Weight',
 };
+
+export interface Match {
+  id: string;
+  event_id: string;
+  match_number: number;
+  division: string | null;
+  red_corner_enrollment_id: string | null;
+  blue_corner_enrollment_id: string | null;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins
+  red_corner?: MatchCornerData;
+  blue_corner?: MatchCornerData;
+}
+
+export interface MatchCornerData {
+  id: string; // mma_enrollments id
+  person: {
+    id: string;
+    compiled_name: string;
+    event_name?: string;
+    fighter_id?: string | null;
+    nationality: string | null;
+    passport_photo?: string | null;
+  };
+  stats?: FighterStats;
+}
+

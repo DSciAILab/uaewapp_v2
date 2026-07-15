@@ -66,8 +66,8 @@ export async function getUpcomingDeadlines(eventId: string, client?: SupabaseCli
   const supabase = client || getClient();
   const { data: tasks } = await supabase
     .from('mma_athlete_tasks')
-    .select('id, task_type, scheduled_date, scheduled_time')
-    .filter('enrollment_id', 'in', supabase.from('mma_enrollments').select('id').eq('event_id', eventId))
+    .select('id, task_type, scheduled_date, scheduled_time, mma_enrollments!inner(id, event_id)')
+    .eq('mma_enrollments.event_id', eventId)
     .eq('status', 'required')
     .order('scheduled_date', { ascending: true })
     .limit(5);

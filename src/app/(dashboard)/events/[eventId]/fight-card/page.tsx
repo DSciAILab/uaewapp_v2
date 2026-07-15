@@ -7,9 +7,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { ArrowLeft, Swords, Download, FileText, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Swords, Download, FileText, RefreshCw, Database } from 'lucide-react';
 import { getEventById } from '@/lib/services/events';
 import { getEventFighterStats } from '@/lib/services/stats-service';
+import { getEventMatches, syncFightCardToDatabase } from '@/lib/services/matches-service';
 import { getFighterPhotoUrl, normalizeName, getDataUrl } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -49,19 +50,62 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
   const [event, setEvent] = useState<any>(null);
   const [matches, setMatches] = useState<MatchPair[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isFromDB, setIsFromDB] = useState(false);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
 
     async function init() {
       try {
-        const [eventData, fightersData] = await Promise.all([
+        const [eventData, fightersData, dbMatches] = await Promise.all([
           getEventById(eventId),
-          getEventFighterStats(eventId)
+          getEventFighterStats(eventId),
+          getEventMatches(eventId)
         ]);
 
         setEvent(eventData);
 
+        if (dbMatches && dbMatches.length > 0) {
+            const mappedMatches = dbMatches.map(m => {
+               const red = m.red_corner;
+               const blue = m.blue_corner;
+
+               const createFighterUI = (cornerData: any, cornerLabel: 'RED' | 'BLUE'): (FighterCSV & { photoUrl?: string; eventValues?: string }) | undefined => {
+                  if (!cornerData) return undefined;
+                  const p = cornerData.person;
+                  const stArray = p?.stats;
+                  const st = Array.isArray(stArray) && stArray.length > 0 ? stArray[0] : null;
+                  return {
+                      matchNumber: m.match_number,
+                      event: eventData?.code || '',
+                      corner: cornerLabel,
+                      division: m.division || '',
+                      name: p?.compiled_name || '',
+                      nickname: st?.nickname || '',
+                      record: st ? `${st.wins}-${st.losses}${st.draws > 0 ? `-${st.draws}` : ''}${st.no_contests > 0 ? ` (${st.no_contests} NC)` : ''}` : '',
+                      nationality: p?.nationality || '',
+                      residency: st?.residency || '',
+                      photoUrl: p ? getFighterPhotoUrl(p.fighter_id) : '',
+                      eventValues: p ? `${p.event_name ?? ''} ${p.fighter_id ?? ''}`.trim() : ''
+                  };
+               };
+
+               return {
+                  matchNumber: m.match_number,
+                  division: m.division || '',
+                  red: createFighterUI(red, 'RED'),
+                  blue: createFighterUI(blue, 'BLUE')
+               };
+            });
+            setMatches(mappedMatches);
+            setIsFromDB(true);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+        }
+
+        setIsFromDB(false);
         // Add cache buster to avoid stale data
         const baseUrl = eventData?.fight_card_csv_url || CSV_URL;
         const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
@@ -165,6 +209,22 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
     return () => clearInterval(intervalId);
   }, [eventId, refreshKey]);
+
+  const handleSyncToDatabase = async () => {
+      try {
+          if (!confirm('Deseja salvar o estado atual do Fight Card no Banco de Dados? Isso fará a tela não ler mais o Google Sheets.')) return;
+          
+          setSyncing(true);
+          const count = await syncFightCardToDatabase(eventId);
+          toast.success(`Sincronizado histórico de ${count} lutas com sucesso.`);
+          setRefreshKey(prev => prev + 1);
+      } catch (err: any) {
+          toast.error(err.message || 'Falha ao sincronizar');
+          console.error(err);
+      } finally {
+          setSyncing(false);
+      }
+  };
 
   const handleExportPDF = async () => {
      try {
@@ -364,6 +424,18 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                 <RefreshCw className={`mr-2 h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 {refreshing ? 'Refreshing...' : 'Force Refresh'}
              </Button>
+             {!isFromDB && (
+                 <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={handleSyncToDatabase} 
+                    disabled={syncing || loading}
+                    className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
+                 >
+                    <Database className={`mr-2 h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
+                    {syncing ? 'Sincronizando...' : 'Gravar no Banco'}
+                 </Button>
+             )}
               <Button variant="outline" size="sm" onClick={handleDownloadCollectionTemplate} className="bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">
                  <FileText className="mr-2 h-4 w-4 text-slate-500" />
                  Collection Template
@@ -376,7 +448,18 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
         <main className="flex-1 p-6 max-w-[1200px] mx-auto w-full space-y-6">
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Official Fight Card</h2>
+                <div className="flex items-center gap-3">
+                    <h2 className="text-2xl font-bold tracking-tight">Official Fight Card</h2>
+                    {isFromDB ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
+                            Banco de Dados
+                        </Badge>
+                    ) : (
+                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">
+                            Google Sheets
+                        </Badge>
+                    )}
+                </div>
                 <Badge variant="outline" className="px-3 py-1 text-sm bg-background">
                     {matches.length} Bouts
                 </Badge>
