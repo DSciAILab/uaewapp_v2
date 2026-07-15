@@ -47,7 +47,7 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
       name: person?.name || '',
       surname: person?.surname || '',
       event_name: person?.event_name || '',
-      fighter_id: person?.fighter_id || undefined,
+      appadmin_fighter_id: person?.appadmin_fighter_id || undefined,
       gender: person?.gender || '',
       phone: person?.phone || '',
       dob: person?.dob || '',
@@ -62,7 +62,7 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
   })
 
   const { register, handleSubmit, watch, setValue, formState: { errors } } = form
-  const fighterId = watch('fighter_id')
+  const fighterId = watch('appadmin_fighter_id')
   const name = watch('name')
   const surname = watch('surname')
 
@@ -96,8 +96,8 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
             <Input id="event_name" {...register('event_name')} placeholder="João 'Pitbull' Silva" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="fighter_id">Fighter ID</Label>
-            <Input id="fighter_id" {...register('fighter_id')} placeholder="595 ou PS1234" />
+            <Label htmlFor="appadmin_fighter_id">Fighter ID</Label>
+            <Input id="appadmin_fighter_id" {...register('appadmin_fighter_id')} placeholder="595 ou PS1234" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">

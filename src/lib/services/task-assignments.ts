@@ -19,7 +19,7 @@ export interface TaskAssignment {
       compiled_name: string;
       name?: string;
       surname?: string;
-      fighter_id?: string | number | null;
+      appadmin_fighter_id?: string | number | null;
     };
     role: {
       name: string;
@@ -40,7 +40,7 @@ export async function getTaskAssignments(taskId: string): Promise<TaskAssignment
       *,
       enrollment:mma_enrollments!inner(
         id,
-        person:mma_people(id, compiled_name:compiled_name, name, surname, fighter_id),
+        person:mma_people(id, compiled_name:compiled_name, name, surname, appadmin_fighter_id),
         role:mma_roles(name, code)
       )
     `)

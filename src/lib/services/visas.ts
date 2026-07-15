@@ -12,7 +12,7 @@ export interface VisaWithEnrollment extends Visa {
       id: string
       compiled_name: string
       event_name: string | null
-      fighter_id: number | null
+      appadmin_fighter_id: number | null
       nationality: string | null
       passport_number: string | null
       passport_expiry: string | null
@@ -49,7 +49,7 @@ export async function getVisasByEvent(eventId: string, filters: VisaFilters = {}
           id,
           compiled_name,
           event_name,
-          fighter_id,
+          appadmin_fighter_id,
           nationality,
           passport_number,
           passport_expiry,
@@ -126,7 +126,7 @@ export async function getVisaById(id: string): Promise<VisaWithEnrollment | null
           id,
           compiled_name,
           event_name,
-          fighter_id,
+          appadmin_fighter_id,
           nationality,
           passport_number,
           passport_expiry,
@@ -215,7 +215,7 @@ export async function getEnrollmentsNeedingVisa(eventId: string): Promise<any[]>
         id,
         compiled_name,
         event_name,
-        fighter_id,
+        appadmin_fighter_id,
         nationality,
         passport_number,
         passport_expiry,

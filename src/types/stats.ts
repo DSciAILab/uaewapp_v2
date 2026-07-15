@@ -64,7 +64,7 @@ export interface FighterStats {
     compiled_name: string;
     role?: string;
     nationality: string | null;
-    fighter_id?: string | null;
+    appadmin_fighter_id?: string | null;
     event_name?: string;
     passport_photo?: string | null;
   };
@@ -148,7 +148,7 @@ export interface EventWeighIn {
       id: string;
       compiled_name: string;
       event_name?: string;
-      fighter_id?: string | number | null;
+      appadmin_fighter_id?: string | number | null;
     };
     stats?: FighterStats;
     corner?: string | null;
@@ -210,7 +210,7 @@ export interface MatchCornerData {
     id: string;
     compiled_name: string;
     event_name?: string;
-    fighter_id?: string | null;
+    appadmin_fighter_id?: string | null;
     nationality: string | null;
     passport_photo?: string | null;
   };

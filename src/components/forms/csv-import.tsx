@@ -37,7 +37,7 @@ const DB_FIELDS: { value: keyof PersonFormData | 'skip'; label: string }[] = [
   { value: 'name', label: 'Nome' },
   { value: 'surname', label: 'Sobrenome' },
   { value: 'event_name', label: 'Nome de Guerra' },
-  { value: 'fighter_id', label: 'Fighter ID' },
+  { value: 'appadmin_fighter_id', label: 'Fighter ID' },
   { value: 'gender', label: 'Gênero' },
   { value: 'phone', label: 'Telefone' },
   { value: 'dob', label: 'Data de Nascimento' },
@@ -193,7 +193,7 @@ export function CSVImport({ onImport, onCancel }: CSVImportProps) {
              return
           }
 
-          if (m.dbField === 'fighter_id') {
+          if (m.dbField === 'appadmin_fighter_id') {
             (transformed as any)[m.dbField] = value
           } else if (m.dbField === 'height' || m.dbField === 'reach') {
             // Remove non-numeric chars except dot/comma

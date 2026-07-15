@@ -35,7 +35,7 @@ export async function getEventMusic(eventId: string): Promise<EntranceMusic[]> {
       enrolled:mma_enrollments!inner(
         id,
         corner,
-        person:mma_people!inner(id, compiled_name:compiled_name, fighter_id, event_name)
+        person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id, event_name)
       )
     `)
     .eq('event_id', eventId)
@@ -67,7 +67,7 @@ export async function getAllActiveEventsMusic(): Promise<(EntranceMusic & { even
       enrolled:mma_enrollments!inner(
         id,
         corner,
-        person:mma_people!inner(id, compiled_name:compiled_name, fighter_id, event_name)
+        person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id, event_name)
       )
     `)
     .in('event_id', eventIds)
@@ -86,7 +86,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
   event_id: string;
   event_name: string;
   person_name: string;
-  fighter_id: string | null;
+  appadmin_fighter_id: string | null;
   corner: string | null;
   has_music: boolean;
 }>> {
@@ -110,7 +110,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
       event_id,
       corner,
       role:mma_roles!inner(code),
-      person:mma_people!inner(id, compiled_name:compiled_name, fighter_id)
+      person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id)
     `)
     .in('event_id', eventIds)
     .eq('status', 'active')
@@ -131,7 +131,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
     event_id: e.event_id,
     event_name: eventNameMap[e.event_id] || 'Unknown',
     person_name: e.person?.compiled_name || 'Unknown',
-    fighter_id: e.person?.fighter_id || null,
+    appadmin_fighter_id: e.person?.appadmin_fighter_id || null,
     corner: e.corner || null,
     has_music: musicSet.has(e.id),
   }));

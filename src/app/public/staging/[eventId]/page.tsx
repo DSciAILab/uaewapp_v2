@@ -81,7 +81,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
             // General Text Check (Name, Corner, Fighter ID)
             return (
                 row.person.compiled_name?.toLowerCase().includes(term) ||
-                row.person.fighter_id?.toLowerCase().includes(term) ||
+                row.person.appadmin_fighter_id?.toLowerCase().includes(term) ||
                 row.corner?.toLowerCase().includes(term) ||
                 (row.bus_number && `bus ${row.bus_number}`.includes(term))
             );
@@ -234,7 +234,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                     <TableCell>
                                         <div className="flex flex-col">
                                             <span className="font-bold text-sm leading-tight">{row.person.compiled_name}</span>
-                                            <span className="text-[10px] text-muted-foreground">{row.person.fighter_id}</span>
+                                            <span className="text-[10px] text-muted-foreground">{row.person.appadmin_fighter_id}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="text-center">
@@ -307,7 +307,7 @@ export default function PublicStagingPage({ params }: PublicStagingProps) {
                                         </Avatar>
                                         <div className="flex flex-col overflow-hidden">
                                             <span className="font-bold text-sm leading-tight truncate">{row.person.compiled_name}</span>
-                                            <span className="text-[10px] text-muted-foreground">{row.person.fighter_id}</span>
+                                            <span className="text-[10px] text-muted-foreground">{row.person.appadmin_fighter_id}</span>
                                         </div>
                                     </div>
 

@@ -74,7 +74,7 @@ export function MedicalTable({
       if (!term) return true
       return (
         r.person.compiled_name.toLowerCase().includes(term) ||
-        (r.person.fighter_id ?? '').toLowerCase().includes(term) ||
+        (r.person.appadmin_fighter_id ?? '').toLowerCase().includes(term) ||
         (r.corner ?? '').toLowerCase().includes(term)
       )
     })
@@ -205,7 +205,7 @@ export function MedicalTable({
                         variant="outline"
                         className="font-mono text-[10px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4"
                       >
-                        ID: {row.person.fighter_id || 'N/A'}
+                        ID: {row.person.appadmin_fighter_id || 'N/A'}
                       </Badge>
                       <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">
                         {row.event_name}
@@ -306,7 +306,7 @@ export function MedicalTable({
                       variant="outline"
                       className="font-mono text-[9px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4"
                     >
-                      ID: {row.person.fighter_id || 'N/A'}
+                      ID: {row.person.appadmin_fighter_id || 'N/A'}
                     </Badge>
                   </div>
                 </div>

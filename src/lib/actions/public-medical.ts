@@ -19,7 +19,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         .from('mma_enrollments')
         .select(`
           id,
-          person:mma_people(id, name, surname, nationality, fighter_id, passport_photo, phone, event_name),
+          person:mma_people(id, name, surname, nationality, appadmin_fighter_id, passport_photo, phone, event_name),
           event:mma_events(name),
           role:mma_roles!inner(code)
         `)
@@ -87,9 +87,9 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
           id: person.id,
           compiled_name: match.name || eventName || fullName,
           nationality: person.nationality ?? null,
-          fighter_id: person.fighter_id ?? null,
+          appadmin_fighter_id: person.appadmin_fighter_id ?? null,
           phone: person.phone ?? null,
-          photo_url: getFighterPhotoUrl(person.fighter_id) || person.passport_photo || null,
+          photo_url: getFighterPhotoUrl(person.appadmin_fighter_id) || person.passport_photo || null,
         },
         event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name ?? null : (enr.event as any)?.name ?? null,
       })

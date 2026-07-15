@@ -103,7 +103,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
       matchesSearch = terms.some(term => {
          return (
             row.person.compiled_name.toLowerCase().includes(term) ||
-            row.person.fighter_id?.toLowerCase().includes(term) ||
+            row.person.appadmin_fighter_id?.toLowerCase().includes(term) ||
             row.corner?.toLowerCase().includes(term) ||
             row.bus_number?.toLowerCase().includes(term)
          );
@@ -501,7 +501,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
                       </div>
                       <div className="flex items-center gap-2">
                           <Badge variant="outline" className="font-mono text-[10px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4">
-                             ID: {row.person.fighter_id || 'N/A'}
+                             ID: {row.person.appadmin_fighter_id || 'N/A'}
                           </Badge>
                           <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{row.event_name}</span>
                       </div>

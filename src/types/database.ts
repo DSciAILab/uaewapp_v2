@@ -28,7 +28,7 @@ export interface Person {
   surname?: string | null
   compiled_name: string
   event_name?: string
-  fighter_id?: string | null
+  appadmin_fighter_id?: string | null
   gender?: string
   phone?: string
   dob?: string
@@ -220,7 +220,7 @@ export interface PersonFormData {
   name: string
   surname?: string | null
   event_name?: string | null
-  fighter_id?: string | null
+  appadmin_fighter_id?: string | null
   gender?: string | null
   phone?: string | null
   dob?: string | null

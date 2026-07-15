@@ -206,9 +206,9 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         </TableCell>
                         <TableCell>
                           <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                            {hotel.enrolled?.person.fighter_id && (
+                            {hotel.enrolled?.person.appadmin_fighter_id && (
                               <AvatarImage 
-                                src={getFighterPhotoUrl(hotel.enrolled.person.fighter_id)} 
+                                src={getFighterPhotoUrl(hotel.enrolled.person.appadmin_fighter_id)} 
                                 alt={hotel.enrolled.person.compiled_name} 
                               />
                             )}
@@ -218,9 +218,9 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                           </Avatar>
                         </TableCell>
                         <TableCell>
-                           {hotel.enrolled?.person.fighter_id ? (
+                           {hotel.enrolled?.person.appadmin_fighter_id ? (
                             <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                              ID: {hotel.enrolled.person.fighter_id}
+                              ID: {hotel.enrolled.person.appadmin_fighter_id}
                             </Badge>
                           ) : (
                             <span className="text-muted-foreground text-xs font-mono">-</span>

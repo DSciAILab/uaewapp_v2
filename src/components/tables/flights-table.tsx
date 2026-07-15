@@ -93,8 +93,8 @@ export function FlightsTable({
 
       switch (sortConfig.key) {
         case 'id':
-          aValue = a.enrollment?.person?.fighter_id || a.enrollment?.event_code || ''
-          bValue = b.enrollment?.person?.fighter_id || b.enrollment?.event_code || ''
+          aValue = a.enrollment?.person?.appadmin_fighter_id || a.enrollment?.event_code || ''
+          bValue = b.enrollment?.person?.appadmin_fighter_id || b.enrollment?.event_code || ''
           break
         case 'passenger':
           aValue = a.enrollment?.person?.compiled_name || ''
@@ -176,15 +176,15 @@ export function FlightsTable({
                   >
                     <TableCell>
                       <Badge variant="outline" className="font-mono text-[10px] bg-background text-muted-foreground group-hover:bg-background/80 group-hover:text-foreground transition-colors">
-                        {flight.enrollment?.person?.fighter_id || flight.enrollment?.event_code || '-'}
+                        {flight.enrollment?.person?.appadmin_fighter_id || flight.enrollment?.event_code || '-'}
                       </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="h-9 w-9 border ring-1 ring-border/50">
-                          {flight.enrollment?.person?.fighter_id && (
+                          {flight.enrollment?.person?.appadmin_fighter_id && (
                             <AvatarImage
-                              src={getFighterPhotoUrl(flight.enrollment.person.fighter_id)}
+                              src={getFighterPhotoUrl(flight.enrollment.person.appadmin_fighter_id)}
                               className="object-cover"
                             />
                           )}

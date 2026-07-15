@@ -96,9 +96,9 @@ export function VisasTable({
                 <TableCell>
                   <div className="flex items-center gap-3">
                     <Avatar className="h-8 w-8">
-                      {visa.enrollment?.person?.fighter_id && (
+                      {visa.enrollment?.person?.appadmin_fighter_id && (
                         <AvatarImage
-                          src={getFighterPhotoUrl(visa.enrollment.person.fighter_id)}
+                          src={getFighterPhotoUrl(visa.enrollment.person.appadmin_fighter_id)}
                         />
                       )}
                       <AvatarFallback className="text-xs">

@@ -137,8 +137,8 @@ export function VisaForm({
           // Modo edição
           <div className="p-4 bg-muted rounded-lg flex items-center gap-4">
             <Avatar className="h-12 w-12">
-              {visa.enrollment.person?.fighter_id && (
-                <AvatarImage src={getFighterPhotoUrl(visa.enrollment.person.fighter_id)} />
+              {visa.enrollment.person?.appadmin_fighter_id && (
+                <AvatarImage src={getFighterPhotoUrl(visa.enrollment.person.appadmin_fighter_id)} />
               )}
               <AvatarFallback>
                 {visa.enrollment.person?.compiled_name?.slice(0, 2)}
@@ -193,8 +193,8 @@ export function VisaForm({
           <div className="p-4 bg-muted rounded-lg space-y-2">
             <div className="flex items-center gap-4">
               <Avatar className="h-12 w-12">
-                {selectedEnrollment.person?.fighter_id && (
-                  <AvatarImage src={getFighterPhotoUrl(selectedEnrollment.person.fighter_id)} />
+                {selectedEnrollment.person?.appadmin_fighter_id && (
+                  <AvatarImage src={getFighterPhotoUrl(selectedEnrollment.person.appadmin_fighter_id)} />
                 )}
                 <AvatarFallback>
                   {selectedEnrollment.person?.compiled_name?.slice(0, 2)}

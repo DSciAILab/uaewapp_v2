@@ -17,7 +17,7 @@ export async function getEventHotels(
       event_id,
       status,
       needs_hotel,
-      person:mma_people(id, compiled_name, fighter_id),
+      person:mma_people(id, compiled_name, appadmin_fighter_id),
       role:mma_roles(name),
       flights:mma_flights(*),
       event:mma_events!inner(name, status, event_date, event_end_date),
@@ -59,7 +59,7 @@ export async function getEventHotels(
         person: {
           id: e.person?.id || 'unknown',
           compiled_name: e.person?.compiled_name || 'Unnamed Person',
-          fighter_id: e.person?.fighter_id,
+          appadmin_fighter_id: e.person?.appadmin_fighter_id,
           role: (Array.isArray(e.role) ? e.role[0]?.name : (e.person?.role as any)?.name || e.person?.role) || 'N/A',
           event_name: e.event?.name
         },
@@ -139,7 +139,7 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       *,
       enrolled:mma_enrollments!inner(
         id,
-        person:mma_people!inner(id, compiled_name, fighter_id),
+        person:mma_people!inner(id, compiled_name, appadmin_fighter_id),
         role:mma_roles(name),
         event:mma_events(name),
         flights:mma_flights(*)
@@ -171,7 +171,7 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       person: {
         id: data.enrolled.person.id,
         compiled_name: data.enrolled.person.compiled_name,
-        fighter_id: data.enrolled.person.fighter_id,
+        appadmin_fighter_id: data.enrolled.person.appadmin_fighter_id,
         role: data.enrolled.role?.name || 'N/A',
         event_name: data.enrolled.event?.name
       },

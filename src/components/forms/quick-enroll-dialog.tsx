@@ -104,8 +104,8 @@ export function QuickEnrollDialog({ person, open, onOpenChange, onSuccess }: Qui
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader className="flex flex-row items-center gap-4">
           <Avatar className="h-12 w-12 border">
-            {person?.fighter_id && (
-              <AvatarImage src={getFighterPhotoUrl(person.fighter_id)} />
+            {person?.appadmin_fighter_id && (
+              <AvatarImage src={getFighterPhotoUrl(person.appadmin_fighter_id)} />
             )}
             <AvatarFallback>
               {person?.name?.[0]}{person?.surname?.[0]}
