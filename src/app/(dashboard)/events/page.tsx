@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Header } from '@/components/layout/header'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -98,7 +98,7 @@ export default function EventsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header title="Eventos" description="Gerenciamento de eventos" />
+      <DashboardHeader title="Eventos" description="Gerenciamento de eventos" />
       
       <div className="flex-1 p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-4 justify-between">

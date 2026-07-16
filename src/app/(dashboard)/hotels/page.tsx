@@ -10,7 +10,7 @@ import { HotelFilters } from '@/components/hotels/hotel-filters';
 import { Hotel as HotelType, HotelFilters as HotelFiltersType } from '@/types/hotel';
 import { getEventHotels } from '@/lib/services/hotel-service';
 import { useRouter } from 'next/navigation';
-import { Header } from '@/components/layout/header';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { toast } from 'sonner';
 
 
@@ -53,7 +53,7 @@ export default function GlobalHotelsPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
-        <Header 
+        <DashboardHeader 
             title="Global Hotel Logistics" 
             description="Hotel accommodations for active events."
         />

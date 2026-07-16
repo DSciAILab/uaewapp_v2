@@ -2,7 +2,7 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Header } from '@/components/layout/header';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -402,7 +402,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-        <Header 
+        <DashboardHeader 
             title="Fight Card" 
             description={event?.name || 'Event Fight Card'}
         >
@@ -444,7 +444,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                  <Download className="mr-2 h-4 w-4" />
                  Export PDF
               </Button>
-        </Header>
+        </DashboardHeader>
 
         <main className="flex-1 p-6 max-w-[1200px] mx-auto w-full space-y-6">
             <div className="flex items-center justify-between">

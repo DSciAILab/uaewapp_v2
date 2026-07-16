@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Header } from '@/components/layout/header'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -266,7 +266,7 @@ export default function PeoplePage() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header 
+      <DashboardHeader 
         title="People Database" 
         description={loading ? "Carregando registros..." : `Gerenciamento de ${totalCount} pessoas cadastradas`} 
       />

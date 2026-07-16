@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Header } from '@/components/layout/header'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -181,7 +181,7 @@ function FlightsContent() {
 
   return (
     <div className="flex flex-col h-full space-y-6">
-      <Header
+      <DashboardHeader
         title="Flights Manager"
         description={selectedEvent ? `Flights for ${selectedEvent.name}` : 'Select an event to view flights'}
       >
@@ -197,7 +197,7 @@ function FlightsContent() {
                  </TabsTrigger>
              </TabsList>
           </Tabs>
-      </Header>
+      </DashboardHeader>
 
       <div className="flex-1 px-6 pb-6 space-y-6">
          {selectedEventId ? (

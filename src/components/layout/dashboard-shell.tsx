@@ -39,9 +39,6 @@ export function DashboardShell({ children }: DashboardShellProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const openPalette = React.useCallback(() => setPaletteOpen(true), [])
-  const closePalette = React.useCallback(() => setPaletteOpen(false), [])
-
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background">
       <Sidebar />

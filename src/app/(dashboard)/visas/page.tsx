@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Header } from '@/components/layout/header'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -193,7 +193,7 @@ function VisasContent() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header
+      <DashboardHeader
         title="Vistos"
         description={selectedEvent ? `Vistos para ${selectedEvent.name}` : 'Selecione um evento'}
       />

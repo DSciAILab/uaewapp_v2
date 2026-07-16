@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Header } from '@/components/layout/header';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Car, User, Plane } from 'lucide-react';
@@ -166,7 +166,7 @@ function TransportContent() {
 
     return (
         <div className="flex flex-col h-full space-y-6 p-6">
-            <Header title="Transport & Logistics" description="Manage drivers, vehicles, and passenger assignments." />
+            <DashboardHeader title="Transport & Logistics" description="Manage drivers, vehicles, and passenger assignments." />
 
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {stats && (
