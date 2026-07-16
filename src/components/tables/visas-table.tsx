@@ -29,6 +29,7 @@ import {
 import type { VisaWithEnrollment } from '@/lib/services/visas'
 import { getFighterPhotoUrl, cn } from '@/lib/utils'
 import { VISA_STATUS_LABELS, VISA_STATUS_COLORS } from '@/lib/constants'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 interface VisasTableProps {
   visas: VisaWithEnrollment[]
@@ -146,9 +147,10 @@ export function VisasTable({
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge className={VISA_STATUS_COLORS[visa.status]}>
-                    {VISA_STATUS_LABELS[visa.status]}
-                  </Badge>
+                  <StatusBadge
+                    status={VISA_STATUS_COLORS[visa.status] ?? 'neutral'}
+                    label={VISA_STATUS_LABELS[visa.status]}
+                  />
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>

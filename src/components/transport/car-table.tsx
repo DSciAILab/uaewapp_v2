@@ -5,10 +5,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, Pencil, Trash2, Car, User, Info } from 'lucide-react';
+import { StatusBadge } from '@/components/ui/status-badge';
+import {
+  MoreHorizontal, Pencil, Trash2, Car, User, Info,
+  ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight,
+} from 'lucide-react';
 import { EventCar } from '@/types/transport';
 import { deleteEventCar } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
+
+type DSStatus = 'pending' | 'confirmed' | 'warning' | 'critical' | 'neutral';
 
 interface CarTableProps {
   cars: EventCar[];
@@ -35,19 +41,34 @@ export function CarTable({ cars, onEdit, onManagePassengers, onRefresh }: CarTab
     }
   };
 
-  const getStatusColor = (status: string) => {
+  // Transfer status -> DS semantics (was a light-only bg-*-100 palette).
+  const getDSStatus = (status: string): DSStatus => {
     switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800 border-green-200';
-      case 'in_progress': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'cancelled': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-slate-100 text-slate-800 border-slate-200';
+      case 'completed': return 'confirmed';
+      case 'in_progress': return 'pending';
+      case 'cancelled': return 'critical';
+      default: return 'neutral';
     }
   };
 
+  // Direction is not a status — it carries no good/bad meaning — so it renders
+  // as neutral text with a directional lucide icon rather than three unrelated
+  // hues (blue/orange/purple) borrowed from the status palette.
   const getTypeIcon = (type: string) => {
-    if (type === 'arrival') return <span className="text-blue-500">↓ Arrival</span>;
-    if (type === 'departure') return <span className="text-orange-500">↑ Departure</span>;
-    return <span className="text-purple-500">↔ Event</span>;
+    const Icon =
+      type === 'arrival'
+        ? ArrowDownToLine
+        : type === 'departure'
+          ? ArrowUpFromLine
+          : ArrowLeftRight;
+    const label = type === 'arrival' ? 'Arrival' : type === 'departure' ? 'Departure' : 'Event';
+
+    return (
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+        {label}
+      </span>
+    );
   };
 
   return (
@@ -137,7 +158,7 @@ export function CarTable({ cars, onEdit, onManagePassengers, onRefresh }: CarTab
                                         </div>
                                     ))}
                                     {passengerCount > 4 && (
-                                        <div className="inline-block h-6 w-6 rounded-full ring-2 ring-background bg-slate-100 border flex items-center justify-center text-[9px]">
+                                        <div className="inline-block h-6 w-6 rounded-full ring-2 ring-background bg-surface-2 text-muted-foreground border flex items-center justify-center text-[9px]">
                                             +{passengerCount - 4}
                                         </div>
                                     )}
@@ -146,9 +167,11 @@ export function CarTable({ cars, onEdit, onManagePassengers, onRefresh }: CarTab
                        </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline" className={`capitalize ${getStatusColor(car.status)}`}>
-                        {car.status.replace('_', ' ')}
-                      </Badge>
+                      <StatusBadge
+                        status={getDSStatus(car.status)}
+                        className="capitalize"
+                        label={car.status.replace('_', ' ')}
+                      />
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <DropdownMenu>

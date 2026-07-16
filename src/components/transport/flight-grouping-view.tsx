@@ -60,13 +60,17 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
         const date = group.flight.datetime ? new Date(group.flight.datetime) : null;
         
         return (
-          <Card key={group.flight.id} className="overflow-hidden border-l-4" style={{ 
-              borderLeftColor: isArrival ? '#10b981' : '#3b82f6' 
-          }}>
+          <Card
+            key={group.flight.id}
+            className={cn(
+              "overflow-hidden border-l-4",
+              isArrival ? "border-l-status-confirmed" : "border-l-status-pending"
+            )}
+          >
             <CardHeader className="bg-muted/30 pb-3">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-full", isArrival ? "bg-green-100 text-green-700" : "bg-blue-100 text-blue-700")}>
+                    <div className={cn("p-2 rounded-full", isArrival ? "bg-status-confirmed/10 text-status-confirmed" : "bg-status-pending/10 text-status-pending")}>
                         <Plane className={cn("h-5 w-5", !isArrival && "rotate-90")} />
                     </div>
                     <div>
@@ -101,7 +105,7 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                        return (
                            <div key={`${p.enrolled_id}-${group.flight.type}`} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow">
                                <div className="flex items-center gap-3">
-                                   <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-600">
+                                   <div className="h-8 w-8 rounded-full bg-surface-2 flex items-center justify-center font-bold text-xs text-muted-foreground">
                                        {p.person_name.charAt(0)}
                                    </div>
                                    <div>
