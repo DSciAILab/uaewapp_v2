@@ -28,7 +28,7 @@ import {
 } from '@/components/ui/dialog'
 import { PeopleTable } from '@/components/tables/people-table'
 import { PersonForm } from '@/components/forms/person-form'
-import { CSVImport } from '@/components/forms/csv-import'
+import { GenericCSVImport, type FieldDef, type ImportResult } from '@/components/shared/generic-csv-import'
 import { QuickEnrollDialog } from '@/components/forms/quick-enroll-dialog'
 import { PeopleBatchEnrollment } from '@/components/forms/people-batch-enrollment'
 import { Plus, Upload, Search, X, Users, RefreshCw } from 'lucide-react'
@@ -37,7 +37,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/hooks/use-permissions'
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown'
-import type { Person, PeopleFilters } from '@/types/database'
+import type { Person, PeopleFilters, PersonFormData } from '@/types/database'
 import type { PersonSchema } from '@/lib/validations/person'
 import {
   getPeople,
@@ -53,6 +53,61 @@ import { getActiveEvents } from '@/lib/services/events'
 import { getEnrollmentsByEvent } from '@/lib/services/enrollments'
 import type { Event } from '@/types/database'
 
+const PEOPLE_FIELDS: FieldDef[] = [
+  { value: 'name', label: 'Nome' },
+  { value: 'surname', label: 'Sobrenome' },
+  { value: 'event_name', label: 'Nome de Guerra' },
+  { value: 'appadmin_fighter_id', label: 'Fighter ID' },
+  { value: 'gender', label: 'Gênero' },
+  { value: 'phone', label: 'Telefone' },
+  { value: 'dob', label: 'Data de Nascimento' },
+  { value: 'nationality', label: 'Nacionalidade' },
+  { value: 'passport_number', label: 'Nº Passaporte' },
+  { value: 'passport_expiry', label: 'Validade Passaporte' },
+  { value: 'passport_photo', label: 'Link Foto Passaporte' },
+  { value: 'document_folder', label: 'Pasta de Documentos' },
+  { value: 'height', label: 'Altura' },
+  { value: 'reach', label: 'Envergadura' },
+]
+
+/** Normalizes a CSV date cell to YYYY-MM-DD, or null when unparseable. */
+function parseCSVDate(value: string): string | null {
+  // DD/MM/YYYY or DD-MM-YYYY (European order)
+  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(value)) {
+    const [day, month, year] = value.split(/[\/\-]/).map(Number)
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+
+  // Excel serial date. Excel's epoch is 1899-12-30, which absorbs its
+  // "1900 was a leap year" bug.
+  if (/^\d+(\.\d+)?$/.test(value)) {
+    const serial = parseFloat(value)
+    if (!(serial > 0 && serial < 100000)) return null
+    const date = new Date(Date.UTC(1899, 11, 30) + serial * 86400 * 1000)
+    if (isNaN(date.getTime())) return null
+    return date.toISOString().split('T')[0]
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
+
+  const attempt = new Date(value)
+  return isNaN(attempt.getTime()) ? null : attempt.toISOString().split('T')[0]
+}
+
+/** Coerces one mapped CSV cell into the shape PersonFormData expects. */
+function transformPersonValue(field: string, value: string): unknown {
+  if (!value) return null
+
+  if (field === 'height' || field === 'reach') {
+    const numeric = value.replace(/[^\d.,-]/g, '').replace(',', '.')
+    return numeric ? Number(numeric) : null
+  }
+
+  if (field === 'dob' || field === 'passport_expiry') return parseCSVDate(value)
+
+  return String(value)
+}
+
 export default function PeoplePage() {
   const [people, setPeople] = useState<Person[]>([])
   const [nationalities, setNationalities] = useState<string[]>([])
@@ -64,6 +119,7 @@ export default function PeoplePage() {
 
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [csvOpen, setCsvOpen] = useState(false)
+  const [csvFullscreen, setCsvFullscreen] = useState(false)
   // Changed from Set<string> to Map<string, Person> to persist full objects
   const [selectedPeople, setSelectedPeople] = useState<Map<string, Person>>(new Map())
   const [isBulkDeleting, setIsBulkDeleting] = useState(false)
@@ -229,8 +285,29 @@ export default function PeoplePage() {
     }
   }
 
-  const handleCSVImport = async (data: any[], onProgress?: (current: number, total: number, message?: string) => void, checkDuplicates?: boolean, mapping?: Record<string, string>, upsertMode?: boolean) => {
-    return await importPeopleFromCSV(data, onProgress, checkDuplicates, mapping, upsertMode)
+  const handleCSVImport = async (
+    rows: PersonFormData[],
+    upsertMode: boolean,
+    onProgress: (current: number, total: number, message?: string) => void,
+    { checkDuplicates, mapping }: { checkDuplicates: boolean; mapping: Record<string, string> }
+  ): Promise<ImportResult> => {
+    const res = await importPeopleFromCSV(rows, onProgress, checkDuplicates, mapping, upsertMode)
+    return {
+      created: res.success,
+      updated: res.updated,
+      skipped: res.duplicates.map((name, i) => ({
+        row: i + 1,
+        name,
+        message: upsertMode ? 'Já existe — sem alteração' : 'Já existe no banco',
+      })),
+      errors: res.errors.map((e, i) => ({
+        row: i + 1,
+        name: e.fullName,
+        message: e.message,
+        column: e.csvColumnTitle || e.column,
+        errorType: e.errorType,
+      })),
+    }
   }
 
   const handleCSVComplete = () => {
@@ -465,12 +542,25 @@ export default function PeoplePage() {
           "transition-all duration-300 ease-in-out p-0 border-none bg-transparent gap-0",
           "max-w-4xl max-h-[95vh]",
           "data-[fullscreen=true]:max-w-[98vw] data-[fullscreen=true]:max-h-[98vh] data-[fullscreen=true]:w-[98vw] data-[fullscreen=true]:h-[98vh]"
-        )}>
+        )} data-fullscreen={csvFullscreen}>
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
-              <CSVImport
+              <GenericCSVImport<PersonFormData>
+                title="Importar CSV"
+                subtitle="Relacione as colunas do arquivo com os campos do banco de dados."
+                fields={PEOPLE_FIELDS}
+                requiredField="name"
+                uploadHint="Formato suportado: .csv (codificação UTF-8)"
+                defaultUpsert={false}
+                showDuplicateCheck
+                upsertRequiresDuplicateCheck
+                allowFullscreen
+                onFullscreenChange={setCsvFullscreen}
+                transformValue={transformPersonValue}
+                enableReportDownload
+                resultLabels={{ skipped: 'Duplicados' }}
                 onImport={handleCSVImport}
-                onCancel={handleCSVComplete}
+                onComplete={handleCSVComplete}
               />
             </div>
           </div>

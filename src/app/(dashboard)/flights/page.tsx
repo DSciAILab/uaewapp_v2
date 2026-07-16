@@ -36,7 +36,7 @@ import { FlightBatchGrid } from '@/components/flights/flight-batch-grid'
 import { FlightForm } from '@/components/forms/flight-form'
 import { FlightStats } from '@/components/flights/flight-stats'
 import { FlightToolbar } from '@/components/flights/flight-toolbar'
-import { FlightCSVImport } from '@/components/flights/flight-csv-import'
+import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import'
 import { Plus, Search, Plane, Clock, CheckCircle2, XCircle, LayoutList, Table2, Upload } from 'lucide-react'
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown'
 import {
@@ -45,13 +45,36 @@ import {
   updateFlight,
   deleteFlight,
   getFlightStats,
+  importFlightsFromCSV,
   type FlightWithEnrollment,
   type FlightFilters,
+  type FlightCSVRow,
 } from '@/lib/services/flights'
 import { getActiveEvents } from '@/lib/services/events'
 import { usePermissions } from '@/hooks/use-permissions'
 import type { Event } from '@/types/database'
 import type { FlightSchema } from '@/lib/validations/flight'
+
+const FLIGHT_FIELDS: FieldDef[] = [
+  { value: 'passport_name', label: 'Nome Passaporte' },
+  { value: 'flight_type', label: 'Tipo de Voo' },
+  { value: 'arrival_reservation', label: 'Reserva Chegada' },
+  { value: 'arrival_flight_number', label: 'Nº Voo Chegada' },
+  { value: 'arrival_date', label: 'Data Chegada' },
+  { value: 'arrival_time', label: 'Hora Chegada' },
+  { value: 'arrival_airport', label: 'Aeroporto Chegada' },
+  { value: 'arrival_ticket_link', label: 'Link Bilhete Chegada' },
+  { value: 'departure_reservation', label: 'Reserva Partida' },
+  { value: 'departure_flight_number', label: 'Nº Voo Partida' },
+  { value: 'departure_date', label: 'Data Partida' },
+  { value: 'departure_time', label: 'Hora Partida' },
+  { value: 'departure_airport', label: 'Aeroporto Partida' },
+  { value: 'departure_ticket_link', label: 'Link Bilhete Partida' },
+  { value: 'notes', label: 'Observações' },
+]
+
+const FLIGHT_CSV_TEMPLATE =
+  'Passport Name,Flight Type,Arrival Reservation,Arrival Flight Number,Arrival Date,Arrival Time,Arrival Airport,Arrival Ticket Link,Departure Reservation,Departure Flight Number,Departure Date,Departure Time,Departure Airport,Departure Ticket Link,Notes\nJohn Doe,full,ABC123,EK204,2026-04-15,14:30,DXB,,DEF456,EK205,2026-04-20,09:00,DXB,,\n'
 
 function FlightsContent() {
   const router = useRouter()
@@ -315,9 +338,17 @@ function FlightsContent() {
         <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
-              <FlightCSVImport
-                eventId={selectedEventId}
-                eventName={selectedEvent?.name || ''}
+              <GenericCSVImport<FlightCSVRow>
+                title="Importar Voos via CSV"
+                subtitle={`Evento: ${selectedEvent?.name || ''}`}
+                fields={FLIGHT_FIELDS}
+                requiredField="passport_name"
+                uploadHint="A identificação é feita pelo nome no passaporte"
+                onTemplateDownload={() => downloadCSVTemplate('flight_import_template.csv', FLIGHT_CSV_TEMPLATE)}
+                transformValue={(_field, value) => value || null}
+                onImport={(rows, upsertMode, onProgress) =>
+                  importFlightsFromCSV(selectedEventId, rows, upsertMode, onProgress)
+                }
                 onComplete={() => { setCsvOpen(false); fetchFlights(); }}
               />
             </div>
