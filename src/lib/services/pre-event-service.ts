@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
 import {
   BloodTest,
@@ -24,6 +23,105 @@ function getClient() {
   return createClient();
 }
 
+// ==================== ROW NARROWING ====================
+// The four pre-event status columns are plain nullable text in the DB (no CHECK
+// constraint, no NOT NULL DEFAULT), so the generated types expose them as
+// `string | null` while the domain types demand closed unions. These helpers
+// narrow at the read boundary and fall back to the base case ('pending') on
+// null/unknown instead of casting a lie through the type system.
+
+const BLOOD_TEST_STATUSES: readonly BloodTestStatus[] = ['pending', 'scheduled', 'collected', 'processing', 'completed', 'expired'];
+const BLOOD_TEST_RESULTS: readonly BloodTestResult[] = ['clear', 'flagged', 'failed', 'inconclusive'];
+const MEDICAL_EXAM_STATUSES: readonly MedicalExamStatus[] = ['pending', 'scheduled', 'completed', 'failed'];
+const DOCUMENT_STATUSES: readonly DocumentStatus[] = ['pending', 'submitted', 'approved', 'rejected', 'expired'];
+const CLEARANCE_STATUSES: readonly ClearanceStatus[] = ['pending', 'partial', 'cleared', 'denied'];
+
+function toBloodTestStatus(value: string | null): BloodTestStatus {
+  return BLOOD_TEST_STATUSES.includes(value as BloodTestStatus) ? (value as BloodTestStatus) : 'pending';
+}
+
+/** Result is legitimately absent until the lab reports, so null is preserved. */
+function toBloodTestResult(value: string | null): BloodTestResult | null {
+  return BLOOD_TEST_RESULTS.includes(value as BloodTestResult) ? (value as BloodTestResult) : null;
+}
+
+function toMedicalExamStatus(value: string | null): MedicalExamStatus {
+  return MEDICAL_EXAM_STATUSES.includes(value as MedicalExamStatus) ? (value as MedicalExamStatus) : 'pending';
+}
+
+function toDocumentStatus(value: string | null): DocumentStatus {
+  return DOCUMENT_STATUSES.includes(value as DocumentStatus) ? (value as DocumentStatus) : 'pending';
+}
+
+function toClearanceStatus(value: string | null | undefined): ClearanceStatus {
+  return CLEARANCE_STATUSES.includes(value as ClearanceStatus) ? (value as ClearanceStatus) : 'pending';
+}
+
+type TimestampedRow = { created_at: string | null; updated_at: string | null };
+
+/**
+ * The joined `enrolled` select carries mma_people.compiled_name, which is
+ * nullable in the DB while the domain types expect a plain string. Normalise the
+ * nested join to an empty name rather than propagating null into the UI.
+ */
+function narrowEnrolledJoin<T extends { enrolled: { person: { compiled_name: string | null } } }>(row: T) {
+  return {
+    ...row,
+    enrolled: {
+      ...row.enrolled,
+      person: {
+        ...row.enrolled.person,
+        compiled_name: row.enrolled.person.compiled_name ?? '',
+      },
+    },
+  };
+}
+
+function narrowBloodTest<T extends TimestampedRow & { status: string | null; result: string | null }>(row: T) {
+  return {
+    ...row,
+    status: toBloodTestStatus(row.status),
+    result: toBloodTestResult(row.result),
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+  };
+}
+
+function narrowMedicalExam<T extends TimestampedRow & { status: string | null }>(row: T) {
+  return {
+    ...row,
+    status: toMedicalExamStatus(row.status),
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+  };
+}
+
+function narrowDocument<T extends TimestampedRow & { status: string | null }>(row: T) {
+  return {
+    ...row,
+    status: toDocumentStatus(row.status),
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+  };
+}
+
+function narrowClearance<T extends TimestampedRow & {
+  status: string | null;
+  blood_tests_cleared: boolean | null;
+  medical_exams_cleared: boolean | null;
+  documents_cleared: boolean | null;
+}>(row: T) {
+  return {
+    ...row,
+    status: toClearanceStatus(row.status),
+    blood_tests_cleared: row.blood_tests_cleared ?? false,
+    medical_exams_cleared: row.medical_exams_cleared ?? false,
+    documents_cleared: row.documents_cleared ?? false,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+  };
+}
+
 // ==================== BLOOD TESTS ====================
 
 export async function getEventBloodTests(eventId: string): Promise<BloodTest[]> {
@@ -42,7 +140,7 @@ export async function getEventBloodTests(eventId: string): Promise<BloodTest[]> 
 
   if (error) throw new Error('Failed to fetch blood tests');
 
-  return data || [];
+  return (data || []).map(row => narrowBloodTest(narrowEnrolledJoin(row)));
 }
 
 export async function getBloodTestById(testId: string): Promise<BloodTest | null> {
@@ -64,7 +162,7 @@ export async function getBloodTestById(testId: string): Promise<BloodTest | null
     throw error;
   }
 
-  return data;
+  return narrowBloodTest(narrowEnrolledJoin(data));
 }
 
 export async function createBloodTest(eventId: string, formData: BloodTestFormData): Promise<BloodTest> {
@@ -97,7 +195,7 @@ export async function createBloodTest(eventId: string, formData: BloodTestFormDa
   // Update clearance status
   await updateClearanceStatus(eventId, formData.enrolled_id);
 
-  return data;
+  return narrowBloodTest(data);
 }
 
 export async function updateBloodTest(testId: string, formData: Partial<BloodTestFormData>): Promise<BloodTest> {
@@ -117,7 +215,7 @@ export async function updateBloodTest(testId: string, formData: Partial<BloodTes
     await updateClearanceStatus(test.event_id, test.enrolled_id);
   }
 
-  return data;
+  return narrowBloodTest(data);
 }
 
 export async function deleteBloodTest(testId: string): Promise<void> {
@@ -163,7 +261,7 @@ export async function updateBloodTestResult(
     await updateClearanceStatus(test.event_id, test.enrolled_id);
   }
 
-  return data;
+  return narrowBloodTest(data);
 }
 
 // ==================== MEDICAL EXAMS ====================
@@ -184,7 +282,7 @@ export async function getEventMedicalExams(eventId: string): Promise<MedicalExam
 
   if (error) throw new Error('Failed to fetch medical exams');
 
-  return data || [];
+  return (data || []).map(row => narrowMedicalExam(narrowEnrolledJoin(row)));
 }
 
 export async function getMedicalExamById(examId: string): Promise<MedicalExam | null> {
@@ -206,7 +304,7 @@ export async function getMedicalExamById(examId: string): Promise<MedicalExam | 
     throw error;
   }
 
-  return data;
+  return narrowMedicalExam(narrowEnrolledJoin(data));
 }
 
 export async function createMedicalExam(eventId: string, formData: MedicalExamFormData): Promise<MedicalExam> {
@@ -236,7 +334,7 @@ export async function createMedicalExam(eventId: string, formData: MedicalExamFo
 
   await updateClearanceStatus(eventId, formData.enrolled_id);
 
-  return data;
+  return narrowMedicalExam(data);
 }
 
 export async function updateMedicalExam(examId: string, formData: Partial<MedicalExamFormData>): Promise<MedicalExam> {
@@ -255,7 +353,7 @@ export async function updateMedicalExam(examId: string, formData: Partial<Medica
     await updateClearanceStatus(exam.event_id, exam.enrolled_id);
   }
 
-  return data;
+  return narrowMedicalExam(data);
 }
 
 export async function deleteMedicalExam(examId: string): Promise<void> {
@@ -292,7 +390,7 @@ export async function getEventDocuments(eventId: string): Promise<RequiredDocume
 
   if (error) throw new Error('Failed to fetch documents');
 
-  return data || [];
+  return (data || []).map(row => narrowDocument(narrowEnrolledJoin(row)));
 }
 
 export async function getDocumentById(docId: string): Promise<RequiredDocument | null> {
@@ -314,7 +412,7 @@ export async function getDocumentById(docId: string): Promise<RequiredDocument |
     throw error;
   }
 
-  return data;
+  return narrowDocument(narrowEnrolledJoin(data));
 }
 
 export async function createDocument(eventId: string, formData: RequiredDocumentFormData): Promise<RequiredDocument> {
@@ -339,7 +437,7 @@ export async function createDocument(eventId: string, formData: RequiredDocument
 
   await updateClearanceStatus(eventId, formData.enrolled_id);
 
-  return data;
+  return narrowDocument(data);
 }
 
 export async function updateDocument(docId: string, formData: Partial<RequiredDocumentFormData>): Promise<RequiredDocument> {
@@ -358,7 +456,7 @@ export async function updateDocument(docId: string, formData: Partial<RequiredDo
     await updateClearanceStatus(doc.event_id, doc.enrolled_id);
   }
 
-  return data;
+  return narrowDocument(data);
 }
 
 export async function updateDocumentStatus(
@@ -394,7 +492,7 @@ export async function updateDocumentStatus(
     await updateClearanceStatus(doc.event_id, doc.enrolled_id);
   }
 
-  return data;
+  return narrowDocument(data);
 }
 
 export async function deleteDocument(docId: string): Promise<void> {
@@ -429,7 +527,7 @@ export async function getClearanceStatus(eventId: string, enrolledId: string): P
     throw error;
   }
 
-  return data;
+  return narrowClearance(data);
 }
 
 export async function updateClearanceStatus(eventId: string, enrolledId: string): Promise<PreEventClearance> {
@@ -503,7 +601,7 @@ export async function updateClearanceStatus(eventId: string, enrolledId: string)
     throw new Error('Failed to update clearance status');
   }
 
-  return data;
+  return narrowClearance(data);
 }
 
 export async function grantClearance(
@@ -531,7 +629,7 @@ export async function grantClearance(
 
   if (error) throw new Error('Failed to grant clearance');
 
-  return data;
+  return narrowClearance(data);
 }
 
 export async function denyClearance(
@@ -555,7 +653,7 @@ export async function denyClearance(
 
   if (error) throw new Error('Failed to deny clearance');
 
-  return data;
+  return narrowClearance(data);
 }
 
 // ==================== SUMMARY ====================
@@ -634,7 +732,7 @@ export async function getPreEventSummary(eventId: string): Promise<PreEventSumma
         rejected: docs.filter(d => d.status === 'rejected').length,
         all_clear: docs.length === 0 || docs.every(d => d.status === 'approved'),
       },
-      clearance_status: clearance?.status || 'pending',
+      clearance_status: toClearanceStatus(clearance?.status),
     });
   }
 

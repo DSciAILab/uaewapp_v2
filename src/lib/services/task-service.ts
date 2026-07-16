@@ -1,9 +1,132 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
-import { TaskTemplate, TaskTemplateFormData, EventTask, EventTaskFormData, TaskFilters, TaskStatus, TaskChecklistItem } from '@/types/task';
+import { TaskTemplate, TaskTemplateFormData, EventTask, EventTaskFormData, TaskFilters, TaskStatus, TaskCategory, TaskPriority, TaskChecklistItem } from '@/types/task';
 
 function getClient() {
   return createClient();
+}
+
+// ==================== ROW NARROWING ====================
+// The DB columns are open (`string | null`, `Json`) because they carry no CHECK
+// constraint and no NOT NULL DEFAULT, so the generated types cannot express the
+// closed unions the domain types demand. These helpers narrow at the boundary
+// and default to the safe base case on null/unknown rather than lying via a cast.
+
+const TASK_STATUSES: readonly TaskStatus[] = ['pending', 'in_progress', 'completed', 'cancelled'];
+const TASK_PRIORITIES: readonly TaskPriority[] = ['low', 'medium', 'high', 'urgent'];
+const TASK_CATEGORIES: readonly TaskCategory[] = [
+  'logistics', 'production', 'medical', 'security', 'media',
+  'hospitality', 'technical', 'administrative', 'other',
+];
+
+function toTaskStatus(value: string | null): TaskStatus {
+  return TASK_STATUSES.includes(value as TaskStatus) ? (value as TaskStatus) : 'pending';
+}
+
+function toTaskPriority(value: string | null): TaskPriority {
+  return TASK_PRIORITIES.includes(value as TaskPriority) ? (value as TaskPriority) : 'medium';
+}
+
+function toTaskCategory(value: string | null): TaskCategory {
+  return TASK_CATEGORIES.includes(value as TaskCategory) ? (value as TaskCategory) : 'other';
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Event-task checklists are stored as an array of objects. */
+function toChecklistItems(value: unknown): TaskChecklistItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isRecord).map(item => ({
+    id: typeof item.id === 'string' ? item.id : '',
+    text: typeof item.text === 'string' ? item.text : '',
+    completed: item.completed === true,
+    completed_at: typeof item.completed_at === 'string' ? item.completed_at : null,
+    completed_by: typeof item.completed_by === 'string' ? item.completed_by : null,
+  }));
+}
+
+/** Template checklists are stored as a plain array of strings. */
+function toTemplateChecklist(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter((item): item is string => typeof item === 'string');
+}
+
+type TaskTemplateRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string | null;
+  default_priority: string | null;
+  estimated_duration_minutes: number | null;
+  checklist_items: unknown;
+  is_active: boolean | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function mapTaskTemplate(row: TaskTemplateRow): TaskTemplate {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    category: toTaskCategory(row.category),
+    default_priority: toTaskPriority(row.default_priority),
+    estimated_duration_minutes: row.estimated_duration_minutes,
+    checklist_items: toTemplateChecklist(row.checklist_items),
+    is_active: row.is_active ?? false,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+  };
+}
+
+type EventTaskRow = {
+  id: string;
+  event_id: string;
+  template_id: string | null;
+  name: string;
+  description: string | null;
+  category: string;
+  priority: string | null;
+  status: string | null;
+  assigned_to: string | null;
+  assigned_by: string | null;
+  due_date: string | null;
+  due_time: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  checklist_items: unknown;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+function mapEventTask(
+  row: EventTaskRow,
+  joins: { assigned_user?: EventTask['assigned_user']; template?: TaskTemplate } = {}
+): EventTask {
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    template_id: row.template_id,
+    name: row.name,
+    description: row.description,
+    category: toTaskCategory(row.category),
+    priority: toTaskPriority(row.priority),
+    status: toTaskStatus(row.status),
+    assigned_to: row.assigned_to,
+    assigned_by: row.assigned_by,
+    due_date: row.due_date,
+    due_time: row.due_time,
+    started_at: row.started_at,
+    completed_at: row.completed_at,
+    checklist_items: toChecklistItems(row.checklist_items),
+    notes: row.notes,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+    ...(joins.assigned_user ? { assigned_user: joins.assigned_user } : {}),
+    ...(joins.template ? { template: joins.template } : {}),
+  };
 }
 
 // ==================== TASK TEMPLATES ====================
@@ -24,7 +147,7 @@ export async function getTaskTemplates(activeOnly: boolean = false): Promise<Tas
 
   if (error) throw new Error('Failed to fetch task templates');
 
-  return data || [];
+  return (data || []).map(mapTaskTemplate);
 }
 
 export async function getTaskTemplateById(templateId: string): Promise<TaskTemplate | null> {
@@ -40,7 +163,7 @@ export async function getTaskTemplateById(templateId: string): Promise<TaskTempl
     throw error;
   }
 
-  return data;
+  return mapTaskTemplate(data);
 }
 
 export async function createTaskTemplate(formData: TaskTemplateFormData): Promise<TaskTemplate> {
@@ -61,7 +184,7 @@ export async function createTaskTemplate(formData: TaskTemplateFormData): Promis
 
   if (error) throw new Error('Failed to create task template');
 
-  return data;
+  return mapTaskTemplate(data);
 }
 
 export async function updateTaskTemplate(templateId: string, formData: Partial<TaskTemplateFormData>): Promise<TaskTemplate> {
@@ -75,7 +198,7 @@ export async function updateTaskTemplate(templateId: string, formData: Partial<T
 
   if (error) throw new Error('Failed to update task template');
 
-  return data;
+  return mapTaskTemplate(data);
 }
 
 export async function deleteTaskTemplate(templateId: string): Promise<void> {
@@ -130,10 +253,16 @@ export async function getEventTasks(eventId: string, filters?: TaskFilters): Pro
     );
   }
 
-  return (results as any[]).map(task => ({
-    ...task,
-    assigned_user: task.assigned_user ? { id: task.assigned_user.id, compiled_name: task.assigned_user.name } : null
-  }));
+  return results.map(task => {
+    const { assigned_user, template, ...row } = task as typeof task & {
+      assigned_user: { id: string; name: string } | null;
+      template: TaskTemplateRow | null;
+    };
+    return mapEventTask(row, {
+      assigned_user: assigned_user ? { id: assigned_user.id, compiled_name: assigned_user.name } : undefined,
+      template: template ? mapTaskTemplate(template) : undefined,
+    });
+  });
 }
 
 export async function getTaskById(taskId: string): Promise<EventTask | null> {
@@ -153,11 +282,14 @@ export async function getTaskById(taskId: string): Promise<EventTask | null> {
     throw error;
   }
 
-  const task = data as any;
-  return {
-    ...task,
-    assigned_user: task.assigned_user ? { id: task.assigned_user.id, compiled_name: task.assigned_user.name } : null
+  const { assigned_user, template, ...row } = data as typeof data & {
+    assigned_user: { id: string; name: string } | null;
+    template: TaskTemplateRow | null;
   };
+  return mapEventTask(row, {
+    assigned_user: assigned_user ? { id: assigned_user.id, compiled_name: assigned_user.name } : undefined,
+    template: template ? mapTaskTemplate(template) : undefined,
+  });
 }
 
 export async function createEventTask(eventId: string, formData: EventTaskFormData, userId: string): Promise<EventTask> {
@@ -192,7 +324,7 @@ export async function createEventTask(eventId: string, formData: EventTaskFormDa
 
   if (error) throw new Error('Failed to create event task');
 
-  return data;
+  return mapEventTask(data);
 }
 
 export async function createTaskFromTemplate(eventId: string, templateId: string, userId: string, overrides?: Partial<EventTaskFormData>): Promise<EventTask> {
@@ -248,7 +380,7 @@ export async function updateEventTask(taskId: string, formData: Partial<EventTas
 
   if (error) throw new Error('Failed to update event task');
 
-  return data;
+  return mapEventTask(data);
 }
 
 export async function deleteEventTask(taskId: string): Promise<void> {
@@ -286,7 +418,7 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
 
   if (error) throw new Error('Failed to update task status');
 
-  return data;
+  return mapEventTask(data);
 }
 
 export async function toggleChecklistItem(taskId: string, itemId: string, userId: string): Promise<EventTask> {
@@ -321,7 +453,7 @@ export async function toggleChecklistItem(taskId: string, itemId: string, userId
 
   if (error) throw new Error('Failed to toggle checklist item');
 
-  return data;
+  return mapEventTask(data);
 }
 
 export async function assignTask(taskId: string, assigneeId: string | null, assignerId: string): Promise<EventTask> {
@@ -338,7 +470,7 @@ export async function assignTask(taskId: string, assigneeId: string | null, assi
 
   if (error) throw new Error('Failed to assign task');
 
-  return data;
+  return mapEventTask(data);
 }
 
 export async function getTaskStats(eventId: string): Promise<{
