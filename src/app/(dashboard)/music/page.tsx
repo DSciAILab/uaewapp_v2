@@ -8,8 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Music, CheckCircle, Clock, AlertTriangle, Search, ExternalLink,
-  Filter, Pencil, Plus, ArrowUpDown, ArrowUp, ArrowDown,
+  Music, Music2, CheckCircle, CheckCircle2, XCircle, Clock, AlertTriangle,
+  Search, ExternalLink, Filter, Pencil, Plus, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { MusicForm } from '@/components/music/music-form';
 import { MusicPlayer } from '@/components/music/music-player';
@@ -299,7 +299,12 @@ export default function GlobalMusicPage() {
             <SelectItem value="confirmed">Confirmed</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="uploaded">Uploaded</SelectItem>
-            <SelectItem value="no_music">❌ No Music</SelectItem>
+            <SelectItem value="no_music">
+              <span className="flex items-center gap-1.5">
+                <XCircle className="h-3.5 w-3.5 text-status-critical" aria-hidden="true" />
+                No Music
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -535,8 +540,14 @@ export default function GlobalMusicPage() {
                           </Badge>
                         </div>
                         <div className="flex gap-2 text-[10px] text-muted-foreground">
-                          <span>🎵 {withMusic}/{evRows.length} with music</span>
-                          <span>✅ {confirmed} confirmed</span>
+                          <span className="flex items-center gap-1">
+                            <Music2 className="h-3 w-3 text-status-neutral" aria-hidden="true" />
+                            {withMusic}/{evRows.length} with music
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-status-confirmed" aria-hidden="true" />
+                            {confirmed} confirmed
+                          </span>
                         </div>
                       </div>
                     );
