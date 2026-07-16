@@ -34,13 +34,18 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Rotas públicas
-  const publicRoutes = ['/login', '/callback', '/']
-  const isPublicRoute = publicRoutes.some(route => 
-    request.nextUrl.pathname === route || 
-    request.nextUrl.pathname.startsWith('/tv') ||
-    request.nextUrl.pathname.startsWith('/public') ||
-    request.nextUrl.pathname === '/staging'
-  )
+  const pathname = request.nextUrl.pathname
+
+  // Match exato: páginas públicas isoladas.
+  const PUBLIC_EXACT = ['/login', '/callback', '/', '/staging']
+  // Match por prefixo: árvores públicas inteiras.
+  // '/api/public' é obrigatório — sem ele o middleware redireciona POSTs
+  // anônimos para /login (HTML), e o response.json() do submitter quebra.
+  const PUBLIC_PREFIXES = ['/tv', '/public', '/api/public']
+
+  const isPublicRoute =
+    PUBLIC_EXACT.includes(pathname) ||
+    PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix))
 
   // Redirecionar para login se não autenticado
   if (!user && !isPublicRoute) {
@@ -50,7 +55,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Redirecionar para dashboard se já autenticado e tentando acessar login
-  if (user && request.nextUrl.pathname === '/login') {
+  if (user && pathname === '/login') {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)

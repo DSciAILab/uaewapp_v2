@@ -2,15 +2,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
 
+// Este endpoint é público (ver middleware: /api/public) e passa o input para o
+// yt-dlp via spawn. Um `includes('http')` NÃO é validação: '--config-location=/tmp/http'
+// passaria e o yt-dlp interpretaria como FLAG (argument injection -> --exec -> RCE).
+// Defesa em duas camadas: (1) allowlist de host/protocolo; (2) '--' antes da url
+// em todo argv, forçando o yt-dlp a tratá-la como operando, nunca como opção.
+const ALLOWED_HOSTS = new Set([
+  'youtube.com',
+  'www.youtube.com',
+  'music.youtube.com',
+  'youtu.be',
+]);
+
+function parseAllowedUrl(raw: unknown): string | null {
+  if (typeof raw !== 'string' || raw.length === 0) return null;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return null;
+  }
+
+  if (parsed.protocol !== 'https:') return null;
+  if (!ALLOWED_HOSTS.has(parsed.hostname.toLowerCase())) return null;
+
+  // Devolve a forma normalizada pelo WHATWG URL, não a string crua.
+  return parsed.toString();
+}
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const body = await req.json();
-    const { url, action } = body;
+    const { action } = body;
 
-    // Basic Validation
-    if (!url || !url.includes('http')) {
+    const url = parseAllowedUrl(body?.url);
+    if (!url) {
       return NextResponse.json(
-        { error: 'Invalid URL' },
+        { error: 'Invalid URL: must be an https YouTube link' },
         { status: 400 }
       );
     }
@@ -18,7 +47,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // ACTION: CHECK (Get Metadata)
     if (action === 'check') {
         return new Promise<NextResponse>((resolve) => {
-            const process = spawn('yt-dlp', ['--dump-json', url]);
+            const process = spawn('yt-dlp', ['--dump-json', '--', url]);
             let dataString = '';
             
             process.stdout.on('data', (data) => {
@@ -56,6 +85,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
             '-x',
             '--audio-format', 'mp3',
             '-o', '-',
+            '--',
             url
         ]);
 
@@ -114,7 +144,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         }
         
         // 1. Get Info for Title
-        const infoProcess = spawn('yt-dlp', ['--dump-json', url]);
+        const infoProcess = spawn('yt-dlp', ['--dump-json', '--', url]);
         let infoData = '';
         for await (const chunk of infoProcess.stdout) {
             infoData += chunk;
@@ -130,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         const filename = `yt_${Date.now()}_${sanitizedTitle}.mp3`;
 
         // 2. Stream Download -> Buffer -> Supabase
-        const downloadProcess = spawn('yt-dlp', ['-f', 'bestaudio', '-o', '-', url]);
+        const downloadProcess = spawn('yt-dlp', ['-f', 'bestaudio', '-o', '-', '--', url]);
         const chunks: Uint8Array[] = [];
         
         for await (const chunk of downloadProcess.stdout) {

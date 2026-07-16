@@ -1,3 +1,8 @@
+// Este módulo expõe createAdminClient (SERVICE ROLE). Se algum dia for importado
+// num client component, a chave vaza para o bundle do browser. Este import faz
+// o build FALHAR nesse caso, em vez de vazar silenciosamente.
+import 'server-only'
+
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from '@/types/supabase'

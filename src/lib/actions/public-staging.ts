@@ -1,13 +1,15 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/server';
+// Ver nota em public-medical.ts: action pública + SERVICE ROLE = RLS ignorada
+// para eventId enumerável. Client anon/authed para que a RLS governe.
+import { createClient } from '@/lib/supabase/server';
 import { StagingRow, StagingCheckin } from '@/types/staging';
 import { getFightCardData } from '@/lib/services/stats-service'; 
 import { normalizeName, getFighterPhotoUrl } from '@/lib/utils';
 
 export async function getPublicStagingData(eventId: string): Promise<StagingRow[]> {
     console.log(`[PublicStaging] Fetching for event: ${eventId}`);
-    const supabase = await createAdminClient();
+    const supabase = await createClient();
 
     try {
         // 1. Parallel Fetch: Enrollments, Checkins, Fight Card
@@ -17,7 +19,7 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
                 .from('mma_enrollments')
                 .select(`
                     id,
-                    person:mma_people(id, name, surname, nationality, appadmin_fighter_id, passport_photo, event_name),
+                    person:mma_people(id, name, surname, nationality, appadmin_fighter_id, event_name),
                     event:mma_events(name),
                     role:mma_roles!inner(code)
                 `)
@@ -105,7 +107,8 @@ export async function getPublicStagingData(eventId: string): Promise<StagingRow[
                         compiled_name: matchData.name || person.event_name || fullName, // Use Fight Card name -> Event Name -> Full Name
                         nationality: person.nationality,
                         appadmin_fighter_id: person.appadmin_fighter_id,
-                        photo_url: getFighterPhotoUrl(person.appadmin_fighter_id) || person.passport_photo
+                        // PII fora do board público: sem fallback para passport_photo.
+                        photo_url: getFighterPhotoUrl(person.appadmin_fighter_id) || undefined
                     },
                     event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name : (enr.event as any)?.name
                 });

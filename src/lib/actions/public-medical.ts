@@ -1,6 +1,10 @@
 'use server'
 
-import { createAdminClient } from '@/lib/supabase/server'
+// Estas actions são 'use server' e as páginas /public são invocáveis sem auth,
+// ou seja: qualquer um chama isto com um eventId enumerável. Com createAdminClient
+// (SERVICE ROLE) a RLS era ignorada e o retorno vazava PII de atleta. Usa o client
+// anon/authed para que a RLS governe o acesso.
+import { createClient } from '@/lib/supabase/server'
 import type {
   MedicalClearance,
   MedicalLogEntry,
@@ -11,7 +15,7 @@ import { getFightCardData } from '@/lib/services/stats-service'
 import { normalizeName, getFighterPhotoUrl } from '@/lib/utils'
 
 export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[]> {
-  const supabase = await createAdminClient()
+  const supabase = await createClient()
 
   try {
     const [enrollmentRes, clearanceRes, hospitalLogRes, fightCard] = await Promise.all([
@@ -19,7 +23,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         .from('mma_enrollments')
         .select(`
           id,
-          person:mma_people(id, name, surname, nationality, appadmin_fighter_id, passport_photo, phone, event_name),
+          person:mma_people(id, name, surname, nationality, appadmin_fighter_id, event_name),
           event:mma_events(name),
           role:mma_roles!inner(code)
         `)
@@ -88,8 +92,10 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
           compiled_name: match.name || eventName || fullName,
           nationality: person.nationality ?? null,
           appadmin_fighter_id: person.appadmin_fighter_id ?? null,
-          phone: person.phone ?? null,
-          photo_url: getFighterPhotoUrl(person.appadmin_fighter_id) || person.passport_photo || null,
+          // PII fora do board público: telefone nunca é projetado aqui, e o
+          // fallback de foto para passport_photo (documento) foi removido.
+          phone: null,
+          photo_url: getFighterPhotoUrl(person.appadmin_fighter_id) || null,
         },
         event_name: Array.isArray(enr.event) ? (enr.event[0] as any)?.name ?? null : (enr.event as any)?.name ?? null,
       })
@@ -109,7 +115,7 @@ export async function getPublicMedicalHistory(
   eventId: string,
   enrolledId: string
 ): Promise<MedicalLogEntry[]> {
-  const supabase = await createAdminClient()
+  const supabase = await createClient()
   const { data, error } = await supabase
     .from('mma_medical_clearance_log')
     .select('*')
