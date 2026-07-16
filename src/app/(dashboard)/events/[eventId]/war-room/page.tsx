@@ -16,7 +16,7 @@ import { LiveStatusBoard } from '@/components/war-room/live-status-board';
 import { ActivityFeed } from '@/components/war-room/activity-feed';
 import { TeamPresence } from '@/components/war-room/team-presence';
 import { AlertsPanel } from '@/components/war-room/alerts-panel';
-import { CountdownTimer } from '@/components/war-room/countdown-timer';
+import { EventCountdown } from '@/components/ui/event-countdown';
 import { useRealtime } from '@/lib/realtime/use-realtime';
 import { useRealtimeContext, RealtimeProvider } from '@/lib/realtime/realtime-provider';
 import { getEventById } from '@/lib/services/events';
@@ -192,7 +192,7 @@ function WarRoomContent({ eventId }: { eventId: string }) {
                 <LiveStatusBoard statuses={liveStatuses} />
               </div>
               <div className="col-span-3 row-span-1">
-                <CountdownTimer targetDate={event.event_date} label="Live Event" />
+                <EventCountdown targetDate={event.event_date} eventName={event.name} />
               </div>
               <div className="col-span-6 row-span-5">
                 <ActivityFeed updates={updates} />
