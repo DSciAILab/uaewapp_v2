@@ -9,7 +9,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Batch, BatchFormData, BatchType, BatchStatus, BATCH_TYPE_LABELS, BATCH_STATUS_LABELS } from '@/types/batch';
 import { createBatch, updateBatch } from '@/lib/services/batch-service';
 import { toast } from 'sonner';
@@ -17,7 +16,6 @@ import { toast } from 'sonner';
 const batchSchema = z.object({
   batch_type: z.enum(['weigh_in', 'medical', 'credentials', 'media', 'rules_meeting', 'custom']),
   name: z.string().min(1, 'Name is required'),
-  description: z.string().optional(),
   scheduled_date: z.string().min(1, 'Date is required'),
   start_time: z.string().min(1, 'Start time is required'),
   end_time: z.string().optional(),
@@ -46,7 +44,6 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
     defaultValues: {
       batch_type: 'weigh_in' as BatchType,
       name: '',
-      description: '',
       scheduled_date: new Date().toISOString().split('T')[0],
       start_time: '09:00',
       end_time: '',
@@ -63,7 +60,6 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
       form.reset({
         batch_type: batch.batch_type,
         name: batch.name || '',
-        description: batch.description || '',
         scheduled_date: batch.scheduled_date,
         start_time: batch.start_time.slice(0, 5),
         end_time: batch.end_time ? batch.end_time.slice(0, 5) : '',
@@ -77,7 +73,6 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
       form.reset({
         batch_type: 'weigh_in',
         name: '',
-        description: '',
         scheduled_date: new Date().toISOString().split('T')[0],
         start_time: '09:00',
         end_time: '',
@@ -168,18 +163,6 @@ export function BatchForm({ eventId, batch, open, onOpenChange, onSuccess }: Bat
                 <FormItem>
                   <FormLabel>Name *</FormLabel>
                   <FormControl><Input placeholder="e.g. Weigh-in Batch A" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Description</FormLabel>
-                  <FormControl><Textarea placeholder="Batch description..." {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

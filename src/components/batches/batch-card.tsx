@@ -59,12 +59,6 @@ export function BatchCard({ batch, onEdit, onClick }: BatchCardProps) {
             </div>
           )}
         </div>
-
-        {batch.description && (
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-2">
-            {batch.description}
-          </p>
-        )}
       </CardContent>
     </Card>
   );

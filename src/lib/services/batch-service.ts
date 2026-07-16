@@ -103,13 +103,15 @@ export async function createBatch(eventId: string, formData: BatchFormData): Pro
   const supabase = getClient();
   const batchNumber = await getNextBatchNumber(eventId, formData.batch_type);
 
-  const payload = {
+  const payload: Database['public']['Tables']['mma_batches']['Insert'] = {
     event_id: eventId,
     batch_type: formData.batch_type,
     batch_number: batchNumber,
     name: formData.name,
-    description: formData.description || null,
     scheduled_date: formData.scheduled_date,
+    // scheduled_time is NOT NULL with no DB default; start_time is the value the
+    // form collects for it, so the two are kept in sync.
+    scheduled_time: formData.start_time,
     start_time: formData.start_time,
     end_time: formData.end_time || null,
     location: formData.location || null,
@@ -121,7 +123,7 @@ export async function createBatch(eventId: string, formData: BatchFormData): Pro
 
   const { data, error } = await supabase
     .from('mma_batches')
-    .insert(payload as unknown as Database['public']['Tables']['mma_batches']['Insert'])
+    .insert(payload)
     .select()
     .single();
 
@@ -132,9 +134,27 @@ export async function createBatch(eventId: string, formData: BatchFormData): Pro
 
 export async function updateBatch(batchId: string, formData: Partial<BatchFormData>): Promise<Batch> {
   const supabase = getClient();
+
+  // Explicit whitelist: only real mma_batches columns may reach PostgREST.
+  const payload: Database['public']['Tables']['mma_batches']['Update'] = {};
+
+  if (formData.batch_type !== undefined) payload.batch_type = formData.batch_type;
+  if (formData.name !== undefined) payload.name = formData.name;
+  if (formData.scheduled_date !== undefined) payload.scheduled_date = formData.scheduled_date;
+  if (formData.start_time !== undefined) {
+    payload.start_time = formData.start_time;
+    payload.scheduled_time = formData.start_time;
+  }
+  if (formData.end_time !== undefined) payload.end_time = formData.end_time || null;
+  if (formData.location !== undefined) payload.location = formData.location || null;
+  if (formData.room !== undefined) payload.room = formData.room || null;
+  if (formData.max_capacity !== undefined) payload.max_capacity = formData.max_capacity || null;
+  if (formData.status !== undefined) payload.status = formData.status;
+  if (formData.notes !== undefined) payload.notes = formData.notes || null;
+
   const { data, error } = await supabase
     .from('mma_batches')
-    .update(formData as unknown as Database['public']['Tables']['mma_batches']['Update'])
+    .update(payload)
     .eq('id', batchId)
     .select()
     .single();
