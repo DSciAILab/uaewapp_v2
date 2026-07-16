@@ -35,6 +35,21 @@ import {
 import { upsertFighterStats } from '@/lib/services/stats-service';
 import { FighterStats, WEIGHT_CLASS_LABELS } from '@/types/stats';
 
+const APPAREL_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'] as const;
+
+const KIT_SIZE_FIELDS = [
+  { name: 'tshirt_size', label: 'T-Shirt Size' },
+  { name: 'shorts_size', label: 'Shorts Size' },
+  { name: 'jacket_size', label: 'Jacket Size' },
+  { name: 'gloves_size', label: 'Gloves Size' },
+] as const;
+
+const COACH_SIZE_FIELDS = [
+  { name: 'coach1_size', label: 'Coach 1 Size' },
+  { name: 'coach2_size', label: 'Coach 2 Size' },
+  { name: 'coach3_size', label: 'Coach 3 Size' },
+] as const;
+
 const statsSchema = z.object({
   height_cm: z.coerce.number().min(0).optional(),
   reach_cm: z.coerce.number().min(0).optional(),
@@ -42,7 +57,14 @@ const statsSchema = z.object({
   
   uniform_size: z.string().optional(),
   shoe_size: z.string().optional(),
-  
+  tshirt_size: z.string().optional(),
+  shorts_size: z.string().optional(),
+  jacket_size: z.string().optional(),
+  gloves_size: z.string().optional(),
+  coach1_size: z.string().optional(),
+  coach2_size: z.string().optional(),
+  coach3_size: z.string().optional(),
+
   wins: z.coerce.number().min(0).default(0),
   losses: z.coerce.number().min(0).default(0),
   draws: z.coerce.number().min(0).default(0),
@@ -80,7 +102,14 @@ export function AthleteStatsForm({ personId, initialData, onSuccess }: AthleteSt
       weight_class: initialData?.weight_class || undefined,
       uniform_size: initialData?.uniform_size || undefined,
       shoe_size: initialData?.shoe_size || undefined,
-      
+      tshirt_size: initialData?.tshirt_size || undefined,
+      shorts_size: initialData?.shorts_size || undefined,
+      jacket_size: initialData?.jacket_size || undefined,
+      gloves_size: initialData?.gloves_size || undefined,
+      coach1_size: initialData?.coach1_size || undefined,
+      coach2_size: initialData?.coach2_size || undefined,
+      coach3_size: initialData?.coach3_size || undefined,
+
       wins: initialData?.wins || 0,
       losses: initialData?.losses || 0,
       draws: initialData?.draws || 0,
@@ -193,7 +222,7 @@ export function AthleteStatsForm({ personId, initialData, onSuccess }: AthleteSt
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'].map((size) => (
+                        {APPAREL_SIZES.map((size) => (
                           <SelectItem key={size} value={size}>
                             {size}
                           </SelectItem>
@@ -220,8 +249,72 @@ export function AthleteStatsForm({ personId, initialData, onSuccess }: AthleteSt
               />
             </div>
 
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium leading-none">Kit Sizes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {KIT_SIZE_FIELDS.map(({ name, label }) => (
+                  <FormField
+                    key={name}
+                    control={form.control as any}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select size" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {APPAREL_SIZES.map((size) => (
+                              <SelectItem key={size} value={size}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
 
-            
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium leading-none">Coach Kit Sizes</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {COACH_SIZE_FIELDS.map(({ name, label }) => (
+                  <FormField
+                    key={name}
+                    control={form.control as any}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{label}</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select size" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {APPAREL_SIZES.map((size) => (
+                              <SelectItem key={size} value={size}>
+                                {size}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                ))}
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control as any}

@@ -77,7 +77,14 @@ export interface FighterStatsFormData {
   corner?: string;
   uniform_size?: string;
   shoe_size?: string;
-  
+  tshirt_size?: string;
+  shorts_size?: string;
+  jacket_size?: string;
+  gloves_size?: string;
+  coach1_size?: string;
+  coach2_size?: string;
+  coach3_size?: string;
+
   wins: number;
   losses: number;
   draws: number;
@@ -128,8 +135,9 @@ export interface EventWeighIn {
   id: string;
   event_id: string;
   enrolled_id: string;
-  corner: string | null;
-  
+  // NOTE: no `corner` column exists on mma_event_weigh_ins — corner lives on
+  // mma_enrollments and is surfaced via the `enrolled` join below.
+
   // Weigh-in data
   official_weight_kg: number | null;
   weigh_in_time: string | null;
