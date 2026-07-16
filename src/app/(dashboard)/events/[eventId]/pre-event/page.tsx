@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Droplet, Stethoscope, FileText, Users, Plane } from 'lucide-react';
+import { Plus, Droplet, Stethoscope, FileText, Users, Plane, AlertTriangle, RotateCw } from 'lucide-react';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { PreEventSummaryStats } from '@/components/pre-event/pre-event-summary';
 import { ClearanceStatusCard } from '@/components/pre-event/clearance-status-card';
 import { BloodTestTable } from '@/components/pre-event/blood-test-table';
@@ -63,38 +64,72 @@ export default function PreEventPage() {
   const [isDocumentFormOpen, setIsDocumentFormOpen] = useState(false);
   
   const [isLoading, setIsLoading] = useState(true);
+  const [failedSections, setFailedSections] = useState<string[]>([]);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    try {
-      const [bloodTestsData, medicalExamsData, documentsData, summariesData, statsData, logisticsOverview, carsData] = await Promise.all([
-        getEventBloodTests(eventId),
-        getEventMedicalExams(eventId),
-        getEventDocuments(eventId),
-        getPreEventSummary(eventId),
-        getPreEventStats(eventId),
-        getLogisticsOverview(eventId),
-        getEventCars(eventId)
-      ]);
-      
-      setBloodTests(bloodTestsData);
-      setMedicalExams(medicalExamsData);
-      setDocuments(documentsData);
-      setSummaries(summariesData);
-      setStats(statsData);
-      setLogisticsData(logisticsOverview);
-      setEventCars(carsData);
+    setFailedSections([]);
 
+    // allSettled, not all: transport is known-fragile (it queries a consolidated
+    // table family). Under Promise.all a single transport rejection discarded all
+    // seven results and the page rendered convincingly EMPTY during fight week.
+    const [
+      bloodTestsRes,
+      medicalExamsRes,
+      documentsRes,
+      summariesRes,
+      statsRes,
+      logisticsRes,
+      carsRes,
+    ] = await Promise.allSettled([
+      getEventBloodTests(eventId),
+      getEventMedicalExams(eventId),
+      getEventDocuments(eventId),
+      getPreEventSummary(eventId),
+      getPreEventStats(eventId),
+      getLogisticsOverview(eventId),
+      getEventCars(eventId),
+    ]);
+
+    const failures: string[] = [];
+    const record = (label: string, reason: unknown) => {
+      console.error(`Failed to load pre-event section "${label}":`, reason);
+      failures.push(label);
+    };
+
+    if (bloodTestsRes.status === 'fulfilled') setBloodTests(bloodTestsRes.value);
+    else record('blood tests', bloodTestsRes.reason);
+
+    if (medicalExamsRes.status === 'fulfilled') setMedicalExams(medicalExamsRes.value);
+    else record('medical exams', medicalExamsRes.reason);
+
+    if (documentsRes.status === 'fulfilled') setDocuments(documentsRes.value);
+    else record('documents', documentsRes.reason);
+
+    if (summariesRes.status === 'fulfilled') {
+      setSummaries(summariesRes.value);
       // Build enrolled list from summaries
-      setEnrolledList(summariesData.map(s => ({
-        id: s.enrolled_id,
-        person: { compiled_name: s.person_name },
-      })));
-    } catch (error) {
-      console.error('Failed to load pre-event data:', error);
-    } finally {
-      setIsLoading(false);
+      setEnrolledList(
+        summariesRes.value.map((s) => ({
+          id: s.enrolled_id,
+          person: { compiled_name: s.person_name },
+        }))
+      );
+    } else {
+      record('clearance summary', summariesRes.reason);
     }
+
+    if (statsRes.status === 'fulfilled') setStats(statsRes.value);
+    else record('summary stats', statsRes.reason);
+
+    if (logisticsRes.status === 'fulfilled') setLogisticsData(logisticsRes.value);
+    else record('logistics', logisticsRes.reason);
+
+    if (carsRes.status === 'fulfilled') setEventCars(carsRes.value);
+    else record('transport', carsRes.reason);
+
+    setFailedSections(failures);
+    setIsLoading(false);
   }, [eventId]);
 
   useEffect(() => {
@@ -135,13 +170,43 @@ export default function PreEventPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Pre-Event Requirements</h1>
-          <p className="text-muted-foreground">Manage blood tests, medical exams, and documents</p>
+    <div className="flex flex-col h-full space-y-6">
+      <DashboardHeader
+        title="Pre-Event Requirements"
+        description="Manage blood tests, medical exams, and documents"
+      />
+
+      <div className="flex-1 px-6 pb-6 space-y-6">
+      {/* A partial load must announce itself — a silent empty table during fight
+          week is indistinguishable from "nothing is scheduled". */}
+      {failedSections.length > 0 && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-status-critical/40 bg-status-critical/10 px-4 py-3"
+        >
+          <AlertTriangle
+            className="h-4 w-4 shrink-0 text-status-critical mt-0.5"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">
+              Some sections failed to load
+            </p>
+            <p className="mt-1 font-mono text-xs text-muted-foreground">
+              {failedSections.join(', ')} — data shown below may be incomplete.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadData}
+            className="h-7 shrink-0"
+          >
+            <RotateCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+            Retry
+          </Button>
         </div>
-      </div>
+      )}
 
       {/* Summary Stats */}
       <PreEventSummaryStats stats={stats} />
@@ -277,6 +342,7 @@ export default function PreEventPage() {
         onOpenChange={handleDocumentFormClose}
         onSuccess={loadData}
       />
+      </div>
     </div>
   );
 }
