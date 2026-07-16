@@ -268,6 +268,10 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus): Prom
     updateData.started_at = new Date().toISOString();
   } else if (status === 'completed') {
     updateData.completed_at = new Date().toISOString();
+  } else {
+    // Reverting to pending/cancelled must clear the completion stamp,
+    // otherwise a task reverted from 'completed' keeps a stale completed_at.
+    updateData.completed_at = null;
   }
 
 
