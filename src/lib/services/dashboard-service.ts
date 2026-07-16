@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
 import { DashboardData, EventMetrics, ModuleStatus, UpcomingDeadline, ActivityItem } from '@/types/dashboard';
 import { SupabaseClient } from '@supabase/supabase-js';
@@ -67,22 +66,47 @@ export async function getEventMetrics(eventId: string, client?: SupabaseClient):
  */
 export async function getUpcomingDeadlines(eventId: string, client?: SupabaseClient): Promise<UpcomingDeadline[]> {
   const supabase = client || getClient();
-  const { data: tasks } = await supabase
-    .from('mma_athlete_tasks')
-    .select('id, task_type, scheduled_date, scheduled_time, mma_enrollments!inner(id, event_id)')
-    .eq('mma_enrollments.event_id', eventId)
-    .eq('status', 'required')
-    .order('scheduled_date', { ascending: true })
+  // mma_event_tasks carries event_id directly, so no enrollment embed is needed.
+  // Open work only: anything completed or cancelled is not a deadline.
+  const { data: tasks, error } = await supabase
+    .from('mma_event_tasks')
+    .select('id, name, category, due_date, due_time, priority')
+    .eq('event_id', eventId)
+    .not('due_date', 'is', null)
+    .not('status', 'in', '("completed","cancelled")')
+    .order('due_date', { ascending: true })
     .limit(5);
+
+  if (error) {
+    console.error('Upcoming Deadlines Fetch Error:', error);
+    throw new Error(`Failed to fetch upcoming deadlines: ${error.message}`);
+  }
 
   return (tasks || []).map(t => ({
     id: t.id,
     type: 'task' as const,
-    title: t.task_type.replace('_', ' ').toUpperCase(),
-    description: `Scheduled: ${t.scheduled_time || 'TBD'}`,
-    datetime: t.scheduled_date || '',
-    urgency: 'medium' as const,
+    title: t.name,
+    description: `${t.category} - Due: ${t.due_time || 'TBD'}`,
+    datetime: t.due_date || '',
+    urgency: mapPriorityToUrgency(t.priority),
   }));
+}
+
+/**
+ * mma_event_tasks.priority vocabulary (low | medium | high | urgent)
+ * mapped onto the UpcomingDeadline urgency scale (low | medium | high | critical).
+ */
+function mapPriorityToUrgency(priority: string | null): UpcomingDeadline['urgency'] {
+  switch (priority) {
+    case 'urgent':
+      return 'critical';
+    case 'high':
+      return 'high';
+    case 'low':
+      return 'low';
+    default:
+      return 'medium';
+  }
 }
 
 /**
