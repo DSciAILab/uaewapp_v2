@@ -27,8 +27,10 @@ interface FlightBatchGridProps {
 }
 
 // Helper to safely parse dates
-const safeDate = (dateStr?: string) => dateStr ? dateStr.split('T')[0] : '';
-const safeTime = (timeStr?: string) => timeStr || '';
+// Accepts null: the mma_flights date/time columns are nullable, and both
+// helpers already treat a nullish input as '' — only the signature was narrow.
+const safeDate = (dateStr?: string | null) => dateStr ? dateStr.split('T')[0] : '';
+const safeTime = (timeStr?: string | null) => timeStr || '';
 
 export function FlightBatchGrid({ flights, onRefresh }: FlightBatchGridProps) {
   const [editingId, setEditingId] = useState<string | null>(null);

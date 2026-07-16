@@ -1,6 +1,19 @@
+import type { Tables } from '@/types/supabase'
+
 export type UserType = 'admin' | 'staff' | 'temporary'
 export type PermissionLevel = 'view' | 'edit'
 export type FlightType = 'arrival_only' | 'departure_only' | 'full'
+
+/**
+ * mma_flights.type is an open `string` in the DB (no CHECK/enum backing it),
+ * so a row can legally hold a value outside FlightType. Narrow at every read
+ * boundary instead of asserting.
+ */
+export const FLIGHT_TYPES = ['arrival_only', 'departure_only', 'full'] as const
+
+export function isFlightType(s: string): s is FlightType {
+  return (FLIGHT_TYPES as readonly string[]).includes(s)
+}
 export type TransportNeed = 'none' | 'arrival' | 'departure' | 'both'
 export type EnrollmentStatus = 'active' | 'cancelled' | 'replaced'
 export type TaskStatus = 'not_required' | 'required' | 'done'
@@ -8,6 +21,17 @@ export type TaskType = 'blood_test' | 'photoshoot' | 'video_shoot'
 export type BatchStatus = 'scheduled' | 'boarding' | 'departed' | 'arrived'
 export type EventStatus = 'planning' | 'active' | 'completed' | 'cancelled'
 export type VisaStatus = 1 | 2 | 3 | 4 | 5 | 6 // 1=Not Required, 2=Required, 3=Applied, 4=Approved, 5=Rejected, 6=Resident
+
+/**
+ * mma_visas.status is an open `number` in the DB (no CHECK/enum backing it),
+ * so a row can legally hold a value outside VisaStatus. Narrow at every read
+ * boundary instead of asserting.
+ */
+export const VISA_STATUSES = [1, 2, 3, 4, 5, 6] as const
+
+export function isVisaStatus(n: number): n is VisaStatus {
+  return (VISA_STATUSES as readonly number[]).includes(n)
+}
 
 export interface User {
   id: string
@@ -95,40 +119,23 @@ export interface Enrollment {
   event?: Event
 }
 
-export interface Flight {
-  id: string
-  enrollment_id: string
+/**
+ * Derived from the generated row type so nullability always tracks the DB.
+ * `type` is re-narrowed to FlightType: the column is an open string, so reads
+ * must go through isFlightType() before producing a Flight.
+ */
+export type Flight = Omit<Tables<'mma_flights'>, 'type'> & {
   type: FlightType
-  arrival_reservation?: string
-  arrival_flight_number?: string
-  arrival_date?: string
-  arrival_time?: string
-  arrival_airport?: string
-  arrival_ticket_link?: string
-  departure_reservation?: string
-  departure_flight_number?: string
-  departure_date?: string
-  departure_time?: string
-  departure_airport?: string
-  departure_ticket_link?: string
-  status: string
-  notes?: string
-  created_at: string
-  updated_at: string
 }
 
-export interface Visa {
-  id: string
-  enrollment_id: string
-  passport_name?: string
-  nationality?: string
-  departure_airport?: string
-  document_link?: string
+/**
+ * Derived from the generated row type so nullability always tracks the DB
+ * (passport_name / nationality / departure_airport / document_link / notes are
+ * all `string | null`, not the optional `string` this used to claim).
+ * `status` is re-narrowed to VisaStatus via isVisaStatus() at read boundaries.
+ */
+export type Visa = Omit<Tables<'mma_visas'>, 'status'> & {
   status: VisaStatus
-  is_done: boolean
-  notes?: string
-  created_at: string
-  updated_at: string
 }
 
 export interface Hotel {
