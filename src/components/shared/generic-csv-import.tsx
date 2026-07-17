@@ -280,7 +280,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
           )}
         </CardHeader>
         <CardContent className="space-y-6 p-6 flex-1 flex flex-col min-h-0">
-          <div className="flex items-center justify-between px-4 py-3 bg-muted/80 rounded-t-lg border font-bold text-[10px] uppercase tracking-widest text-muted-foreground">
+          <div className="hidden md:flex items-center justify-between px-4 py-3 bg-muted/80 rounded-t-lg border font-bold text-[10px] uppercase tracking-widest text-muted-foreground">
             <span className="flex-1">File Column &amp; Sample</span>
             <span className="w-64 text-right pr-6">System Field</span>
           </div>
@@ -292,24 +292,26 @@ export function GenericCSVImport<TRow = Record<string, string>>({
               const sample = csvData[0]?.[m.csvColumn] || ''
               const used = mappings.map(mp => mp.dbField).filter(f => f !== 'skip')
               return (
-                <div key={`${m.csvColumn}-${idx}`} className="flex items-center gap-4 p-3 hover:bg-muted/30 transition-colors">
-                  <div className="flex-1 min-w-0 flex items-center gap-3">
-                    <div className="flex flex-col min-w-0 max-w-[200px]">
-                      <span className="text-sm font-bold truncate" title={m.csvColumn}>{m.csvColumn}</span>
+                <div key={`${m.csvColumn}-${idx}`} className="flex flex-col gap-2 p-3 md:flex-row md:items-center md:gap-4 hover:bg-muted/30 transition-colors">
+                  <div className="flex-1 min-w-0 flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
+                    <div className="flex flex-col min-w-0 md:max-w-[200px]">
+                      <span className="text-sm font-bold break-words md:truncate" title={m.csvColumn}>
+                        {m.csvColumn}
+                      </span>
                       {m.csvColumn.startsWith(PLACEHOLDER_HEADER_PREFIX) && (
                         <span className="text-[9px] text-amber-600 font-medium">No header</span>
                       )}
                     </div>
-                    <span className="text-muted-foreground/30 shrink-0">→</span>
+                    <span className="hidden md:inline text-muted-foreground/30 shrink-0">→</span>
                     {sample ? (
-                      <span className="text-[11px] text-muted-foreground truncate italic bg-muted/30 px-2 py-1 rounded border border-dashed max-w-[200px]">
+                      <span className="text-[11px] text-muted-foreground italic bg-muted/30 px-2 py-1 rounded border border-dashed break-words md:truncate md:max-w-[200px]">
                         e.g. {sample.length > 30 ? `${sample.substring(0, 30)}...` : sample}
                       </span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground/40 italic">(empty)</span>
                     )}
                   </div>
-                  <div className="w-56 shrink-0">
+                  <div className="w-full md:w-56 md:shrink-0">
                     <Select
                       value={m.dbField}
                       onValueChange={(v) => setMappings(prev => {
