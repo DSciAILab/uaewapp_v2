@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -17,8 +17,19 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [denied, setDenied] = useState(false)
   const router = useRouter()
   const supabase = createClient()
+
+  // The middleware sends ?error=unauthorized when a session is valid for the
+  // Supabase project but the account isn't a UAEW user. Read it off the URL
+  // rather than useSearchParams so the page stays statically rendered.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('error') === 'unauthorized') {
+      setDenied(true)
+      supabase.auth.signOut()
+    }
+  }, [supabase])
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -168,6 +179,15 @@ export default function LoginPage() {
                 : 'Use your ops credentials.'}
             </p>
           </div>
+
+          {denied && (
+            <div className="mb-4 rounded-md border border-status-critical/40 bg-status-critical/10 px-3 py-2.5 text-sm">
+              <p className="font-medium text-status-critical">Access denied</p>
+              <p className="text-muted-foreground text-xs mt-0.5">
+                This account is not authorized for UAEW operations. Ask an administrator for access.
+              </p>
+            </div>
+          )}
 
           <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-1.5">
