@@ -1,85 +1,135 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pencil } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { FighterStats } from '@/types/stats';
-import { WeightClassBadge } from './weight-class-badge';
 import { calculateRecord, formatHeight, formatReach } from '@/lib/services/stats-service';
 import { getFighterPhotoUrl } from '@/lib/utils';
+import {
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  SortableHead,
+  compareValues,
+  nextSort,
+  type Corner,
+  type SortState,
+} from '@/components/fighters/fighter-identity';
+
+type SortKey =
+  | 'order'
+  | 'corner'
+  | 'fighter'
+  | 'nationality'
+  | 'residency'
+  | 'weight'
+  | 'record'
+  | 'height'
+  | 'team';
 
 interface StatsTableProps {
   stats: FighterStats[];
   onEdit: (stats: FighterStats) => void;
 }
 
+/**
+ * Corner/bout order here come off FighterStats, not getFightCardPositions:
+ * getEventFighterStats already resolves both against the card, and a
+ * FighterStats row carries no enrollment id to key the positions map with.
+ */
+const cornerOf = (s: FighterStats): Corner => {
+  const raw = (s.corner || '').toUpperCase();
+  return raw === 'RED' || raw === 'BLUE' ? raw : null;
+};
+
+const photoOf = (s: FighterStats): string =>
+  getFighterPhotoUrl(s.person?.appadmin_fighter_id) || s.person?.passport_photo || '';
+
 export function StatsTable({ stats, onEdit }: StatsTableProps) {
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
+
+  const sorted = useMemo(() => {
+    const value = (s: FighterStats): unknown => {
+      switch (sort.key) {
+        case 'order':
+          return s.matchNumber ?? null;
+        case 'corner':
+          return cornerOf(s);
+        case 'fighter':
+          return s.person?.compiled_name;
+        case 'nationality':
+          return s.person?.nationality;
+        case 'residency':
+          return s.residency;
+        case 'weight':
+          return s.weight_kg ?? null;
+        case 'record':
+          return s.wins;
+        case 'height':
+          return s.height_cm ?? null;
+        case 'team':
+          return s.team_gym;
+        default:
+          return null;
+      }
+    };
+
+    const out = [...stats].sort((a, b) => compareValues(value(a), value(b)));
+    return sort.dir === 'asc' ? out : out.reverse();
+  }, [stats, sort]);
+
+  const toggleSort = (key: SortKey) => setSort((prev) => nextSort(prev, key));
+
   return (
     <div className="rounded-md border">
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[60px]">Bout #</TableHead>
-            <TableHead className="w-[80px]">Photo</TableHead>
-            <TableHead>Fighter ID</TableHead>
-            <TableHead className="min-w-[200px]">Name / Event</TableHead>
-            <TableHead>Nationality</TableHead>
-            <TableHead>Residency</TableHead>
-            <TableHead>Weight</TableHead>
-            <TableHead>Record</TableHead>
-            <TableHead>Height/Reach</TableHead>
-            <TableHead>Team</TableHead>
+            <SortableHead column="order" label="#" sort={sort} onSort={toggleSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+            <SortableHead column="corner" label="Photo" sort={sort} onSort={toggleSort} className="w-[80px] text-center" center />
+            <SortableHead column="fighter" label="Fighter" sort={sort} onSort={toggleSort} className="min-w-[240px]" />
+            <SortableHead column="nationality" label="Nationality" sort={sort} onSort={toggleSort} />
+            <SortableHead column="residency" label="Residency" sort={sort} onSort={toggleSort} />
+            <SortableHead column="weight" label="Weight" sort={sort} onSort={toggleSort} />
+            <SortableHead column="record" label="Record" sort={sort} onSort={toggleSort} />
+            <SortableHead column="height" label="Height/Reach" sort={sort} onSort={toggleSort} />
+            <SortableHead column="team" label="Team" sort={sort} onSort={toggleSort} />
             <TableHead className="w-[70px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {stats.length === 0 ? (
+          {sorted.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                 No fighter stats found
               </TableCell>
             </TableRow>
           ) : (
-            stats.map((s) => (
+            sorted.map((s) => (
               <TableRow key={s.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => onEdit(s)}>
-                <TableCell>
-                  {s.matchNumber ? (
-                    <div className="flex items-center justify-center h-7 w-7 rounded-full bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 text-xs font-black">
-                      {s.matchNumber}
-                    </div>
-                  ) : <span className="text-muted-foreground">-</span>}
+                <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                  <FightOrderCell order={s.matchNumber} />
                 </TableCell>
-                <TableCell>
-                   <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                     {s.person?.appadmin_fighter_id? (
-                       <AvatarImage 
-                         src={getFighterPhotoUrl(s.person.appadmin_fighter_id)} 
-                         alt={s.person.compiled_name} 
-                       />
-                     ) : s.person?.passport_photo ? (
-                        <AvatarImage src={s.person.passport_photo} alt={s.person.compiled_name} />
-                     ) : null}
-                     <AvatarFallback className="text-xs font-bold bg-muted/50">
-                       {s.person?.compiled_name?.[0]}
-                     </AvatarFallback>
-                   </Avatar>
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                    ID: {s.person?.appadmin_fighter_id || '-'}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex flex-col">
-                    <span className="font-semibold text-sm leading-tight text-primary">
-                      {s.person?.compiled_name}
-                    </span>
-                    <span className="text-[10px] italic text-muted-foreground mt-0.5">
-                      {s.person?.event_name || 'UAEW'}
-                    </span>
+                <TableCell className="text-center p-2">
+                  <div className="flex justify-center">
+                    <FighterAvatar
+                      name={s.person?.compiled_name || ''}
+                      photoUrl={photoOf(s)}
+                      corner={cornerOf(s)}
+                    />
                   </div>
+                </TableCell>
+                <TableCell>
+                  <FighterIdentity
+                    name={s.person?.compiled_name || ''}
+                    fighterId={s.person?.appadmin_fighter_id}
+                    eventName={s.person?.event_name || 'UAEW'}
+                  />
                 </TableCell>
                 <TableCell>
                   {s.person?.nationality ? (

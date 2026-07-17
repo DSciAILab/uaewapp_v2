@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,20 @@ import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFighterPhotoUrl } from '@/lib/utils';
+import {
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  SortableHead,
+  nextSort,
+  compareValues,
+  type SortState,
+} from '@/components/fighters/fighter-identity';
+import { getFightCardPositions, NO_POSITION, type FightCardPosition } from '@/lib/services/fight-card-positions';
+
+type SortKey = 'order' | 'corner' | 'person' | 'role' | 'status' | 'completed' | 'notes';
 
 interface TaskAssignmentsSheetProps {
   task: EventTask | null;
@@ -32,6 +46,8 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const [selectedEnrollments, setSelectedEnrollments] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
   // Load assignments when sheet opens
   const loadAssignments = useCallback(async () => {
@@ -40,13 +56,23 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     try {
       const data = await getTaskAssignments(task.id);
       setAssignments(data);
+
+      // Corners/bout order aren't on the enrollment — resolve them from the card.
+      const people = data
+        .filter((a) => a.enrollment)
+        .map((a) => ({
+          enrollmentId: a.enrollment_id,
+          fullName: a.enrollment!.person.compiled_name || '',
+          ringName: a.enrollment!.person.event_name,
+        }));
+      setPositions(await getFightCardPositions(eventId, people));
     } catch (error) {
       console.error('Failed to load assignments:', error);
       toast.error('Failed to load assignments');
     } finally {
       setLoading(false);
     }
-  }, [task]);
+  }, [task, eventId]);
 
   useEffect(() => {
     if (open && task) {
@@ -117,16 +143,41 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     }
   };
 
-  const filteredAssignments = assignments.filter(a => {
-    if (statusFilter !== 'all' && a.status !== statusFilter) return false;
-    if (searchQuery) {
-      const name = a.enrollment?.person.compiled_name?.toLowerCase() || '';
-      const role = a.enrollment?.role.name?.toLowerCase() || '';
-      const query = searchQuery.toLowerCase();
-      return name.includes(query) || role.includes(query);
-    }
-    return true;
-  });
+  const positionOf = useCallback(
+    (a: TaskAssignment) => positions.get(a.enrollment_id) ?? NO_POSITION,
+    [positions]
+  );
+
+  const filteredAssignments = useMemo(() => {
+    const filtered = assignments.filter(a => {
+      if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+      if (searchQuery) {
+        const name = a.enrollment?.person.compiled_name?.toLowerCase() || '';
+        const role = a.enrollment?.role.name?.toLowerCase() || '';
+        const query = searchQuery.toLowerCase();
+        return name.includes(query) || role.includes(query);
+      }
+      return true;
+    });
+
+    const valueOf = (a: TaskAssignment): unknown => {
+      switch (sort.key) {
+        case 'order': return positionOf(a).fightOrder;
+        case 'corner': return positionOf(a).corner;
+        case 'person': return a.enrollment?.person.compiled_name;
+        case 'role': return a.enrollment?.role.name;
+        case 'status': return a.status;
+        case 'completed': return a.completed_at;
+        case 'notes': return a.notes;
+        default: return null;
+      }
+    };
+
+    const sorted = [...filtered].sort((a, b) => compareValues(valueOf(a), valueOf(b)));
+    return sort.dir === 'asc' ? sorted : sorted.reverse();
+  }, [assignments, statusFilter, searchQuery, sort, positionOf]);
+
+  const toggleSort = (key: SortKey) => setSort(prev => nextSort(prev, key));
 
   const stats = {
     total: assignments.length,
@@ -178,35 +229,50 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Person</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Completed Date</TableHead>
-                <TableHead className="w-[200px]">Notes</TableHead>
+                <SortableHead column="order" label="#" sort={sort} onSort={toggleSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+                <SortableHead column="corner" label="Photo" sort={sort} onSort={toggleSort} className="w-[80px] text-center" center />
+                <SortableHead column="person" label="Fighter" sort={sort} onSort={toggleSort} className="w-[240px]" />
+                <SortableHead column="role" label="Role" sort={sort} onSort={toggleSort} />
+                <SortableHead column="status" label="Status" sort={sort} onSort={toggleSort} />
+                <SortableHead column="completed" label="Completed Date" sort={sort} onSort={toggleSort} />
+                <SortableHead column="notes" label="Notes" sort={sort} onSort={toggleSort} className="w-[200px]" />
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8">Loading...</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8">Loading...</TableCell></TableRow>
               ) : filteredAssignments.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center py-8 text-muted-foreground">No assignments found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} className="text-center py-8 text-muted-foreground">No assignments found</TableCell></TableRow>
               ) : (
-                filteredAssignments.map((assignment) => (
+                filteredAssignments.map((assignment) => {
+                  const person = assignment.enrollment?.person;
+                  const position = positionOf(assignment);
+                  const name = person?.compiled_name || '';
+                  return (
                   <TableRow key={assignment.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          {assignment.enrollment?.person.appadmin_fighter_id && (
-                            <AvatarImage src={getFighterPhotoUrl(assignment.enrollment.person.appadmin_fighter_id)} />
-                          )}
-                          <AvatarFallback className="text-[10px]">
-                            {assignment.enrollment?.person.name?.[0]}{assignment.enrollment?.person.surname?.[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        {assignment.enrollment?.person.compiled_name}
+                    <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                      <FightOrderCell order={position.fightOrder} />
+                    </TableCell>
+
+                    <TableCell className="text-center p-2">
+                      <div className="flex justify-center">
+                        <FighterAvatar
+                          name={name}
+                          photoUrl={getFighterPhotoUrl(person?.appadmin_fighter_id)}
+                          corner={position.corner}
+                        />
                       </div>
                     </TableCell>
+
+                    <TableCell>
+                      <FighterIdentity
+                        name={name}
+                        fighterId={person?.appadmin_fighter_id ? String(person.appadmin_fighter_id) : null}
+                        eventName={person?.event_name}
+                      />
+                    </TableCell>
+
                     <TableCell>
                       <Badge variant="secondary" className="font-normal">{assignment.enrollment?.role.name}</Badge>
                     </TableCell>
@@ -254,7 +320,8 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))
+                  );
+                })
               )}
             </TableBody>
           </Table>

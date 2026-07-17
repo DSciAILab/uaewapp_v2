@@ -59,20 +59,83 @@ function toClearanceStatus(value: string | null | undefined): ClearanceStatus {
 
 type TimestampedRow = { created_at: string | null; updated_at: string | null };
 
+// ==================== ATHLETE IDENTITY JOIN ====================
+// Every athlete table renders the same row (UAE-20): bout order, photo, name +
+// id + event. These types carry the extra join fields the shared components
+// need. Each one is optional on purpose — a caller still holding a plain
+// BloodTest/MedicalExam/RequiredDocument from '@/types/pre-event' satisfies the
+// widened shape, so the page needs no changes to pass its state through.
+
+export interface AthleteIdentityJoin {
+  id?: string;
+  person: {
+    id: string;
+    compiled_name: string;
+    role?: { name: string };
+    appadmin_fighter_id?: string | null;
+    /** mma_people.event_name — the athlete's RING name, not the event's. */
+    ring_name?: string | null;
+  };
+  /** mma_events.name — the event this enrollment belongs to. */
+  event_name?: string | null;
+}
+
+export type WithAthleteIdentity<T> = Omit<T, 'enrolled'> & { enrolled?: AthleteIdentityJoin };
+
+export type BloodTestRow = WithAthleteIdentity<BloodTest>;
+export type MedicalExamRow = WithAthleteIdentity<MedicalExam>;
+export type RequiredDocumentRow = WithAthleteIdentity<RequiredDocument>;
+
+/** The identity columns selected on every `enrolled` join below. */
+const ENROLLED_IDENTITY_SELECT = `
+      enrolled:mma_enrollments!inner(
+        id,
+        person:mma_people!inner(id, compiled_name, appadmin_fighter_id, event_name), role:mma_roles(name),
+        event:mma_events(name)
+      )
+`;
+
+/** PostgREST hands a to-one relation back as an object or a one-element array. */
+function one<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+interface JoinedPerson {
+  id: string;
+  compiled_name: string | null;
+  appadmin_fighter_id: string | null;
+  event_name: string | null;
+}
+
+interface JoinedEnrollment {
+  id: string;
+  person: JoinedPerson | JoinedPerson[];
+  event?: { name: string | null } | { name: string | null }[] | null;
+}
+
 /**
- * The joined `enrolled` select carries mma_people.compiled_name, which is
- * nullable in the DB while the domain types expect a plain string. Normalise the
- * nested join to an empty name rather than propagating null into the UI.
+ * Flattens the `enrolled` join into the shape the tables read.
+ *
+ * compiled_name is nullable in the DB while the domain types expect a plain
+ * string, so it falls back to empty rather than propagating null into the UI.
+ * The rest of the join is spread through untouched (`role` is a sibling of
+ * `person` in the select, and consumers still expect to find it there).
  */
-function narrowEnrolledJoin<T extends { enrolled: { person: { compiled_name: string | null } } }>(row: T) {
+function withAthleteIdentity<T extends { enrolled: JoinedEnrollment }>(row: T) {
+  const person = one(row.enrolled.person);
+  const event = one(row.enrolled.event);
   return {
     ...row,
     enrolled: {
       ...row.enrolled,
       person: {
-        ...row.enrolled.person,
-        compiled_name: row.enrolled.person.compiled_name ?? '',
+        id: person?.id ?? '',
+        compiled_name: person?.compiled_name ?? '',
+        appadmin_fighter_id: person?.appadmin_fighter_id ?? null,
+        ring_name: person?.event_name ?? null,
       },
+      event_name: event?.name ?? null,
     },
   };
 }
@@ -124,35 +187,29 @@ function narrowClearance<T extends TimestampedRow & {
 
 // ==================== BLOOD TESTS ====================
 
-export async function getEventBloodTests(eventId: string): Promise<BloodTest[]> {
+export async function getEventBloodTests(eventId: string): Promise<BloodTestRow[]> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .select(`
       *,
-      enrolled:mma_enrollments!inner(
-        id,
-        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
-      )
+      ${ENROLLED_IDENTITY_SELECT}
     `)
     .eq('event_id', eventId)
     .order('scheduled_date', { ascending: true });
 
   if (error) throw new Error('Failed to fetch blood tests');
 
-  return (data || []).map(row => narrowBloodTest(narrowEnrolledJoin(row)));
+  return (data || []).map(row => narrowBloodTest(withAthleteIdentity(row)));
 }
 
-export async function getBloodTestById(testId: string): Promise<BloodTest | null> {
+export async function getBloodTestById(testId: string): Promise<BloodTestRow | null> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_blood_tests')
     .select(`
       *,
-      enrolled:mma_enrollments!inner(
-        id,
-        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
-      )
+      ${ENROLLED_IDENTITY_SELECT}
     `)
     .eq('id', testId)
     .single();
@@ -162,7 +219,7 @@ export async function getBloodTestById(testId: string): Promise<BloodTest | null
     throw error;
   }
 
-  return narrowBloodTest(narrowEnrolledJoin(data));
+  return narrowBloodTest(withAthleteIdentity(data));
 }
 
 export async function createBloodTest(eventId: string, formData: BloodTestFormData): Promise<BloodTest> {
@@ -266,35 +323,29 @@ export async function updateBloodTestResult(
 
 // ==================== MEDICAL EXAMS ====================
 
-export async function getEventMedicalExams(eventId: string): Promise<MedicalExam[]> {
+export async function getEventMedicalExams(eventId: string): Promise<MedicalExamRow[]> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_medical_exams')
     .select(`
       *,
-      enrolled:mma_enrollments!inner(
-        id,
-        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
-      )
+      ${ENROLLED_IDENTITY_SELECT}
     `)
     .eq('event_id', eventId)
     .order('scheduled_date', { ascending: true });
 
   if (error) throw new Error('Failed to fetch medical exams');
 
-  return (data || []).map(row => narrowMedicalExam(narrowEnrolledJoin(row)));
+  return (data || []).map(row => narrowMedicalExam(withAthleteIdentity(row)));
 }
 
-export async function getMedicalExamById(examId: string): Promise<MedicalExam | null> {
+export async function getMedicalExamById(examId: string): Promise<MedicalExamRow | null> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_medical_exams')
     .select(`
       *,
-      enrolled:mma_enrollments!inner(
-        id,
-        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
-      )
+      ${ENROLLED_IDENTITY_SELECT}
     `)
     .eq('id', examId)
     .single();
@@ -304,7 +355,7 @@ export async function getMedicalExamById(examId: string): Promise<MedicalExam | 
     throw error;
   }
 
-  return narrowMedicalExam(narrowEnrolledJoin(data));
+  return narrowMedicalExam(withAthleteIdentity(data));
 }
 
 export async function createMedicalExam(eventId: string, formData: MedicalExamFormData): Promise<MedicalExam> {
@@ -374,35 +425,29 @@ export async function deleteMedicalExam(examId: string): Promise<void> {
 
 // ==================== REQUIRED DOCUMENTS ====================
 
-export async function getEventDocuments(eventId: string): Promise<RequiredDocument[]> {
+export async function getEventDocuments(eventId: string): Promise<RequiredDocumentRow[]> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .select(`
       *,
-      enrolled:mma_enrollments!inner(
-        id,
-        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
-      )
+      ${ENROLLED_IDENTITY_SELECT}
     `)
     .eq('event_id', eventId)
     .order('document_type');
 
   if (error) throw new Error('Failed to fetch documents');
 
-  return (data || []).map(row => narrowDocument(narrowEnrolledJoin(row)));
+  return (data || []).map(row => narrowDocument(withAthleteIdentity(row)));
 }
 
-export async function getDocumentById(docId: string): Promise<RequiredDocument | null> {
+export async function getDocumentById(docId: string): Promise<RequiredDocumentRow | null> {
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_required_documents')
     .select(`
       *,
-      enrolled:mma_enrollments!inner(
-        id,
-        person:mma_people!inner(id, compiled_name), role:mma_roles(name)
-      )
+      ${ENROLLED_IDENTITY_SELECT}
     `)
     .eq('id', docId)
     .single();
@@ -412,7 +457,7 @@ export async function getDocumentById(docId: string): Promise<RequiredDocument |
     throw error;
   }
 
-  return narrowDocument(narrowEnrolledJoin(data));
+  return narrowDocument(withAthleteIdentity(data));
 }
 
 export async function createDocument(eventId: string, formData: RequiredDocumentFormData): Promise<RequiredDocument> {
@@ -740,7 +785,16 @@ export async function getPreEventSummary(eventId: string): Promise<PreEventSumma
 }
 // ==================== LOGISTICS ====================
 
-export async function getLogisticsOverview(eventId: string): Promise<LogisticsRow[]> {
+/** LogisticsRow plus the identity fields the shared athlete row needs (UAE-20). */
+export type LogisticsRowWithIdentity = LogisticsRow & {
+  appadmin_fighter_id?: string | null;
+  /** mma_people.event_name — the athlete's ring name. */
+  ring_name?: string | null;
+  /** mma_events.name. */
+  event_name?: string | null;
+};
+
+export async function getLogisticsOverview(eventId: string): Promise<LogisticsRowWithIdentity[]> {
   const supabase = getClient();
 
   // 1. Fetch Aggregated Pre-Event Summary (Blood, Medical, Docs)
@@ -760,10 +814,22 @@ export async function getLogisticsOverview(eventId: string): Promise<LogisticsRo
   const enrolledIds = summaries.map(s => s.enrolled_id);
   const { data: enrollments } = await supabase
     .from('mma_enrollments')
-    .select('id, person_id')
+    .select('id, person_id, person:mma_people(appadmin_fighter_id, event_name), event:mma_events(name)')
     .in('id', enrolledIds);
-    
+
   const personMap = new Map(enrollments?.map(e => [e.id, e.person_id]));
+
+  const identityMap = new Map(
+    (enrollments || []).map(e => {
+      const person = one(e.person);
+      const event = one(e.event);
+      return [e.id, {
+        appadmin_fighter_id: person?.appadmin_fighter_id ?? null,
+        ring_name: person?.event_name ?? null,
+        event_name: event?.name ?? null,
+      }];
+    })
+  );
   const personIds = enrollments?.map(e => e.person_id) || [];
 
   const { data: statsData } = await supabase
@@ -835,11 +901,16 @@ export async function getLogisticsOverview(eventId: string): Promise<LogisticsRo
     // Transport Logic
     const transport = transportMap.get(summary.enrolled_id) || { arrival: null, departure: null };
 
+    const identity = identityMap.get(summary.enrolled_id);
+
     return {
       enrolled_id: summary.enrolled_id,
       person_id: personId,
       compiled_name: summary.person_name,
       role: summary.role,
+      appadmin_fighter_id: identity?.appadmin_fighter_id ?? null,
+      ring_name: identity?.ring_name ?? null,
+      event_name: identity?.event_name ?? null,
       checklist: {
         blood_test: summary.blood_tests.all_clear ? 'cleared' : (summary.blood_tests.failed > 0 ? 'denied' : 'pending'),
         medical_exam: summary.medical_exams.all_clear ? 'cleared' : (summary.medical_exams.failed > 0 ? 'denied' : 'pending'),
