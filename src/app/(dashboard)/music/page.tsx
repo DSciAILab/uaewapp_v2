@@ -200,7 +200,7 @@ export default function GlobalMusicPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Entrance Music</h1>
+          <h1 className="text-3xl font-bold">Walk-out Songs</h1>
           <p className="text-muted-foreground">
             All fighters from active events — manage walkout songs
           </p>

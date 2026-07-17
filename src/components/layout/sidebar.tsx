@@ -61,7 +61,7 @@ const navItems = [
   { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
   { label: 'Transporte', href: '/transport', icon: 'Car', area: 'transport' },
   { label: 'Fighter Stats', href: '/stats', icon: 'BarChart3', area: 'operations' },
-  { label: 'Entrance Music', href: '/music', icon: 'Music', area: 'operations' },
+  { label: 'Walk-out Songs', href: '/music', icon: 'Music', area: 'operations' },
   { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
   { label: 'Pre-Event', href: '/pre-event', icon: 'ShieldCheck', area: 'pre_event' },
   { label: 'Pre-Departure Check', href: '/staging', icon: 'ClipboardList', area: 'pre_event' },

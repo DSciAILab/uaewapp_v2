@@ -210,7 +210,7 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defau
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Entrance Music' : 'Add Entrance Music'}</DialogTitle>
+          <DialogTitle>{isEditing ? 'Edit Walk-out Song' : 'Add Walk-out Song'}</DialogTitle>
         </DialogHeader>
 
         <Form {...form}>
