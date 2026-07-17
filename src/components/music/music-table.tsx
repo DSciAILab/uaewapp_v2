@@ -9,6 +9,7 @@ import { MoreHorizontal, Pencil, Trash2, Play, ExternalLink, AlertTriangle, Chec
 import { EntranceMusic, MusicStatus } from '@/types/music';
 import { MusicStatusBadge } from './music-status-badge';
 import { deleteMusic, updateMusicStatus, formatDuration } from '@/lib/services/music-service';
+import { getEventById } from '@/lib/services/events';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { getFighterPhotoUrl } from '@/lib/utils';
@@ -50,6 +51,18 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
   const eventId = music[0]?.event_id;
+
+  // The identity block's second line is the EVENT, not the athlete's ring name
+  // (person.event_name is the ring name — the naming is a trap).
+  const [eventName, setEventName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    getEventById(eventId)
+      .then((e) => { if (!cancelled) setEventName(e?.name ?? null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [eventId]);
 
   useEffect(() => {
     if (!eventId) return;
@@ -177,7 +190,7 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
                     <FighterIdentity
                       name={m.enrolled?.person?.compiled_name || ''}
                       fighterId={m.enrolled?.person?.appadmin_fighter_id}
-                      eventName={m.enrolled?.person?.event_name}
+                      eventName={eventName}
                     />
                   </TableCell>
 

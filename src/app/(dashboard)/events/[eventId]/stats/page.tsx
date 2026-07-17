@@ -201,7 +201,7 @@ export default function StatsPage() {
           {isLoading ? (
             <div className="text-center py-8">Loading stats...</div>
           ) : viewMode === 'table' ? (
-            <StatsTable stats={filteredStats} onEdit={handleEdit} />
+            <StatsTable stats={filteredStats} eventId={eventId} onEdit={handleEdit} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredStats.map((s) => (

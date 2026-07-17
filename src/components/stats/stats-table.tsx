@@ -20,6 +20,7 @@ import {
   type Corner,
   type SortState,
 } from '@/components/fighters/fighter-identity';
+import { useFightCard, type CardPerson } from '@/hooks/use-fight-card';
 
 type SortKey =
   | 'order'
@@ -34,14 +35,11 @@ type SortKey =
 
 interface StatsTableProps {
   stats: FighterStats[];
+  eventId?: string;
   onEdit: (stats: FighterStats) => void;
 }
 
-/**
- * Corner/bout order here come off FighterStats, not getFightCardPositions:
- * getEventFighterStats already resolves both against the card, and a
- * FighterStats row carries no enrollment id to key the positions map with.
- */
+/** Falls back to the row's own corner when the card has nothing for it. */
 const cornerOf = (s: FighterStats): Corner => {
   const raw = (s.corner || '').toUpperCase();
   return raw === 'RED' || raw === 'BLUE' ? raw : null;
@@ -50,16 +48,36 @@ const cornerOf = (s: FighterStats): Corner => {
 const photoOf = (s: FighterStats): string =>
   getFighterPhotoUrl(s.person?.appadmin_fighter_id) || s.person?.passport_photo || '';
 
-export function StatsTable({ stats, onEdit }: StatsTableProps) {
+export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
+
+  // Same resolver as every other table: an exact join on mma_matches, with the
+  // row's own corner kept only as the fallback.
+  const people = useMemo<CardPerson[]>(
+    () =>
+      stats
+        .filter((s) => s.enrollment_id)
+        .map((s) => ({
+          enrollmentId: s.enrollment_id!,
+          fullName: s.person?.compiled_name ?? '',
+          ringName: s.person?.event_name ?? null,
+          eventId,
+        })),
+    [stats, eventId]
+  );
+  const { positions, eventNames } = useFightCard(people, 'stats-table');
+
+  const posOf = (s: FighterStats) => (s.enrollment_id ? positions.get(s.enrollment_id) : undefined);
+  const orderOf = (s: FighterStats) => posOf(s)?.fightOrder ?? s.matchNumber ?? null;
+  const ringOf = (s: FighterStats): Corner => posOf(s)?.corner ?? cornerOf(s);
 
   const sorted = useMemo(() => {
     const value = (s: FighterStats): unknown => {
       switch (sort.key) {
         case 'order':
-          return s.matchNumber ?? null;
+          return orderOf(s);
         case 'corner':
-          return cornerOf(s);
+          return ringOf(s);
         case 'fighter':
           return s.person?.compiled_name;
         case 'nationality':
@@ -113,14 +131,14 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
             sorted.map((s) => (
               <TableRow key={s.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => onEdit(s)}>
                 <TableCell className={FIGHT_ORDER_CELL_CLASS}>
-                  <FightOrderCell order={s.matchNumber} />
+                  <FightOrderCell order={orderOf(s)} />
                 </TableCell>
                 <TableCell className="text-center p-2">
                   <div className="flex justify-center">
                     <FighterAvatar
                       name={s.person?.compiled_name || ''}
                       photoUrl={photoOf(s)}
-                      corner={cornerOf(s)}
+                      corner={ringOf(s)}
                     />
                   </div>
                 </TableCell>
@@ -128,7 +146,7 @@ export function StatsTable({ stats, onEdit }: StatsTableProps) {
                   <FighterIdentity
                     name={s.person?.compiled_name || ''}
                     fighterId={s.person?.appadmin_fighter_id}
-                    eventName={s.person?.event_name || 'UAEW'}
+                    eventName={eventNames.get(eventId ?? '') ?? null}
                   />
                 </TableCell>
                 <TableCell>
