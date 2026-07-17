@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
@@ -11,8 +11,30 @@ import { MusicStatusBadge } from './music-status-badge';
 import { deleteMusic, updateMusicStatus, formatDuration } from '@/lib/services/music-service';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFighterPhotoUrl } from '@/lib/utils';
+import {
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  SortableHead,
+  compareValues,
+  nextSort,
+  type Corner,
+  type SortState,
+} from '@/components/fighters/fighter-identity';
+import { getFightCardPositions, type FightCardPosition } from '@/lib/services/fight-card-positions';
+
+type SortKey = 'order' | 'corner' | 'fighter' | 'music' | 'status';
+
+// Rank, not alphabet: the rows that still need someone to act come first.
+const STATUS_RANK: Record<MusicStatus, number> = {
+  pending: 0,
+  not_provided: 1,
+  uploaded: 2,
+  confirmed: 3,
+};
 
 interface MusicTableProps {
   music: EntranceMusic[];
@@ -24,10 +46,68 @@ interface MusicTableProps {
 export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
+
+  const eventId = music[0]?.event_id;
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    const people = music.map((m) => ({
+      enrollmentId: m.enrolled_id,
+      fullName: m.enrolled?.person?.compiled_name || '',
+      ringName: m.enrolled?.person?.event_name,
+    }));
+    getFightCardPositions(eventId, people)
+      .then((p) => {
+        if (!cancelled) setPositions(p);
+      })
+      .catch((err) => console.warn('[music-table] fight card positions failed:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, music]);
+
+  const cornerOf = useCallback(
+    (m: EntranceMusic): Corner => {
+      const fromCard = positions.get(m.enrolled_id)?.corner;
+      if (fromCard) return fromCard;
+      // The card is the source; the enrollment fields only carry an event whose
+      // card hasn't been published yet.
+      const raw = (m.enrolled?.corner || m.enrolled?.corner_color || '').toUpperCase();
+      return raw === 'RED' || raw === 'BLUE' ? raw : null;
+    },
+    [positions]
+  );
+
+  const sorted = useMemo(() => {
+    const value = (m: EntranceMusic): unknown => {
+      switch (sort.key) {
+        case 'order':
+          return positions.get(m.enrolled_id)?.fightOrder ?? null;
+        case 'corner':
+          return cornerOf(m);
+        case 'fighter':
+          return m.enrolled?.person?.compiled_name;
+        case 'music':
+          return m.title_1 || m.source_url;
+        case 'status':
+          return STATUS_RANK[m.status];
+        default:
+          return null;
+      }
+    };
+
+    const out = [...music].sort((a, b) => compareValues(value(a), value(b)));
+    return sort.dir === 'asc' ? out : out.reverse();
+  }, [music, sort, positions, cornerOf]);
+
+  const toggleSort = (key: SortKey) => setSort((prev) => nextSort(prev, key));
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     setIsDeleting(true);
     try {
       await deleteMusic(deleteId);
@@ -57,73 +137,48 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[80px]">Photo</TableHead>
-              <TableHead className="w-[60px] text-center">Fight #</TableHead>
-              <TableHead className="w-[100px] text-center">Fighter ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead className="text-center">Corner</TableHead>
-              <TableHead>Music Source</TableHead>
-              <TableHead className="text-center">Status</TableHead>
+              <SortableHead column="order" label="#" sort={sort} onSort={toggleSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+              <SortableHead column="corner" label="Photo" sort={sort} onSort={toggleSort} className="w-[80px] text-center" center />
+              <SortableHead column="fighter" label="Fighter" sort={sort} onSort={toggleSort} className="w-[240px]" />
+              <SortableHead column="music" label="Music Source" sort={sort} onSort={toggleSort} />
+              <SortableHead column="status" label="Status" sort={sort} onSort={toggleSort} className="text-center" center />
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {music.length === 0 ? (
+            {sorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                   No entrance music found
                 </TableCell>
               </TableRow>
             ) : (
-              music.map((m) => (
-                <TableRow 
-                  key={m.id} 
+              sorted.map((m) => (
+                <TableRow
+                  key={m.id}
                   className="hover:bg-muted/50 transition-colors cursor-pointer"
                   onClick={() => onEdit(m)}
                 >
-                  {/* FOTO */}
-                  <TableCell>
-                      <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                           <AvatarImage src={getFighterPhotoUrl(m.enrolled?.person?.appadmin_fighter_id)} />
-                           <AvatarFallback className="text-xs font-bold bg-muted/50">
-                               {(m.enrolled?.person?.compiled_name || '??').substring(0, 2).toUpperCase()}
-                           </AvatarFallback>
-                      </Avatar>
+                  <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                    <FightOrderCell order={positions.get(m.enrolled_id)?.fightOrder} />
                   </TableCell>
 
-                  {/* LUTA # (Placeholder) */}
-                  <TableCell className="text-center">
-                    <span className="text-muted-foreground">-</span>
-                  </TableCell>
-
-                  {/* FIGHTER ID */}
-                  <TableCell className="text-center">
-                    <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                        {m.enrolled?.person?.appadmin_fighter_id || '-'}
-                    </Badge>
-                  </TableCell>
-
-                  {/* NOME + EVENT NAME */}
-                  <TableCell>
-                    <div className="flex flex-col">
-                        <span className="font-bold text-sm">{m.enrolled?.person?.compiled_name}</span>
-                        {m.enrolled?.person?.event_name && (
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{m.enrolled?.person?.event_name}</span>
-                        )}
+                  <TableCell className="text-center p-2">
+                    <div className="flex justify-center">
+                      <FighterAvatar
+                        name={m.enrolled?.person?.compiled_name || ''}
+                        photoUrl={getFighterPhotoUrl(m.enrolled?.person?.appadmin_fighter_id)}
+                        corner={cornerOf(m)}
+                      />
                     </div>
                   </TableCell>
 
-                  {/* CORNER */}
-                  <TableCell className="text-center">
-                     {m.enrolled?.corner || m.enrolled?.corner_color ? (
-                        <Badge className={`text-[10px] px-2 py-0 h-5 border-none shadow-sm uppercase justify-center min-w-[60px] ${
-                            (m.enrolled?.corner || m.enrolled?.corner_color || '').toLowerCase() === 'red' ? 'bg-red-500 hover:bg-red-600' : 'bg-blue-600 hover:bg-blue-700'
-                        }`}>
-                            {m.enrolled?.corner || m.enrolled?.corner_color}
-                        </Badge>
-                     ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                     )}
+                  <TableCell>
+                    <FighterIdentity
+                      name={m.enrolled?.person?.compiled_name || ''}
+                      fighterId={m.enrolled?.person?.appadmin_fighter_id}
+                      eventName={m.enrolled?.person?.event_name}
+                    />
                   </TableCell>
 
                   <TableCell onClick={(e) => e.stopPropagation()}>

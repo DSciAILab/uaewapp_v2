@@ -14,12 +14,15 @@ export interface TaskAssignment {
   // Joins
   enrollment?: {
     id: string;
+    event_id: string;
     person: {
       id: string;
       compiled_name: string;
       name?: string;
       surname?: string;
       appadmin_fighter_id?: string | number | null;
+      /** Ring name — what the fight card prints, not the event's name. */
+      event_name?: string | null;
     };
     role: {
       name: string;
@@ -40,7 +43,8 @@ export async function getTaskAssignments(taskId: string): Promise<TaskAssignment
       *,
       enrollment:mma_enrollments!inner(
         id,
-        person:mma_people(id, compiled_name:compiled_name, name, surname, appadmin_fighter_id),
+        event_id,
+        person:mma_people(id, compiled_name:compiled_name, name, surname, appadmin_fighter_id, event_name),
         role:mma_roles(name, code)
       )
     `)

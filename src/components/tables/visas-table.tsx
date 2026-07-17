@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Table,
   TableBody,
@@ -10,7 +11,6 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
@@ -27,9 +27,28 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import type { VisaWithEnrollment } from '@/lib/services/visas'
+import { getEventById } from '@/lib/services/events'
+import {
+  getFightCardPositions,
+  type EnrollmentIdentity,
+  type FightCardPosition,
+} from '@/lib/services/fight-card-positions'
+import {
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  SortableHead,
+  compareValues,
+  nextSort,
+  type SortState,
+} from '@/components/fighters/fighter-identity'
 import { getFighterPhotoUrl, cn } from '@/lib/utils'
 import { VISA_STATUS_LABELS, VISA_STATUS_COLORS } from '@/lib/constants'
 import { StatusBadge } from '@/components/ui/status-badge'
+
+type SortKey = 'order' | 'done' | 'person' | 'nationality' | 'airport' | 'documents' | 'status'
 
 interface VisasTableProps {
   visas: VisaWithEnrollment[]
@@ -40,6 +59,11 @@ interface VisasTableProps {
   canDelete?: boolean
 }
 
+const nameOf = (visa: VisaWithEnrollment) =>
+  visa.passport_name || visa.enrollment?.person?.compiled_name || ''
+
+const documentFolderOf = (visa: VisaWithEnrollment) => visa.enrollment?.person?.document_folder
+
 export function VisasTable({
   visas,
   onEdit,
@@ -48,30 +72,68 @@ export function VisasTable({
   canEdit = true,
   canDelete = false,
 }: VisasTableProps) {
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' })
+
+  const { positions, eventNames } = useFightCard(
+    useMemo(
+      () =>
+        visas.map((v) => ({
+          eventId: v.enrollment?.event_id,
+          enrollmentId: v.enrollment?.id ?? '',
+          fullName: v.enrollment?.person?.compiled_name ?? '',
+          ringName: v.enrollment?.person?.event_name,
+        })),
+      [visas]
+    )
+  )
+
+  const orderOf = (visa: VisaWithEnrollment) =>
+    positions.get(visa.enrollment?.id ?? '')?.fightOrder ?? null
+
+  const sorted = useMemo(() => {
+    const value = (visa: VisaWithEnrollment): unknown => {
+      switch (sort.key) {
+        case 'order': return orderOf(visa)
+        case 'done': return visa.is_done ? 1 : 0
+        case 'person': return nameOf(visa)
+        case 'nationality': return visa.nationality || visa.enrollment?.person?.nationality
+        case 'airport': return visa.departure_airport
+        case 'documents': return documentFolderOf(visa) ? 0 : 1
+        case 'status': return VISA_STATUS_LABELS[visa.status]
+      }
+    }
+    const out = [...visas].sort((a, b) => compareValues(value(a), value(b)))
+    return sort.dir === 'asc' ? out : out.reverse()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visas, sort, positions])
+
+  const onSort = (key: SortKey) => setSort((prev) => nextSort(prev, key))
+
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead className="w-12">Done</TableHead>
-          <TableHead className="w-20">ID</TableHead>
-          <TableHead>Person</TableHead>
-          <TableHead>Nationality</TableHead>
-          <TableHead>Airport</TableHead>
-          <TableHead>Documents</TableHead>
-          <TableHead>Status</TableHead>
+          <SortableHead column="done" label="Done" sort={sort} onSort={onSort} className="w-16" />
+          <SortableHead column="order" label="#" sort={sort} onSort={onSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+          <TableHead className="w-[80px] text-center">Photo</TableHead>
+          <SortableHead column="person" label="Person" sort={sort} onSort={onSort} className="w-[280px]" />
+          <SortableHead column="nationality" label="Nationality" sort={sort} onSort={onSort} />
+          <SortableHead column="airport" label="Airport" sort={sort} onSort={onSort} />
+          <SortableHead column="documents" label="Documents" sort={sort} onSort={onSort} />
+          <SortableHead column="status" label="Status" sort={sort} onSort={onSort} />
           <TableHead className="w-12"></TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {visas.length === 0 ? (
+        {sorted.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+            <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
               No visas registered
             </TableCell>
           </TableRow>
         ) : (
-          visas.map((visa) => {
-            const documentFolder = (visa.enrollment?.person as any)?.document_folder
+          sorted.map((visa) => {
+            const documentFolder = documentFolderOf(visa)
 
             return (
               <TableRow
@@ -82,42 +144,43 @@ export function VisasTable({
                 )}
                 onClick={() => onEdit(visa)}
               >
-                <TableCell>
+                <TableCell onClick={(e) => e.stopPropagation()}>
                   <Checkbox
                     checked={visa.is_done}
                     onCheckedChange={() => onToggleDone(visa)}
                     disabled={!canEdit}
                   />
                 </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-mono">
-                    {visa.enrollment?.event_code}
-                  </Badge>
+
+                <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                  <FightOrderCell order={orderOf(visa)} />
                 </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-3">
-                    <Avatar className="h-8 w-8">
-                      {visa.enrollment?.person?.appadmin_fighter_id && (
-                        <AvatarImage
-                          src={getFighterPhotoUrl(visa.enrollment.person.appadmin_fighter_id)}
-                        />
-                      )}
-                      <AvatarFallback className="text-xs">
-                        {visa.enrollment?.person?.compiled_name?.slice(0, 2)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <p className="font-medium">
-                        {visa.passport_name || visa.enrollment?.person?.compiled_name}
-                      </p>
-                      {visa.enrollment?.person?.passport_number && (
-                        <p className="text-sm text-muted-foreground">
-                          {visa.enrollment.person.passport_number}
-                        </p>
-                      )}
-                    </div>
+
+                <TableCell className="text-center p-2">
+                  <div className="flex justify-center">
+                    <FighterAvatar
+                      name={nameOf(visa)}
+                      photoUrl={getFighterPhotoUrl(visa.enrollment?.person?.appadmin_fighter_id)}
+                      corner={positions.get(visa.enrollment?.id ?? '')?.corner}
+                    />
                   </div>
                 </TableCell>
+
+                <TableCell>
+                  <FighterIdentity
+                    name={nameOf(visa)}
+                    fighterId={visa.enrollment?.person?.appadmin_fighter_id}
+                    eventName={eventNames.get(visa.enrollment?.event_id ?? '') ?? null}
+                    subtitle={
+                      visa.enrollment?.person?.passport_number ? (
+                        <span className="text-[10px] text-muted-foreground font-mono truncate">
+                          {visa.enrollment.person.passport_number}
+                        </span>
+                      ) : undefined
+                    }
+                  />
+                </TableCell>
+
                 <TableCell>
                   <Badge variant="secondary">
                     {visa.nationality || visa.enrollment?.person?.nationality || '-'}
@@ -194,4 +257,68 @@ export function VisasTable({
       </TableBody>
     </Table>
   )
+}
+
+/* ---------- Fight card lookup ---------- */
+
+type CardPerson = EnrollmentIdentity & { eventId: string | null | undefined }
+
+/**
+ * Corner, bout order and event name for a set of enrollments (UAE-20).
+ *
+ * Resolved per distinct event rather than per table: /visas is global and mixes
+ * events, so the eventId only exists on the row. An enrollment with no entry is
+ * simply not on the card (staff, guest, or an athlete not paired yet) and
+ * renders grey with no order, never a guess.
+ */
+function useFightCard(people: CardPerson[]) {
+  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map())
+  const [eventNames, setEventNames] = useState<Map<string, string>>(new Map())
+
+  // Read inside the effect only — the effect re-runs on `signature`, not identity.
+  const peopleRef = useRef(people)
+  peopleRef.current = people
+
+  const signature = useMemo(
+    () => people.map((p) => `${p.eventId ?? ''}:${p.enrollmentId}`).sort().join('|'),
+    [people]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    const byEvent = new Map<string, EnrollmentIdentity[]>()
+    for (const p of peopleRef.current) {
+      if (!p.eventId || !p.enrollmentId) continue
+      const roster = byEvent.get(p.eventId) ?? []
+      roster.push({ enrollmentId: p.enrollmentId, fullName: p.fullName, ringName: p.ringName })
+      byEvent.set(p.eventId, roster)
+    }
+
+    Promise.all(
+      Array.from(byEvent, async ([eventId, roster]) => ({
+        eventId,
+        map: await getFightCardPositions(eventId, roster),
+        name: await getEventById(eventId).then((e) => e?.name ?? null).catch(() => null),
+      }))
+    )
+      .then((results) => {
+        if (cancelled) return
+        const merged = new Map<string, FightCardPosition>()
+        const names = new Map<string, string>()
+        for (const r of results) {
+          for (const [id, pos] of r.map) merged.set(id, pos)
+          if (r.name) names.set(r.eventId, r.name)
+        }
+        setPositions(merged)
+        setEventNames(names)
+      })
+      .catch((err) => console.warn('[visas-table] fight card lookup failed:', err))
+
+    return () => {
+      cancelled = true
+    }
+  }, [signature])
+
+  return { positions, eventNames }
 }

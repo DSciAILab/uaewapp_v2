@@ -45,6 +45,10 @@ interface FighterMusicRow {
   music: EntranceMusic | null;
 }
 
+/** True when at least one song link is filled. An emptied row keeps its record. */
+const hasSongs = (m: EntranceMusic | null): m is EntranceMusic =>
+  !!m && !!(m.source_url || m.source_url_2 || m.source_url_3);
+
 // Mirrors the Medical Clearance table: avatar ring tinted by corner.
 const AVATAR_BORDER = (corner: string | null) => {
   const c = (corner || '').toLowerCase();
@@ -115,7 +119,7 @@ function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: Sort
 }
 
 function getStatusOrder(row: FighterMusicRow): number {
-  if (!row.music) return 4;
+  if (!hasSongs(row.music)) return 4;
   switch (row.music.status) {
     case 'confirmed': return 0;
     case 'uploaded': return 1;
@@ -198,7 +202,7 @@ export default function GlobalMusicPage() {
       if (eventFilter !== 'all' && r.event_id !== eventFilter) return false;
       if (cornerFilter !== 'all' && (r.corner || '').toLowerCase() !== cornerFilter) return false;
       if (statusFilter !== 'all') {
-        if (statusFilter === 'no_music' && r.music !== null) return false;
+        if (statusFilter === 'no_music' && hasSongs(r.music)) return false;
         if (statusFilter !== 'no_music' && r.music?.status !== statusFilter) return false;
       }
       if (search) {
@@ -246,8 +250,11 @@ export default function GlobalMusicPage() {
     const empty = (): PanelTotals => ({ pending: 0, done: 0, noMusic: 0 });
     const out = { red: empty(), blue: empty(), total: empty() };
     for (const r of rows) {
-      const hasSongs = !!r.music && !!(r.music.source_url || r.music.source_url_2 || r.music.source_url_3);
-      const bucket: keyof PanelTotals = !hasSongs ? 'noMusic' : r.music!.status === 'confirmed' ? 'done' : 'pending';
+      const bucket: keyof PanelTotals = !hasSongs(r.music)
+        ? 'noMusic'
+        : r.music.status === 'confirmed'
+          ? 'done'
+          : 'pending';
       out.total[bucket]++;
       const c = (r.corner || '').toLowerCase();
       if (c === 'red') out.red[bucket]++;
@@ -551,7 +558,7 @@ export default function GlobalMusicPage() {
                             </TableCell>
 
                             <TableCell className="text-center">
-                              {m ? (
+                              {hasSongs(m) ? (
                                 <MusicStatusBadge status={m.status} />
                               ) : (
                                 <Badge variant="outline" className="text-[10px] border-dashed text-muted-foreground">

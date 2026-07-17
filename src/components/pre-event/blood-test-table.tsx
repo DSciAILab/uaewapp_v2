@@ -1,22 +1,41 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
-import { BloodTest, BloodTestStatus, BloodTestResult } from '@/types/pre-event';
-import { deleteBloodTest, updateBloodTestResult } from '@/lib/services/pre-event-service';
+import { BloodTestStatus, BloodTestResult } from '@/types/pre-event';
+import { BloodTestRow, deleteBloodTest, updateBloodTestResult } from '@/lib/services/pre-event-service';
+import {
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  SortableHead,
+  compareValues,
+  nextSort,
+  type SortState,
+} from '@/components/fighters/fighter-identity';
+import {
+  getFightCardPositions,
+  type EnrollmentIdentity,
+  type FightCardPosition,
+} from '@/lib/services/fight-card-positions';
+import { getFighterPhotoUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface BloodTestTableProps {
-  bloodTests: BloodTest[];
-  onEdit: (test: BloodTest) => void;
+  bloodTests: BloodTestRow[];
+  onEdit: (test: BloodTestRow) => void;
   onRefresh: () => void;
 }
+
+type SortKey = 'order' | 'athlete' | 'test_type' | 'date' | 'status' | 'result' | 'expiration';
 
 const statusColors: Record<BloodTestStatus, string> = {
   pending: 'bg-gray-100 text-gray-800',
@@ -37,6 +56,65 @@ const resultColors: Record<BloodTestResult, string> = {
 export function BloodTestTable({ bloodTests, onEdit, onRefresh }: BloodTestTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
+  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
+
+  // Every row here belongs to the same event, so the id rides along with the
+  // data instead of being threaded through the page as one more prop.
+  const eventId = bloodTests[0]?.event_id ?? '';
+
+  // One entry per athlete: a fighter can have several blood tests, and the CSV
+  // fallback should be asked about each person once.
+  const people = useMemo<EnrollmentIdentity[]>(() => {
+    const byEnrollment = new Map<string, EnrollmentIdentity>();
+    for (const test of bloodTests) {
+      if (byEnrollment.has(test.enrolled_id)) continue;
+      byEnrollment.set(test.enrolled_id, {
+        enrollmentId: test.enrolled_id,
+        fullName: test.enrolled?.person?.compiled_name ?? '',
+        ringName: test.enrolled?.person?.ring_name ?? null,
+      });
+    }
+    return [...byEnrollment.values()];
+  }, [bloodTests]);
+
+  useEffect(() => {
+    if (!eventId) return;
+    let cancelled = false;
+    getFightCardPositions(eventId, people).then((result) => {
+      if (!cancelled) setPositions(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [eventId, people]);
+
+  const sorted = useMemo(() => {
+    const valueOf = (test: BloodTestRow): unknown => {
+      switch (sort.key) {
+        case 'order':
+          return positions.get(test.enrolled_id)?.fightOrder ?? null;
+        case 'athlete':
+          return test.enrolled?.person?.compiled_name ?? '';
+        case 'test_type':
+          return test.test_type;
+        case 'date':
+          return test.scheduled_date;
+        case 'status':
+          return test.status;
+        case 'result':
+          return test.result;
+        case 'expiration':
+          return test.expiration_date;
+        default:
+          return null;
+      }
+    };
+    const out = [...bloodTests].sort((a, b) => compareValues(valueOf(a), valueOf(b)));
+    return sort.dir === 'asc' ? out : out.reverse();
+  }, [bloodTests, sort, positions]);
+
+  const toggleSort = (key: SortKey) => setSort((prev) => nextSort(prev, key));
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -69,26 +147,42 @@ export function BloodTestTable({ bloodTests, onEdit, onRefresh }: BloodTestTable
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Participant</TableHead>
-              <TableHead>Test Type</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Result</TableHead>
-              <TableHead>Expiration</TableHead>
+              <SortableHead column="order" label="#" sort={sort} onSort={toggleSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+              <TableHead className="w-[80px] text-center">Photo</TableHead>
+              <SortableHead column="athlete" label="Fighter" sort={sort} onSort={toggleSort} className="w-[280px]" />
+              <SortableHead column="test_type" label="Test Type" sort={sort} onSort={toggleSort} />
+              <SortableHead column="date" label="Date" sort={sort} onSort={toggleSort} />
+              <SortableHead column="status" label="Status" sort={sort} onSort={toggleSort} />
+              <SortableHead column="result" label="Result" sort={sort} onSort={toggleSort} />
+              <SortableHead column="expiration" label="Expiration" sort={sort} onSort={toggleSort} />
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {bloodTests.length === 0 ? (
+            {sorted.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                   No blood tests found
                 </TableCell>
               </TableRow>
             ) : (
-              bloodTests.map((test) => (
+              sorted.map((test) => {
+                const position = positions.get(test.enrolled_id);
+                const name = test.enrolled?.person?.compiled_name ?? '';
+                const fighterId = test.enrolled?.person?.appadmin_fighter_id;
+                return (
                 <TableRow key={test.id}>
-                  <TableCell className="font-medium">{test.enrolled?.person?.compiled_name}</TableCell>
+                  <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                    <FightOrderCell order={position?.fightOrder} />
+                  </TableCell>
+                  <TableCell className="text-center p-2">
+                    <div className="flex justify-center">
+                      <FighterAvatar name={name} photoUrl={getFighterPhotoUrl(fighterId)} corner={position?.corner} />
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <FighterIdentity name={name} fighterId={fighterId} eventName={test.enrolled?.event_name} />
+                  </TableCell>
                   <TableCell>{test.test_type}</TableCell>
                   <TableCell>
                     {test.scheduled_date ? format(new Date(test.scheduled_date + 'T00:00:00'), 'MMM dd, yyyy') : '-'}
@@ -139,7 +233,8 @@ export function BloodTestTable({ bloodTests, onEdit, onRefresh }: BloodTestTable
                     </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>

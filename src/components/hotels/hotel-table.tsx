@@ -1,24 +1,50 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, Eye, UserCheck, Key, Users, ArrowUpDown } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { format } from 'date-fns';
-import { Hotel, HotelStatus, HotelFormData } from '@/types/hotel';
+import { Hotel, HotelStatus } from '@/types/hotel';
 import { HotelDivergenceBadge } from './hotel-divergence-badge';
 import { BatchEditDialog } from './batch-edit-dialog';
 import { HotelApprovalDialog } from './hotel-approval-dialog';
 import { calculateNights } from '@/lib/utils/hotel-calculations';
-import { deleteHotel, updateHotelStatus, updateHotelBatch } from '@/lib/services/hotel-service';
+import { deleteHotel, updateHotelStatus } from '@/lib/services/hotel-service';
+import {
+  getFightCardPositions,
+  type EnrollmentIdentity,
+  type FightCardPosition,
+} from '@/lib/services/fight-card-positions';
+import {
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  SortableHead,
+  compareValues,
+  nextSort,
+  type SortState,
+} from '@/components/fighters/fighter-identity';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { cn } from '@/lib/utils';
+
+type SortKey =
+  | 'order'
+  | 'guest'
+  | 'checkin'
+  | 'checkout'
+  | 'nights'
+  | 'room'
+  | 'reference'
+  | 'status'
+  | 'divergence';
 
 interface HotelTableProps {
   hotels: Hotel[];
@@ -34,50 +60,54 @@ const statusConfig: Record<HotelStatus | 'reserved', { label: string; className:
   cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200' },
 };
 
+/** What the Status cell actually reads — a pending row with no booking is an action, not a state. */
+const statusLabel = (hotel: Hotel) =>
+  hotel.status === 'pending' && !hotel.reservation_number
+    ? 'Action Needed'
+    : statusConfig[hotel.status]?.label || hotel.status;
+
 export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [approvalHotel, setApprovalHotel] = useState<Hotel | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
   const [showBatchEdit, setShowBatchEdit] = useState(false);
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc';
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc';
-    }
-    setSortConfig({ key, direction });
-  };
+  const positions = useFightCard(
+    useMemo(
+      () =>
+        hotels.map((h) => ({
+          eventId: h.enrolled?.event_id,
+          enrollmentId: h.enrolled?.id ?? '',
+          fullName: h.enrolled?.person?.compiled_name ?? '',
+        })),
+      [hotels]
+    )
+  );
 
-  const sortedHotels = [...hotels].sort((a, b) => {
-    if (!sortConfig) return 0;
-    
-    let aValue: any = '';
-    let bValue: any = '';
+  const orderOf = (hotel: Hotel) => positions.get(hotel.enrolled?.id ?? '')?.fightOrder ?? null;
 
-    switch (sortConfig.key) {
-      case 'guest':
-        aValue = a.enrolled?.person?.compiled_name || '';
-        bValue = b.enrolled?.person?.compiled_name || '';
-        break;
-      case 'dates':
-        aValue = a.checkin_date || '';
-        bValue = b.checkin_date || '';
-        break;
-      case 'status':
-        aValue = a.status || '';
-        bValue = b.status || '';
-        break;
-      default:
-        return 0;
-    }
+  const onSort = (key: SortKey) => setSort((prev) => nextSort(prev, key));
 
-    if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
-    return 0;
-  });
-  
+  const sortedHotels = useMemo(() => {
+    const value = (hotel: Hotel): unknown => {
+      switch (sort.key) {
+        case 'order': return orderOf(hotel);
+        case 'guest': return hotel.enrolled?.person?.compiled_name;
+        case 'checkin': return hotel.checkin_date;
+        case 'checkout': return hotel.checkout_date;
+        case 'nights': return calculateNights(hotel.checkin_date || '', hotel.checkout_date || '');
+        case 'room': return `${hotel.room_type || ''} ${hotel.room_number || ''}`.trim();
+        case 'reference': return hotel.reservation_number;
+        case 'status': return statusLabel(hotel);
+        case 'divergence': return hotel.has_divergence ? (hotel.divergence_approved ? 1 : 0) : 2;
+      }
+    };
+    const out = [...hotels].sort((a, b) => compareValues(value(a), value(b)));
+    return sort.dir === 'asc' ? out : out.reverse();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hotels, sort, positions]);
+
   // Roommates: reservations sharing the same room_number are in the same room.
   const roommatesByRoom = new Map<string, string[]>();
   for (const h of hotels) {
@@ -110,7 +140,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     setIsDeleting(true);
     try {
       await deleteHotel(deleteId);
@@ -125,7 +155,6 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
   };
 
   const handleStatusChange = async (hotelId: string, status: HotelStatus) => {
-    setUpdatingStatusId(hotelId);
     try {
       await updateHotelStatus(hotelId, status, eventDates);
       toast.success(`Status updated to ${status}`);
@@ -133,8 +162,6 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
     } catch (error: any) {
       console.error(error);
       toast.error(error.message || 'Failed to update status');
-    } finally {
-      setUpdatingStatusId(null);
     }
   };
 
@@ -156,45 +183,28 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
             <TableHeader>
                 <TableRow>
                 <TableHead className="w-[40px]">
-                    <Checkbox 
+                    <Checkbox
                         checked={hotels.length > 0 && selectedIds.size === hotels.length}
                         onCheckedChange={(checked) => handleSelectAll(!!checked)}
                     />
                 </TableHead>
-                <TableHead className="w-[60px]">Photo</TableHead>
-                <TableHead className="w-[120px]">Fighter ID</TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50 min-w-[200px]" onClick={() => handleSort('guest')}>
-                    <div className="flex items-center gap-2">
-                        Guest <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                </TableHead>
-                <TableHead className="min-w-[150px]">Event</TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('dates')}>
-                    <div className="flex items-center gap-2">
-                        Check-in <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                </TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('dates')}>
-                    <div className="flex items-center gap-2">
-                        Check-out <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                </TableHead>
-                <TableHead>Nights</TableHead>
-                <TableHead>Room</TableHead>
-                <TableHead>Booking Ref</TableHead>
-                <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                    <div className="flex items-center gap-2">
-                        Status <ArrowUpDown className="h-3 w-3" />
-                    </div>
-                </TableHead>
-                <TableHead>Divergence</TableHead>
+                <SortableHead column="order" label="#" sort={sort} onSort={onSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+                <TableHead className="w-[80px] text-center">Photo</TableHead>
+                <SortableHead column="guest" label="Guest" sort={sort} onSort={onSort} className="min-w-[240px]" />
+                <SortableHead column="checkin" label="Check-in" sort={sort} onSort={onSort} />
+                <SortableHead column="checkout" label="Check-out" sort={sort} onSort={onSort} />
+                <SortableHead column="nights" label="Nights" sort={sort} onSort={onSort} />
+                <SortableHead column="room" label="Room" sort={sort} onSort={onSort} />
+                <SortableHead column="reference" label="Booking Ref" sort={sort} onSort={onSort} />
+                <SortableHead column="status" label="Status" sort={sort} onSort={onSort} />
+                <SortableHead column="divergence" label="Divergence" sort={sort} onSort={onSort} />
                 <TableHead className="w-[70px]"></TableHead>
                 </TableRow>
             </TableHeader>
             <TableBody>
                 {sortedHotels.length === 0 ? (
                 <TableRow>
-                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={12} className="text-center py-8 text-muted-foreground">
                     No hotel reservations found
                     </TableCell>
                 </TableRow>
@@ -202,53 +212,52 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                 sortedHotels.map((hotel) => {
                     const isSelected = selectedIds.has(hotel.id);
                     const nights = calculateNights(hotel.checkin_date || '', hotel.checkout_date || '');
-                    
+                    const guestName = hotel.enrolled?.person?.compiled_name || '';
+                    const roleName = hotel.enrolled?.person?.role?.name || (hotel.enrolled as any)?.role?.name;
+
                     return (
-                    <TableRow 
-                        key={hotel.id} 
+                    <TableRow
+                        key={hotel.id}
                         data-state={isSelected ? 'selected' : undefined}
                         className="cursor-pointer hover:bg-muted/50"
                         onClick={() => onEdit(hotel)}
                     >
                         <TableCell onClick={(e) => e.stopPropagation()}>
-                            <Checkbox 
+                            <Checkbox
                                 checked={isSelected}
                                 onCheckedChange={(checked) => handleSelectOne(hotel.id, !!checked)}
                             />
                         </TableCell>
-                        <TableCell>
-                          <Avatar className="h-10 w-10 border border-muted shadow-sm">
-                            {hotel.enrolled?.person.appadmin_fighter_id && (
-                              <AvatarImage 
-                                src={getFighterPhotoUrl(hotel.enrolled.person.appadmin_fighter_id)} 
-                                alt={hotel.enrolled.person.compiled_name} 
-                              />
-                            )}
-                            <AvatarFallback className="text-xs font-bold bg-muted/50">
-                              {hotel.enrolled?.person.compiled_name?.[0]}
-                            </AvatarFallback>
-                          </Avatar>
+
+                        <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                          <FightOrderCell order={orderOf(hotel)} />
                         </TableCell>
-                        <TableCell>
-                           {hotel.enrolled?.person.appadmin_fighter_id ? (
-                            <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                              ID: {hotel.enrolled.person.appadmin_fighter_id}
-                            </Badge>
-                          ) : (
-                            <span className="text-muted-foreground text-xs font-mono">-</span>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex flex-col">
-                              <p className="font-semibold flex items-center gap-2">
-                                  {hotel.enrolled?.person?.compiled_name}
-                              </p>
-                              <p className="text-xs text-muted-foreground uppercase tracking-tight">{hotel.enrolled?.person?.role?.name || (hotel.enrolled as any)?.role?.name}</p>
+
+                        <TableCell className="text-center p-2">
+                          <div className="flex justify-center">
+                            <FighterAvatar
+                              name={guestName}
+                              photoUrl={getFighterPhotoUrl(hotel.enrolled?.person?.appadmin_fighter_id)}
+                              corner={positions.get(hotel.enrolled?.id ?? '')?.corner}
+                            />
                           </div>
                         </TableCell>
+
                         <TableCell>
-                           <span className="text-xs font-medium text-muted-foreground">{hotel.enrolled?.person.event_name || '-'}</span>
+                          <FighterIdentity
+                            name={guestName}
+                            fighterId={hotel.enrolled?.person?.appadmin_fighter_id}
+                            eventName={hotel.enrolled?.person?.event_name ?? null}
+                            subtitle={
+                              roleName ? (
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-tight truncate">
+                                  {roleName}
+                                </span>
+                              ) : undefined
+                            }
+                          />
                         </TableCell>
+
                         <TableCell>
                            <div className="flex flex-col">
                               <span className="text-sm font-medium">
@@ -296,15 +305,13 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                         </TableCell>
                         <TableCell>
                         <Badge variant="outline" className={cn("font-bold text-[10px] uppercase", statusConfig[hotel.status]?.className || 'bg-gray-100')}>
-                            {hotel.status === 'pending' && !hotel.reservation_number
-                                ? 'Action Needed' 
-                                : statusConfig[hotel.status]?.label || hotel.status}
+                            {statusLabel(hotel)}
                         </Badge>
                         </TableCell>
                         <TableCell>
                         {hotel.has_divergence && hotel.divergence_type && hotel.divergence_type.length > 0 ? (
-                            <div 
-                            className="inline-block" 
+                            <div
+                            className="inline-block"
                             onClick={(e) => { e.stopPropagation(); setApprovalHotel(hotel); }}
                             >
                             <HotelDivergenceBadge
@@ -355,7 +362,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
         </div>
       </div>
 
-      <BatchEditDialog 
+      <BatchEditDialog
         ids={Array.from(selectedIds)}
         open={showBatchEdit}
         onOpenChange={setShowBatchEdit}
@@ -392,4 +399,60 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
       )}
     </>
   );
+}
+
+/* ---------- Fight card lookup ---------- */
+
+type CardPerson = EnrollmentIdentity & { eventId: string | null | undefined };
+
+/**
+ * Corner and bout order for a set of enrollments (UAE-20).
+ *
+ * Resolved per distinct event rather than per table: /hotels is global and mixes
+ * events, so the eventId only exists on the row. An enrollment with no entry is
+ * simply not on the card (staff, guest, or an athlete not paired yet) and
+ * renders grey with no order, never a guess.
+ *
+ * Event names are not fetched here — hotel rows already carry the event name.
+ */
+function useFightCard(people: CardPerson[]) {
+  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
+
+  // Read inside the effect only — the effect re-runs on `signature`, not identity.
+  const peopleRef = useRef(people);
+  peopleRef.current = people;
+
+  const signature = useMemo(
+    () => people.map((p) => `${p.eventId ?? ''}:${p.enrollmentId}`).sort().join('|'),
+    [people]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const byEvent = new Map<string, EnrollmentIdentity[]>();
+    for (const p of peopleRef.current) {
+      if (!p.eventId || !p.enrollmentId) continue;
+      const roster = byEvent.get(p.eventId) ?? [];
+      roster.push({ enrollmentId: p.enrollmentId, fullName: p.fullName, ringName: p.ringName });
+      byEvent.set(p.eventId, roster);
+    }
+
+    Promise.all(Array.from(byEvent, ([eventId, roster]) => getFightCardPositions(eventId, roster)))
+      .then((maps) => {
+        if (cancelled) return;
+        const merged = new Map<string, FightCardPosition>();
+        for (const map of maps) {
+          for (const [id, pos] of map) merged.set(id, pos);
+        }
+        setPositions(merged);
+      })
+      .catch((err) => console.warn('[hotel-table] fight card lookup failed:', err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [signature]);
+
+  return positions;
 }

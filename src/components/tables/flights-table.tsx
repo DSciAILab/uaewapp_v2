@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Table,
   TableBody,
@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -28,17 +27,33 @@ import {
   MoreHorizontal,
   Pencil,
   Trash2,
-  ExternalLink,
   Plane,
   PlaneLanding,
   PlaneTakeoff,
-  AlertCircle,
   FileCheck,
-  ArrowUpDown
 } from 'lucide-react'
 import type { FlightWithEnrollment } from '@/lib/services/flights'
+import { getEventById } from '@/lib/services/events'
+import {
+  getFightCardPositions,
+  type EnrollmentIdentity,
+  type FightCardPosition,
+} from '@/lib/services/fight-card-positions'
+import {
+  FighterAvatar,
+  FighterIdentity,
+  FightOrderCell,
+  FIGHT_ORDER_CELL_CLASS,
+  FIGHT_ORDER_HEAD_CLASS,
+  SortableHead,
+  compareValues,
+  nextSort,
+  type SortState,
+} from '@/components/fighters/fighter-identity'
 import { getFighterPhotoUrl, formatDate, formatTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+
+type SortKey = 'order' | 'passenger' | 'type' | 'arrival' | 'departure' | 'status'
 
 interface FlightsTableProps {
   flights: FlightWithEnrollment[]
@@ -55,7 +70,7 @@ const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
   cancelled: { color: 'bg-red-500/15 text-red-600 dark:text-red-400 border-red-200 dark:border-red-900', label: 'Cancelled' },
 }
 
-const TYPE_ICONS: Record<string, any> = {
+const TYPE_ICONS: Record<string, typeof Plane> = {
   arrival_only: PlaneLanding,
   departure_only: PlaneTakeoff,
   full: Plane,
@@ -74,57 +89,41 @@ export function FlightsTable({
   canEdit = true,
   canDelete = false,
 }: FlightsTableProps) {
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null)
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' })
 
-  const handleSort = (key: string) => {
-    let direction: 'asc' | 'desc' = 'asc'
-    if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-      direction = 'desc'
-    }
-    setSortConfig({ key, direction })
-  }
+  const { positions, eventNames } = useFightCard(
+    useMemo(
+      () =>
+        flights.map((f) => ({
+          eventId: f.enrollment?.event_id,
+          enrollmentId: f.enrollment?.id ?? '',
+          fullName: f.enrollment?.person?.compiled_name ?? '',
+          ringName: f.enrollment?.person?.event_name,
+        })),
+      [flights]
+    )
+  )
+
+  const orderOf = (flight: FlightWithEnrollment) =>
+    positions.get(flight.enrollment?.id ?? '')?.fightOrder ?? null
 
   const sortedFlights = useMemo(() => {
-    if (!sortConfig) return flights
-
-    return [...flights].sort((a, b) => {
-      let aValue: any = ''
-      let bValue: any = ''
-
-      switch (sortConfig.key) {
-        case 'id':
-          aValue = a.enrollment?.person?.appadmin_fighter_id || a.enrollment?.event_code || ''
-          bValue = b.enrollment?.person?.appadmin_fighter_id || b.enrollment?.event_code || ''
-          break
-        case 'passenger':
-          aValue = a.enrollment?.person?.compiled_name || ''
-          bValue = b.enrollment?.person?.compiled_name || ''
-          break
-        case 'type':
-          aValue = a.type || ''
-          bValue = b.type || ''
-          break
-        case 'arrival':
-          aValue = a.arrival_date || ''
-          bValue = b.arrival_date || ''
-          break
-        case 'departure':
-          aValue = a.departure_date || ''
-          bValue = b.departure_date || ''
-          break
-        case 'status':
-          aValue = a.status || ''
-          bValue = b.status || ''
-          break
-        default:
-          return 0
+    const value = (flight: FlightWithEnrollment): unknown => {
+      switch (sort.key) {
+        case 'order': return orderOf(flight)
+        case 'passenger': return flight.enrollment?.person?.compiled_name
+        case 'type': return flight.type
+        case 'arrival': return flight.arrival_date
+        case 'departure': return flight.departure_date
+        case 'status': return flight.status
       }
+    }
+    const out = [...flights].sort((a, b) => compareValues(value(a), value(b)))
+    return sort.dir === 'asc' ? out : out.reverse()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [flights, sort, positions])
 
-      if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
-      if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
-      return 0
-    })
-  }, [flights, sortConfig])
+  const onSort = (key: SortKey) => setSort((prev) => nextSort(prev, key))
 
   return (
     <TooltipProvider>
@@ -132,31 +131,20 @@ export function FlightsTable({
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow className="hover:bg-transparent">
-              <TableHead className="w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('id')}>
-                <div className="flex items-center gap-2">ID <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="min-w-[200px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('passenger')}>
-                <div className="flex items-center gap-2">Passenger <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="text-center w-[80px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('type')}>
-                <div className="flex items-center gap-2 justify-center">Type <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="min-w-[180px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('arrival')}>
-                <div className="flex items-center gap-2">Arrival <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="min-w-[180px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('departure')}>
-                <div className="flex items-center gap-2">Departure <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
-              <TableHead className="text-center w-[120px] cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
-                <div className="flex items-center gap-2 justify-center">Status <ArrowUpDown className="h-3 w-3" /></div>
-              </TableHead>
+              <SortableHead column="order" label="#" sort={sort} onSort={onSort} className={FIGHT_ORDER_HEAD_CLASS} center />
+              <TableHead className="w-[80px] text-center">Photo</TableHead>
+              <SortableHead column="passenger" label="Passenger" sort={sort} onSort={onSort} className="min-w-[220px]" />
+              <SortableHead column="type" label="Type" sort={sort} onSort={onSort} className="text-center w-[80px]" center />
+              <SortableHead column="arrival" label="Arrival" sort={sort} onSort={onSort} className="min-w-[180px]" />
+              <SortableHead column="departure" label="Departure" sort={sort} onSort={onSort} className="min-w-[180px]" />
+              <SortableHead column="status" label="Status" sort={sort} onSort={onSort} className="text-center w-[120px]" center />
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {sortedFlights.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-32 text-center text-muted-foreground">
+                <TableCell colSpan={8} className="h-32 text-center text-muted-foreground">
                     <div className="flex flex-col items-center justify-center gap-2">
                         <Plane className="h-8 w-8 opacity-20" />
                         <p>No flights found for this criteria.</p>
@@ -164,44 +152,44 @@ export function FlightsTable({
                 </TableCell>
               </TableRow>
             ) : (
-              sortedFlights.map((flight: any) => {
+              sortedFlights.map((flight) => {
                 const TypeIcon = TYPE_ICONS[flight.type] || Plane
                 const statusStyle = STATUS_CONFIG[flight.status] || { color: 'bg-gray-100 text-gray-500 border-gray-200', label: flight.status }
-                
+                const name = flight.enrollment?.person?.compiled_name ?? ''
+
                 return (
-                  <TableRow 
-                    key={flight.id} 
+                  <TableRow
+                    key={flight.id}
                     className="group hover:bg-muted/40 transition-colors cursor-pointer"
                     onClick={() => canEdit && onEdit(flight)}
                   >
-                    <TableCell>
-                      <Badge variant="outline" className="font-mono text-[10px] bg-background text-muted-foreground group-hover:bg-background/80 group-hover:text-foreground transition-colors">
-                        {flight.enrollment?.person?.appadmin_fighter_id || flight.enrollment?.event_code || '-'}
-                      </Badge>
+                    <TableCell className={FIGHT_ORDER_CELL_CLASS}>
+                      <FightOrderCell order={orderOf(flight)} />
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-9 w-9 border ring-1 ring-border/50">
-                          {flight.enrollment?.person?.appadmin_fighter_id && (
-                            <AvatarImage
-                              src={getFighterPhotoUrl(flight.enrollment.person.appadmin_fighter_id)}
-                              className="object-cover"
-                            />
-                          )}
-                          <AvatarFallback className="text-xs bg-primary/5 font-medium text-primary">
-                            {flight.enrollment?.person?.compiled_name?.slice(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-sm leading-tight group-hover:text-primary transition-colors">
-                            {flight.enrollment?.person?.compiled_name}
-                          </span>
-                          <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-                            {flight.enrollment?.person?.nationality || 'Unknown'}
-                          </span>
-                        </div>
+
+                    <TableCell className="text-center p-2">
+                      <div className="flex justify-center">
+                        <FighterAvatar
+                          name={name}
+                          photoUrl={getFighterPhotoUrl(flight.enrollment?.person?.appadmin_fighter_id)}
+                          corner={positions.get(flight.enrollment?.id ?? '')?.corner}
+                        />
                       </div>
                     </TableCell>
+
+                    <TableCell>
+                      <FighterIdentity
+                        name={name}
+                        fighterId={flight.enrollment?.person?.appadmin_fighter_id}
+                        eventName={eventNames.get(flight.enrollment?.event_id ?? '') ?? null}
+                        subtitle={
+                          <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider truncate">
+                            {flight.enrollment?.person?.nationality || 'Unknown'}
+                          </span>
+                        }
+                      />
+                    </TableCell>
+
                     <TableCell className="text-center">
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -324,4 +312,68 @@ export function FlightsTable({
       </div>
     </TooltipProvider>
   )
+}
+
+/* ---------- Fight card lookup ---------- */
+
+type CardPerson = EnrollmentIdentity & { eventId: string | null | undefined }
+
+/**
+ * Corner, bout order and event name for a set of enrollments (UAE-20).
+ *
+ * Resolved per distinct event rather than per table: /flights is global and
+ * mixes events, so the eventId only exists on the row. An enrollment with no
+ * entry is simply not on the card (staff, guest, or an athlete not paired yet)
+ * and renders grey with no order, never a guess.
+ */
+function useFightCard(people: CardPerson[]) {
+  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map())
+  const [eventNames, setEventNames] = useState<Map<string, string>>(new Map())
+
+  // Read inside the effect only — the effect re-runs on `signature`, not identity.
+  const peopleRef = useRef(people)
+  peopleRef.current = people
+
+  const signature = useMemo(
+    () => people.map((p) => `${p.eventId ?? ''}:${p.enrollmentId}`).sort().join('|'),
+    [people]
+  )
+
+  useEffect(() => {
+    let cancelled = false
+
+    const byEvent = new Map<string, EnrollmentIdentity[]>()
+    for (const p of peopleRef.current) {
+      if (!p.eventId || !p.enrollmentId) continue
+      const roster = byEvent.get(p.eventId) ?? []
+      roster.push({ enrollmentId: p.enrollmentId, fullName: p.fullName, ringName: p.ringName })
+      byEvent.set(p.eventId, roster)
+    }
+
+    Promise.all(
+      Array.from(byEvent, async ([eventId, roster]) => ({
+        eventId,
+        map: await getFightCardPositions(eventId, roster),
+        name: await getEventById(eventId).then((e) => e?.name ?? null).catch(() => null),
+      }))
+    )
+      .then((results) => {
+        if (cancelled) return
+        const merged = new Map<string, FightCardPosition>()
+        const names = new Map<string, string>()
+        for (const r of results) {
+          for (const [id, pos] of r.map) merged.set(id, pos)
+          if (r.name) names.set(r.eventId, r.name)
+        }
+        setPositions(merged)
+        setEventNames(names)
+      })
+      .catch((err) => console.warn('[flights-table] fight card lookup failed:', err))
+
+    return () => {
+      cancelled = true
+    }
+  }, [signature])
+
+  return { positions, eventNames }
 }
