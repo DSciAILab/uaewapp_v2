@@ -145,6 +145,14 @@ export default function AthleteMusicPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'download', url: normalizeUrl(url), filename }),
       });
+      // The public site has no audio backend (Vercel is serverless). The route
+      // says so with 501; point the user at the machine that can.
+      if (res.status === 501) {
+        toast.error('MP3 download runs on the Mac mini app (http://100.119.83.37:3000), not the web app.', {
+          duration: 8000,
+        });
+        return;
+      }
       if (!res.ok) throw new Error(`Converter returned ${res.status}`);
 
       const blob = await res.blob();
