@@ -1,6 +1,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { spawn } from 'child_process';
+import { mkdtemp, readdir, readFile, rm } from 'fs/promises';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 // Este endpoint é público (ver middleware: /api/public) e passa o input para o
 // yt-dlp via spawn. Um `includes('http')` NÃO é validação: '--config-location=/tmp/http'
@@ -37,6 +40,22 @@ function parseAllowedUrl(raw: unknown): string | null {
 
   // Devolve a forma normalizada pelo WHATWG URL, não a string crua.
   return parsed.toString();
+}
+
+/**
+ * The client asks for a filename (F01_Red_Fighter_Song01.mp3) and it lands in a
+ * Content-Disposition header, so it is never trusted: a CR/LF would let the
+ * caller inject headers, and a quote would break out of the filename. Keep a
+ * conservative charset and cap the length rather than try to escape.
+ */
+function safeFilename(raw: unknown): string {
+  if (typeof raw !== 'string') return 'download.mp3';
+  const base = raw
+    .replace(/\.mp3$/i, '')
+    .replace(/[^A-Za-z0-9._-]/g, '_')
+    .replace(/_{2,}/g, '_')
+    .slice(0, 120);
+  return base ? `${base}.mp3` : 'download.mp3';
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -87,53 +106,57 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         });
     }
 
-    // ACTION: DOWNLOAD (Stream to Client)
+    // ACTION: DOWNLOAD
     if (action === 'download') {
-        const ytProcess = spawn('yt-dlp', [
-            '-x',
-            '--audio-format', 'mp3',
-            '-o', '-',
-            '--',
-            url
-        ]);
+        // yt-dlp CANNOT post-process to stdout: converting needs a real file on
+        // disk, so `-x --audio-format mp3 -o -` silently streams the raw WebM
+        // and the old code shipped it as audio/mpeg named .mp3. Players that
+        // trust the extension choke on it — an arena PA is not the place to
+        // find that out. Convert on disk, then stream the real mp3.
+        let workDir: string | null = null;
+        try {
+            workDir = await mkdtemp(join(tmpdir(), 'uaew-song-'));
 
-        const readableStream = new ReadableStream({
-            start(controller) {
-                ytProcess.stdout.on('data', (chunk) => controller.enqueue(chunk));
-                
-                ytProcess.stdout.on('end', () => {
-                   // End of stream
-                });
+            const exitCode: number = await new Promise((resolve, reject) => {
+                const proc = spawn('yt-dlp', [
+                    '-x',
+                    '--audio-format', 'mp3',
+                    '--audio-quality', '0',
+                    '--no-playlist',
+                    '-o', join(workDir!, 'audio.%(ext)s'),
+                    '--',
+                    url,
+                ]);
+                proc.stderr.on('data', (d) => console.log(`yt-dlp: ${d}`));
+                proc.on('error', reject);
+                proc.on('close', resolve);
+            });
 
-                ytProcess.stderr.on('data', (data) => {
-                    console.log(`yt-dlp stderr: ${data}`);
-                });
-
-                ytProcess.on('close', (code) => {
-                    if (code !== 0) {
-                         console.error(`yt-dlp exited with code ${code}`);
-                    }
-                    controller.close();
-                });
-
-                ytProcess.on('error', (err) => controller.error(err));
-            },
-            cancel() {
-                ytProcess.kill();
+            if (exitCode !== 0) {
+                return NextResponse.json({ error: 'Conversion failed' }, { status: 502 });
             }
-        });
 
-        return new NextResponse(readableStream, {
-            headers: {
-                'Content-Type': 'audio/mpeg',
-                'Content-Disposition': `attachment; filename="download.mp3"`,
-            },
-        }) as unknown as NextResponse; 
-        // Note: NextResponse usually takes BodyInit. ReadableStream is valid but TS might complain about types in Next 13/14 sometimes.
-        // Casting to unknown then NextResponse or just returning Response (polymorphic) is safer.
-        // Actually, let's return standard Response if NextResponse complains, but the signature wants NextResponse.
-        // The original code returned NextResponse(stream).
-        // If TS error persists, we change return type to Promise<Response>.
+            const produced = (await readdir(workDir)).find((f) => f.endsWith('.mp3'));
+            if (!produced) {
+                return NextResponse.json({ error: 'No audio produced' }, { status: 502 });
+            }
+
+            const audio = await readFile(join(workDir, produced));
+            return new NextResponse(new Uint8Array(audio), {
+                headers: {
+                    'Content-Type': 'audio/mpeg',
+                    'Content-Length': String(audio.byteLength),
+                    'Content-Disposition': `attachment; filename="${safeFilename(body.filename)}"`,
+                },
+            });
+        } catch (err) {
+            console.error('[music/convert] download failed:', err);
+            return NextResponse.json({ error: 'Conversion failed' }, { status: 500 });
+        } finally {
+            // The temp dir holds the whole track; leaking one per download would
+            // quietly fill the disk.
+            if (workDir) await rm(workDir, { recursive: true, force: true }).catch(() => {});
+        }
     }
 
     // ACTION: UPLOAD (To Supabase)

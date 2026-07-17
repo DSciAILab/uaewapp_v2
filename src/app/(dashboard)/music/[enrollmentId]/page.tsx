@@ -7,16 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Textarea } from '@/components/ui/textarea';
-import { ArrowLeft, Check, ExternalLink, History, Music, X } from 'lucide-react';
+import { ArrowLeft, Check, Download, ExternalLink, History, Music, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn, getFighterPhotoUrl } from '@/lib/utils';
-import { normalizeUrl, youtubeVideoId } from '@/lib/utils/song-links';
+import { normalizeUrl, youtubeVideoId, walkoutFileName } from '@/lib/utils/song-links';
 import {
   getAthleteMusic,
   updateAthleteMusic,
   logMusicChange,
   getMusicHistory,
 } from '@/lib/services/music-service';
+import { getFightCardPositions } from '@/lib/services/fight-card-positions';
 import { MusicHistoryDrawer } from '@/components/music/music-history-drawer';
 import type { EntranceMusic, MusicStatus, SongStatus } from '@/types/music';
 
@@ -51,6 +52,11 @@ export default function AthleteMusicPage() {
   const [loading, setLoading] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notes, setNotes] = useState('');
+  const [position, setPosition] = useState<{ corner: string | null; fightOrder: number | null }>({
+    corner: null,
+    fightOrder: null,
+  });
+  const [downloading, setDownloading] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,6 +65,18 @@ export default function AthleteMusicPage() {
       const row = rows[0] ?? null;
       setMusic(row);
       setNotes(row?.notes ?? '');
+
+      if (row?.event_id) {
+        const map = await getFightCardPositions(row.event_id, [
+          {
+            enrollmentId,
+            fullName: row.enrolled?.person?.compiled_name ?? '',
+            ringName: row.enrolled?.person?.event_name ?? null,
+          },
+        ]);
+        const pos = map.get(enrollmentId);
+        setPosition({ corner: pos?.corner ?? null, fightOrder: pos?.fightOrder ?? null });
+      }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to load songs');
     } finally {
@@ -103,6 +121,48 @@ export default function AthleteMusicPage() {
       await load();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save status');
+    }
+  };
+
+  /**
+   * Pulls the audio through the app's yt-dlp route.
+   *
+   * Vercel has no yt-dlp or ffmpeg, so in production this only answers once the
+   * route is served from the Mac mini — hence the explicit error rather than a
+   * spinner that never ends.
+   */
+  const downloadSong = async (slot: 1 | 2 | 3, url: string) => {
+    setDownloading(slot);
+    const filename = walkoutFileName({
+      fightOrder: position.fightOrder,
+      corner: position.corner,
+      athleteName: person?.compiled_name ?? 'Unknown',
+      slot,
+    });
+    try {
+      const res = await fetch('/api/public/music/convert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'download', url: normalizeUrl(url), filename }),
+      });
+      if (!res.ok) throw new Error(`Converter returned ${res.status}`);
+
+      const blob = await res.blob();
+      if (blob.size === 0) throw new Error('The converter returned an empty file');
+
+      const href = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = href;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(href);
+      toast.success(`Downloaded ${filename}`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? `Download failed: ${err.message}` : 'Download failed'
+      );
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -212,6 +272,25 @@ export default function AthleteMusicPage() {
                       <ExternalLink className="h-3.5 w-3.5 shrink-0" />
                       <span className="truncate">{title || 'Open link'}</span>
                     </a>
+
+                    {videoId && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full"
+                        disabled={downloading === slot}
+                        onClick={() => downloadSong(slot, url)}
+                        title={walkoutFileName({
+                          fightOrder: position.fightOrder,
+                          corner: position.corner,
+                          athleteName: person?.compiled_name ?? 'Unknown',
+                          slot,
+                        })}
+                      >
+                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                        {downloading === slot ? 'Converting…' : 'Download MP3'}
+                      </Button>
+                    )}
 
                     <div className="flex gap-2 pt-1">
                       <Button

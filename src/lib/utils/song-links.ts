@@ -48,3 +48,37 @@ export function youtubeVideoId(raw: string | null | undefined): string | null {
 export function isYouTubeLink(raw: string | null | undefined): boolean {
   return youtubeVideoId(raw) !== null;
 }
+
+/**
+ * Filename the audio crew expects: F01_Red_AsafChurapov_Song01.mp3 (UAE-20).
+ *
+ * Sorting by name has to sort by running order, so the bout number leads and is
+ * zero-padded. Unknown order becomes F00 rather than being dropped — a file
+ * with no position still has to file somewhere predictable.
+ */
+export function walkoutFileName(opts: {
+  fightOrder: number | null | undefined;
+  corner: string | null | undefined;
+  athleteName: string;
+  slot: 1 | 2 | 3;
+}): string {
+  const order = `F${String(opts.fightOrder ?? 0).padStart(2, '0')}`;
+
+  const c = (opts.corner || '').toUpperCase();
+  const corner = c === 'RED' ? 'Red' : c === 'BLUE' ? 'Blue' : 'NoCorner';
+
+  // Strip the "[C.2] " prefix the ops sheet puts on names, drop accents, and
+  // collapse to CamelCase — the crew renames by hand otherwise.
+  const athlete =
+    opts.athleteName
+      .replace(/^\[[^\]]*\]\s*/, '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9 ]/g, '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join('') || 'Unknown';
+
+  return `${order}_${corner}_${athlete}_Song0${opts.slot}.mp3`;
+}
