@@ -328,33 +328,6 @@ export default function GlobalMusicPage() {
     }
   };
 
-  /** Per-song approval (UAE-20): one approved song = row Done. */
-  const handleSongStatus = async (row: FighterMusicRow, slot: 1 | 2 | 3, status: SongStatus) => {
-    const m = row.music;
-    if (!m) return;
-    try {
-      const statuses: SongStatus[] = [
-        slot === 1 ? status : m.status_1 || 'pending',
-        slot === 2 ? status : m.status_2 || 'pending',
-        slot === 3 ? status : m.status_3 || 'pending',
-      ];
-      await updateAthleteMusic(m.id, {
-        [SLOT_STATUS[slot]]: status,
-        status: deriveRowStatus(statuses),
-      });
-      await logMusicChange(
-        row.event_id,
-        row.enrollment_id,
-        `status_${slot}`,
-        m[SLOT_STATUS[slot]] || 'pending',
-        status
-      );
-      await loadData();
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save status');
-    }
-  };
-
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -550,7 +523,6 @@ export default function GlobalMusicPage() {
                                 label="Song 1"
                                 status={m?.status_1 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 1, v)}
-                                onStatusChange={(st) => handleSongStatus(row, 1, st)}
                               />
                             </TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
@@ -560,7 +532,6 @@ export default function GlobalMusicPage() {
                                 label="Song 2"
                                 status={m?.status_2 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 2, v)}
-                                onStatusChange={(st) => handleSongStatus(row, 2, st)}
                               />
                             </TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
@@ -570,7 +541,6 @@ export default function GlobalMusicPage() {
                                 label="Song 3"
                                 status={m?.status_3 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 3, v)}
-                                onStatusChange={(st) => handleSongStatus(row, 3, st)}
                               />
                             </TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
