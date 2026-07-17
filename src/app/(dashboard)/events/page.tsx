@@ -31,11 +31,11 @@ import type { Event, EventStatus } from '@/types/database'
 import type { EventSchema } from '@/lib/validations/event'
 
 const STATUS_OPTIONS = [
-  { value: 'all', label: 'Todos' },
-  { value: 'planning', label: 'Planejamento' },
-  { value: 'active', label: 'Ativo' },
-  { value: 'completed', label: 'Concluído' },
-  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'all', label: 'All' },
+  { value: 'planning', label: 'Planning' },
+  { value: 'active', label: 'Active' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 
 const STATUS_COLORS: Record<EventStatus, string> = {
@@ -74,7 +74,7 @@ export default function EventsPage() {
       }
       setStats(statsMap)
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao carregar eventos')
+      toast.error(error.message || 'Failed to load events')
     } finally {
       setLoading(false)
     }
@@ -86,11 +86,11 @@ export default function EventsPage() {
     setFormLoading(true)
     try {
       await createEvent(data)
-      toast.success('Evento criado com sucesso')
+      toast.success('Event created successfully')
       setDrawerOpen(false)
       fetchEvents()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao criar evento')
+      toast.error(error.message || 'Failed to create event')
     } finally {
       setFormLoading(false)
     }
@@ -98,7 +98,7 @@ export default function EventsPage() {
 
   return (
     <div className="flex flex-col h-full">
-      <DashboardHeader title="Eventos" description="Gerenciamento de eventos" />
+      <DashboardHeader title="Events" description="Event management" />
       
       <div className="flex-1 p-6 space-y-4">
         <div className="flex flex-wrap items-center gap-4 justify-between">
@@ -106,7 +106,7 @@ export default function EventsPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar eventos..."
+                placeholder="Search events..."
                 value={filters.search || ''}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                 className="pl-10"
@@ -127,7 +127,7 @@ export default function EventsPage() {
             
             {canEditEvents && (
               <Button onClick={() => setDrawerOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />Novo Evento
+                <Plus className="mr-2 h-4 w-4" />New Event
               </Button>
             )}
           </div>
@@ -140,7 +140,7 @@ export default function EventsPage() {
         ) : events.length === 0 ? (
           <div className="text-center py-20 text-muted-foreground">
             <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-            <p>Nenhum evento encontrado</p>
+            <p>No events found</p>
           </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -190,7 +190,7 @@ export default function EventsPage() {
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>Novo Evento</SheetTitle>
+            <SheetTitle>New Event</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             <EventForm onSubmit={handleCreate} onCancel={() => setDrawerOpen(false)} loading={formLoading} />

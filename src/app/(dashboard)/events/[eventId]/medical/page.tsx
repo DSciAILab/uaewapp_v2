@@ -292,7 +292,7 @@ export default function MedicalPage() {
             {eventName ? `${eventName} — Medical Clearance` : 'Medical Clearance'}
           </h2>
           <p className="text-muted-foreground">
-            Time médico avalia e libera atletas para a luta.
+            Medical team evaluates and clears athletes for the fight.
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">

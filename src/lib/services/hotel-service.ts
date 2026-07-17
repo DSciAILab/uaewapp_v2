@@ -612,7 +612,7 @@ export async function importHotelsFromCSV(
     .eq('status', 'active')
     .eq('needs_hotel', true)
 
-  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+  if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   const nameMap = new Map<string, string>()
   for (const e of (enrollments || [])) {
@@ -624,7 +624,7 @@ export async function importHotelsFromCSV(
     if (eventName && eventName !== compiledName) nameMap.set(eventName, e.id)
   }
 
-  if (onProgress) onProgress(0, total, 'Verificando hotéis existentes...')
+  if (onProgress) onProgress(0, total, 'Checking existing hotels...')
   const enrollmentIds = (enrollments || []).map((e) => e.id)
   const { data: existingHotels } = await supabase
     .from('mma_hotels')
@@ -646,13 +646,13 @@ export async function importHotelsFromCSV(
 
     const passportName = (row.passport_name || '').trim()
     if (!passportName) {
-      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome do passaporte é obrigatório' })
+      errors.push({ row: rowNum, name: '(empty)', message: 'Passport name is required' })
       continue
     }
 
     const enrollmentId = nameMap.get(passportName.toLowerCase())
     if (!enrollmentId) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Pessoa não encontrada no evento ou não precisa de hotel' })
+      skipped.push({ row: rowNum, name: passportName, message: 'Person not found in the event or does not need a hotel' })
       continue
     }
 
@@ -675,7 +675,7 @@ export async function importHotelsFromCSV(
         if (updateError) errors.push({ row: rowNum, name: passportName, message: updateError.message })
         else updated++
       } else {
-        skipped.push({ row: rowNum, name: passportName, message: 'Hotel já existe (upsert desativado)' })
+        skipped.push({ row: rowNum, name: passportName, message: 'Hotel already exists (upsert disabled)' })
       }
     } else {
       const { error: insertError } = await supabase.from('mma_hotels').insert(hotelData as Database['public']['Tables']['mma_hotels']['Insert'])
@@ -684,6 +684,6 @@ export async function importHotelsFromCSV(
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

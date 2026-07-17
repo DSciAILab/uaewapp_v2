@@ -54,20 +54,20 @@ import { getEnrollmentsByEvent } from '@/lib/services/enrollments'
 import type { Event } from '@/types/database'
 
 const PEOPLE_FIELDS: FieldDef[] = [
-  { value: 'name', label: 'Nome' },
-  { value: 'surname', label: 'Sobrenome' },
-  { value: 'event_name', label: 'Nome de Guerra' },
+  { value: 'name', label: 'First Name' },
+  { value: 'surname', label: 'Last Name' },
+  { value: 'event_name', label: 'Ring Name' },
   { value: 'appadmin_fighter_id', label: 'Fighter ID' },
-  { value: 'gender', label: 'Gênero' },
-  { value: 'phone', label: 'Telefone' },
-  { value: 'dob', label: 'Data de Nascimento' },
-  { value: 'nationality', label: 'Nacionalidade' },
-  { value: 'passport_number', label: 'Nº Passaporte' },
-  { value: 'passport_expiry', label: 'Validade Passaporte' },
-  { value: 'passport_photo', label: 'Link Foto Passaporte' },
-  { value: 'document_folder', label: 'Pasta de Documentos' },
-  { value: 'height', label: 'Altura' },
-  { value: 'reach', label: 'Envergadura' },
+  { value: 'gender', label: 'Gender' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'dob', label: 'Date of Birth' },
+  { value: 'nationality', label: 'Nationality' },
+  { value: 'passport_number', label: 'Passport Number' },
+  { value: 'passport_expiry', label: 'Passport Expiry' },
+  { value: 'passport_photo', label: 'Passport Photo Link' },
+  { value: 'document_folder', label: 'Document Folder' },
+  { value: 'height', label: 'Height' },
+  { value: 'reach', label: 'Reach' },
 ]
 
 /** Normalizes a CSV date cell to YYYY-MM-DD, or null when unparseable. */
@@ -143,7 +143,7 @@ export default function PeoplePage() {
       setTotalPages(response.totalPages)
       setTotalCount(response.count)
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao carregar pessoas')
+      toast.error(error.message || 'Failed to load people')
     } finally {
       setLoading(false)
     }
@@ -208,15 +208,15 @@ export default function PeoplePage() {
     try {
       if (selectedPerson) {
         await updatePerson(selectedPerson.id, data)
-        toast.success('Pessoa atualizada com sucesso')
+        toast.success('Person updated successfully')
       } else {
         await createPerson(data)
-        toast.success('Pessoa criada com sucesso')
+        toast.success('Person created successfully')
       }
       setDrawerOpen(false)
       fetchPeople()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar pessoa')
+      toast.error(error.message || 'Failed to save person')
     } finally {
       setFormLoading(false)
     }
@@ -252,7 +252,7 @@ export default function PeoplePage() {
     setFormLoading(true)
     try {
       await deletePerson(selectedPerson.id)
-      toast.success('Pessoa excluída com sucesso')
+      toast.success('Person deleted successfully')
       setDeleteDialogOpen(false)
       setDeleteDialogOpen(false)
       setSelectedPeople(prev => {
@@ -263,7 +263,7 @@ export default function PeoplePage() {
       fetchPeople()
       fetchPeople()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao excluir pessoa')
+      toast.error(error.message || 'Failed to delete person')
     } finally {
       setFormLoading(false)
     }
@@ -274,12 +274,12 @@ export default function PeoplePage() {
     setIsBulkDeleting(true)
     try {
       await bulkDeletePeople(Array.from(selectedPeople.keys()))
-      toast.success(`${selectedPeople.size} pessoas excluídas com sucesso`)
+      toast.success(`${selectedPeople.size} people deleted successfully`)
       setBulkDeleteDialogOpen(false)
       setSelectedPeople(new Map())
       fetchPeople()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao excluir pessoas')
+      toast.error(error.message || 'Failed to delete people')
     } finally {
       setIsBulkDeleting(false)
     }
@@ -298,7 +298,7 @@ export default function PeoplePage() {
       skipped: res.duplicates.map((name, i) => ({
         row: i + 1,
         name,
-        message: upsertMode ? 'Já existe — sem alteração' : 'Já existe no banco',
+        message: upsertMode ? 'Already exists — no changes' : 'Already exists in the database',
       })),
       errors: res.errors.map((e, i) => ({
         row: i + 1,
@@ -320,22 +320,22 @@ export default function PeoplePage() {
     setSyncing(true)
     try {
       const result = await syncPeopleFromGoogleSheet()
-      const parts = [`${result.success} novos`]
-      if (result.duplicates.length > 0) parts.push(`${result.duplicates.length} já existiam`)
-      if (result.errors.length > 0) parts.push(`${result.errors.length} com erro`)
+      const parts = [`${result.success} new`]
+      if (result.duplicates.length > 0) parts.push(`${result.duplicates.length} already existed`)
+      if (result.errors.length > 0) parts.push(`${result.errors.length} with errors`)
       const summary = parts.join(', ')
 
       if (result.errors.length > 0) {
-        toast.warning(`Sincronização concluída: ${summary}`, {
+        toast.warning(`Sync completed: ${summary}`, {
           description: result.errors.slice(0, 3).map((e) => `${e.fullName}: ${e.message}`).join(' • '),
         })
       } else {
-        toast.success(`Sincronização concluída: ${summary}`)
+        toast.success(`Sync completed: ${summary}`)
       }
       fetchPeople()
       fetchNationalities()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao sincronizar com Google Sheet')
+      toast.error(error.message || 'Failed to sync with Google Sheet')
     } finally {
       setSyncing(false)
     }
@@ -345,7 +345,7 @@ export default function PeoplePage() {
     <div className="flex flex-col h-full">
       <DashboardHeader 
         title="People Database" 
-        description={loading ? "Carregando registros..." : `Gerenciamento de ${totalCount} pessoas cadastradas`} 
+        description={loading ? "Loading records..." : `Managing ${totalCount} registered people`} 
       />
       
       <div className="flex-1 p-6 space-y-4">
@@ -354,7 +354,7 @@ export default function PeoplePage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por nome, passaporte..."
+                placeholder="Search by name, passport..."
                 value={filters.search || ''}
                 onChange={(e) => setFilters({ ...filters, search: e.target.value, page: 1 })}
                 className="pl-10"
@@ -388,9 +388,9 @@ export default function PeoplePage() {
               value={filters.nationality || 'all'}
               onValueChange={(v) => setFilters({ ...filters, nationality: v === 'all' ? undefined : v, page: 1 })}
             >
-              <SelectTrigger className="w-40"><SelectValue placeholder="Nacionalidade" /></SelectTrigger>
+              <SelectTrigger className="w-40"><SelectValue placeholder="Nationality" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="all">All</SelectItem>
                 {nationalities.map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
               </SelectContent>
             </Select>
@@ -402,16 +402,16 @@ export default function PeoplePage() {
                     onTemplateDownload={() => downloadCSVTemplate('people_import_template.csv', 'Name,Surname,Date of Birth (YYYY-MM-DD),Gender,Nationality,Phone,Passport Name,Passport Number,Passport Expiry,Fighter ID\nJohn,Doe,1990-01-15,male,USA,+1234567890,JOHN DOE,AB123456,2028-12-31,F001\n')}
                     extraItems={[
                       {
-                        label: syncing ? 'Sincronizando...' : 'Sync Google Sheet',
+                        label: syncing ? 'Syncing...' : 'Sync Google Sheet',
                         icon: <RefreshCw className={cn('h-4 w-4', syncing && 'animate-spin')} />,
                         onClick: handleSyncSheet,
                         disabled: syncing || !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL,
-                        title: !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL ? 'Configure NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL no .env.local' : undefined,
+                        title: !process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL ? 'Set NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL in .env.local' : undefined,
                       },
                     ]}
                   />
                   <Button onClick={handleCreate}>
-                    <Plus className="mr-2 h-4 w-4" />Nova Pessoa
+                    <Plus className="mr-2 h-4 w-4" />New Person
                   </Button>
                 </>
             )}
@@ -421,11 +421,11 @@ export default function PeoplePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <p className="text-sm text-muted-foreground">
-              Mostrando {people.length} de {totalCount} registros
+              Showing {people.length} of {totalCount} records
             </p>
             {selectedPeople.size > 0 && (
               <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
-                <Badge variant="secondary" className="h-6">{selectedPeople.size} selecionados</Badge>
+                <Badge variant="secondary" className="h-6">{selectedPeople.size} selected</Badge>
                 
                 <Button 
                   variant="default" 
@@ -443,7 +443,7 @@ export default function PeoplePage() {
                     className="h-8"
                     onClick={() => setBulkDeleteDialogOpen(true)}
                   >
-                    <X className="mr-2 h-4 w-4" />Excluir
+                    <X className="mr-2 h-4 w-4" />Delete
                   </Button>
                 )}
                 
@@ -453,13 +453,13 @@ export default function PeoplePage() {
                   className="h-8"
                   onClick={() => setSelectedPeople(new Map())}
                 >
-                  Limpar
+                  Clear
                 </Button>
               </div>
             )}
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground whitespace-nowrap">Registros por página:</span>
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Rows per page:</span>
             <Select
               value={filters.pageSize === 10000 ? 'all' : filters.pageSize?.toString() || '50'}
               onValueChange={(v) => {
@@ -475,7 +475,7 @@ export default function PeoplePage() {
                 <SelectItem value="500">500</SelectItem>
                 <SelectItem value="1000">1000</SelectItem>
                 <SelectItem value="1500">1500</SelectItem>
-                <SelectItem value="all">Tudo</SelectItem>
+                <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -513,15 +513,15 @@ export default function PeoplePage() {
               onClick={() => setFilters({ ...filters, page: (filters.page || 1) - 1 })}
               className="px-6"
             >
-              Anterior
+              Previous
             </Button>
             
             <div className="flex items-center gap-1">
-              <span className="text-sm font-medium">Página</span>
+              <span className="text-sm font-medium">Page</span>
               <Badge variant="secondary" className="px-2 py-0 h-6 flex items-center justify-center min-w-8">
                 {filters.page}
               </Badge>
-              <span className="text-sm text-muted-foreground whitespace-nowrap">de {totalPages}</span>
+              <span className="text-sm text-muted-foreground whitespace-nowrap">of {totalPages}</span>
             </div>
 
             <Button
@@ -531,7 +531,7 @@ export default function PeoplePage() {
               onClick={() => setFilters({ ...filters, page: (filters.page || 1) + 1 })}
               className="px-6"
             >
-              Próxima
+              Next
             </Button>
           </div>
         )}
@@ -540,7 +540,7 @@ export default function PeoplePage() {
       <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
         <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>{selectedPerson ? 'Editar Pessoa' : 'Nova Pessoa'}</SheetTitle>
+            <SheetTitle>{selectedPerson ? 'Edit Person' : 'New Person'}</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
             <PersonForm
@@ -562,11 +562,11 @@ export default function PeoplePage() {
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport<PersonFormData>
-                title="Importar CSV"
-                subtitle="Relacione as colunas do arquivo com os campos do banco de dados."
+                title="Import CSV"
+                subtitle="Map the file columns to the database fields."
                 fields={PEOPLE_FIELDS}
                 requiredField="name"
-                uploadHint="Formato suportado: .csv (codificação UTF-8)"
+                uploadHint="Supported format: .csv (UTF-8 encoding)"
                 defaultUpsert={false}
                 showDuplicateCheck
                 upsertRequiresDuplicateCheck
@@ -574,7 +574,7 @@ export default function PeoplePage() {
                 onFullscreenChange={setCsvFullscreen}
                 transformValue={transformPersonValue}
                 enableReportDownload
-                resultLabels={{ skipped: 'Duplicados' }}
+                resultLabels={{ skipped: 'Duplicates' }}
                 onImport={handleCSVImport}
                 onComplete={handleCSVComplete}
               />
@@ -586,16 +586,16 @@ export default function PeoplePage() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir {selectedPerson?.compiled_name}?
-              Esta ação não pode ser desfeita.
+              Are you sure you want to delete {selectedPerson?.compiled_name}?
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={confirmDelete} disabled={formLoading}>
-              {formLoading ? 'Excluindo...' : 'Excluir'}
+              {formLoading ? 'Deleting...' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -603,16 +603,16 @@ export default function PeoplePage() {
       <Dialog open={bulkDeleteDialogOpen} onOpenChange={setBulkDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Exclusão em Massa</DialogTitle>
+            <DialogTitle>Confirm Bulk Deletion</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir as {selectedPeople.size} pessoas selecionadas?
-              Esta ação não pode ser desfeita e removerá permanentemente os registros.
+              Are you sure you want to delete the {selectedPeople.size} selected people?
+              This action cannot be undone and will permanently remove the records.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBulkDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="outline" onClick={() => setBulkDeleteDialogOpen(false)}>Cancel</Button>
             <Button variant="destructive" onClick={handleBulkDelete} disabled={isBulkDeleting}>
-              {isBulkDeleting ? 'Excluindo...' : 'Excluir Todos'}
+              {isBulkDeleting ? 'Deleting...' : 'Delete All'}
             </Button>
           </DialogFooter>
         </DialogContent>

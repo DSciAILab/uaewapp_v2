@@ -117,9 +117,9 @@ export function GenericCSVImport<TRow = Record<string, string>>({
   onComplete,
   showUpsert = true,
   defaultUpsert = true,
-  uploadHint = 'Identificação feita pelo nome no passaporte',
+  uploadHint = 'Matching is done by passport name',
   showDuplicateCheck = false,
-  duplicateCheckLabel = 'Verificar nomes duplicados no banco',
+  duplicateCheckLabel = 'Check for duplicate names in the database',
   upsertRequiresDuplicateCheck = false,
   allowFullscreen = false,
   onFullscreenChange,
@@ -139,13 +139,13 @@ export function GenericCSVImport<TRow = Record<string, string>>({
   const [checkDuplicates, setCheckDuplicates] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
 
-  const allFields = [{ value: 'skip', label: '-- Ignorar --' }, ...fields]
+  const allFields = [{ value: 'skip', label: '-- Skip --' }, ...fields]
 
   const labels = {
-    created: resultLabels?.created ?? 'Novos',
-    updated: resultLabels?.updated ?? 'Atualizados',
-    skipped: resultLabels?.skipped ?? 'Não Encontrados',
-    errors: resultLabels?.errors ?? 'Erros',
+    created: resultLabels?.created ?? 'Created',
+    updated: resultLabels?.updated ?? 'Updated',
+    skipped: resultLabels?.skipped ?? 'Not Found',
+    errors: resultLabels?.errors ?? 'Errors',
   }
 
   const ingest = useCallback((text: string) => {
@@ -209,8 +209,8 @@ export function GenericCSVImport<TRow = Record<string, string>>({
       setResult(res)
       setStep('result')
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Erro desconhecido'
-      setResult({ created: 0, updated: 0, skipped: [], errors: [{ row: 0, name: 'Sistema', message }] })
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      setResult({ created: 0, updated: 0, skipped: [], errors: [{ row: 0, name: 'System', message }] })
       setStep('result')
     } finally {
       setLoading(false)
@@ -236,17 +236,17 @@ export function GenericCSVImport<TRow = Record<string, string>>({
             onDrop={handleDrop}
           >
             <Upload className="mx-auto h-12 w-12 text-muted-foreground" />
-            <p className="mt-4 text-sm font-medium">Clique para selecionar ou arraste o arquivo CSV</p>
+            <p className="mt-4 text-sm font-medium">Click to select or drag and drop the CSV file</p>
             <p className="text-xs text-muted-foreground mt-1">{uploadHint}</p>
             <Input id="csv-generic" type="file" accept=".csv,.txt" className="hidden" onChange={handleFileUpload} />
           </Label>
           <div className={onTemplateDownload ? 'flex justify-between' : 'flex justify-end'}>
             {onTemplateDownload && (
               <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={onTemplateDownload}>
-                <Download className="h-4 w-4" /> Baixar Template
+                <Download className="h-4 w-4" /> Download Template
               </Button>
             )}
-            <Button variant="outline" onClick={onComplete}>Cancelar</Button>
+            <Button variant="outline" onClick={onComplete}>Cancel</Button>
           </div>
         </CardContent>
       </Card>
@@ -259,9 +259,9 @@ export function GenericCSVImport<TRow = Record<string, string>>({
       <Card className="border-none shadow-none flex flex-col h-full bg-transparent">
         <CardHeader className="px-6 pt-6 pb-4 border-b bg-background/50 rounded-t-xl flex flex-row items-start justify-between space-y-0 gap-4">
           <div className="flex flex-col gap-1">
-            <CardTitle className="text-xl">Mapear Colunas</CardTitle>
+            <CardTitle className="text-xl">Map Columns</CardTitle>
             <CardDescription>
-              O campo <strong>{fields.find(f => f.value === requiredField)?.label}</strong> é obrigatório.
+              The <strong>{fields.find(f => f.value === requiredField)?.label}</strong> field is required.
             </CardDescription>
           </div>
           {allowFullscreen && (
@@ -272,17 +272,17 @@ export function GenericCSVImport<TRow = Record<string, string>>({
               className="hidden md:flex items-center gap-2 text-muted-foreground hover:text-primary shrink-0"
             >
               {isFullscreen ? (
-                <><Minimize2 className="h-4 w-4" /> Reduzir</>
+                <><Minimize2 className="h-4 w-4" /> Minimize</>
               ) : (
-                <><Maximize2 className="h-4 w-4" /> Maximizar</>
+                <><Maximize2 className="h-4 w-4" /> Maximize</>
               )}
             </Button>
           )}
         </CardHeader>
         <CardContent className="space-y-6 p-6 flex-1 flex flex-col min-h-0">
           <div className="flex items-center justify-between px-4 py-3 bg-muted/80 rounded-t-lg border font-bold text-[10px] uppercase tracking-widest text-muted-foreground">
-            <span className="flex-1">Coluna no Arquivo &amp; Amostra</span>
-            <span className="w-64 text-right pr-6">Campo no Sistema</span>
+            <span className="flex-1">File Column &amp; Sample</span>
+            <span className="w-64 text-right pr-6">System Field</span>
           </div>
           <div
             className="border rounded-lg divide-y overflow-y-auto bg-background/50 flex-1"
@@ -297,16 +297,16 @@ export function GenericCSVImport<TRow = Record<string, string>>({
                     <div className="flex flex-col min-w-0 max-w-[200px]">
                       <span className="text-sm font-bold truncate" title={m.csvColumn}>{m.csvColumn}</span>
                       {m.csvColumn.startsWith(PLACEHOLDER_HEADER_PREFIX) && (
-                        <span className="text-[9px] text-amber-600 font-medium">Sem cabeçalho</span>
+                        <span className="text-[9px] text-amber-600 font-medium">No header</span>
                       )}
                     </div>
                     <span className="text-muted-foreground/30 shrink-0">→</span>
                     {sample ? (
                       <span className="text-[11px] text-muted-foreground truncate italic bg-muted/30 px-2 py-1 rounded border border-dashed max-w-[200px]">
-                        Ex: {sample.length > 30 ? `${sample.substring(0, 30)}...` : sample}
+                        e.g. {sample.length > 30 ? `${sample.substring(0, 30)}...` : sample}
                       </span>
                     ) : (
-                      <span className="text-[10px] text-muted-foreground/40 italic">(vazio)</span>
+                      <span className="text-[10px] text-muted-foreground/40 italic">(empty)</span>
                     )}
                   </div>
                   <div className="w-56 shrink-0">
@@ -333,8 +333,8 @@ export function GenericCSVImport<TRow = Record<string, string>>({
             })}
           </div>
           <div className="flex gap-3 justify-end pt-4">
-            <Button variant="outline" onClick={() => setStep('upload')}>Voltar</Button>
-            <Button disabled={!hasRequired} onClick={() => setStep('preview')}>Revisar</Button>
+            <Button variant="outline" onClick={() => setStep('upload')}>Back</Button>
+            <Button disabled={!hasRequired} onClick={() => setStep('preview')}>Review</Button>
           </div>
         </CardContent>
       </Card>
@@ -349,10 +349,10 @@ export function GenericCSVImport<TRow = Record<string, string>>({
       <Card className="border-none shadow-none flex flex-col h-full bg-transparent">
         <CardHeader className="px-6 pt-6 pb-4 border-b bg-background/50 rounded-t-xl">
           <CardTitle className="text-xl flex items-center gap-3">
-            {loading ? <><Loader2 className="h-5 w-5 animate-spin" /> Processando...</> : 'Pré-visualização'}
-            <Badge variant="outline" className="font-mono bg-primary/10">{csvData.length} linhas</Badge>
+            {loading ? <><Loader2 className="h-5 w-5 animate-spin" /> Processing...</> : 'Preview'}
+            <Badge variant="outline" className="font-mono bg-primary/10">{csvData.length} rows</Badge>
           </CardTitle>
-          {subtitle && <CardDescription className="mt-1">{loading ? 'Aguarde...' : subtitle}</CardDescription>}
+          {subtitle && <CardDescription className="mt-1">{loading ? 'Please wait...' : subtitle}</CardDescription>}
         </CardHeader>
         <CardContent className="space-y-6 p-6 flex-1 flex flex-col min-h-0">
           {loading ? (
@@ -364,12 +364,12 @@ export function GenericCSVImport<TRow = Record<string, string>>({
                 </div>
               </div>
               <div className="space-y-2">
-                <h3 className="text-xl font-bold">{progress.message || 'Importando...'}</h3>
-                <p className="text-sm text-muted-foreground">Não feche esta janela.</p>
+                <h3 className="text-xl font-bold">{progress.message || 'Importing...'}</h3>
+                <p className="text-sm text-muted-foreground">Do not close this window.</p>
               </div>
               <div className="w-full max-w-sm space-y-2">
                 <div className="flex justify-between text-xs font-bold uppercase text-muted-foreground">
-                  <span>{progress.current} de {progress.total}</span>
+                  <span>{progress.current} of {progress.total}</span>
                   <span className="text-primary">{Math.round(pct)}%</span>
                 </div>
                 <Progress value={pct} className="h-3" />
@@ -403,7 +403,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
               </div>
               <div className="flex justify-between items-center bg-muted/30 border border-dashed p-4 rounded-xl mt-auto">
                 <div className="flex flex-col gap-2">
-                  <p className="text-xs text-muted-foreground">{csvData.length} registros serão processados</p>
+                  <p className="text-xs text-muted-foreground">{csvData.length} records will be processed</p>
                   {showDuplicateCheck && (
                     <div className="flex items-center space-x-2">
                       <Switch
@@ -429,13 +429,13 @@ export function GenericCSVImport<TRow = Record<string, string>>({
                         }}
                         disabled={loading}
                       />
-                      <Label htmlFor="upsert-gen" className="text-xs font-medium cursor-pointer">Atualizar existentes</Label>
+                      <Label htmlFor="upsert-gen" className="text-xs font-medium cursor-pointer">Update existing</Label>
                     </div>
                   )}
                 </div>
                 <div className="flex gap-3">
-                  <Button variant="outline" size="sm" onClick={() => setStep('mapping')} disabled={loading}>Editar</Button>
-                  <Button size="sm" onClick={handleImport} disabled={loading} className="px-6 shadow-md">Importar</Button>
+                  <Button variant="outline" size="sm" onClick={() => setStep('mapping')} disabled={loading}>Edit</Button>
+                  <Button size="sm" onClick={handleImport} disabled={loading} className="px-6 shadow-md">Import</Button>
                 </div>
               </div>
             </>
@@ -457,7 +457,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
     let content = ''
     if (format === 'csv') {
       const cell = (v: string) => `"${v.replace(/"/g, '""')}"`
-      content = 'Linha,Nome,Coluna,Tipo,Mensagem\n'
+      content = 'Row,Name,Column,Type,Message\n'
       rows.forEach(r => {
         content += [
           r.row,
@@ -468,13 +468,13 @@ export function GenericCSVImport<TRow = Record<string, string>>({
         ].join(',') + '\n'
       })
     } else {
-      content = `# Relatório de Importação - ${new Date().toLocaleString()}\n\n## Resumo\n`
+      content = `# Import Report - ${new Date().toLocaleString()}\n\n## Summary\n`
       content += `- **${labels.created}:** ${result.created}\n`
       content += `- **${labels.updated}:** ${result.updated}\n`
       content += `- **${labels.skipped}:** ${result.skipped.length}\n`
       content += `- **${labels.errors}:** ${result.errors.length}\n\n`
       if (rows.length > 0) {
-        content += `## Ocorrências\n| Linha | Nome | Coluna | Tipo | Mensagem |\n| :--- | :--- | :--- | :--- | :--- |\n`
+        content += `## Issues\n| Row | Name | Column | Type | Message |\n| :--- | :--- | :--- | :--- | :--- |\n`
         rows.forEach(r => {
           content += `| ${r.row} | ${r.name} | ${r.column || '-'} | ${r.errorType || r.kind} | ${r.message} |\n`
         })
@@ -496,7 +496,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
 
   return (
     <Card className="border-none shadow-none">
-      <CardHeader className="px-0 pt-0"><CardTitle>Resultado da Importação</CardTitle></CardHeader>
+      <CardHeader className="px-0 pt-0"><CardTitle>Import Result</CardTitle></CardHeader>
       <CardContent className="space-y-6 px-0 pb-0">
         <div className={`grid grid-cols-2 gap-4 ${showUpdatedStat ? 'md:grid-cols-4' : 'md:grid-cols-3'}`}>
           <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20 text-center space-y-1">
@@ -526,10 +526,10 @@ export function GenericCSVImport<TRow = Record<string, string>>({
         {enableReportDownload && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={() => downloadReport('csv')} disabled={!hasReportRows}>
-              <FileSpreadsheet className="h-4 w-4" /> Baixar CSV
+              <FileSpreadsheet className="h-4 w-4" /> Download CSV
             </Button>
             <Button variant="outline" size="sm" className="flex-1 gap-2" onClick={() => downloadReport('md')} disabled={!hasReportRows}>
-              <FileText className="h-4 w-4" /> Baixar Markdown
+              <FileText className="h-4 w-4" /> Download Markdown
             </Button>
           </div>
         )}
@@ -542,7 +542,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
             <div className="bg-amber-500/5 rounded-lg p-3 max-h-40 overflow-y-auto border border-amber-500/10 text-xs">
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 {result?.skipped.map((s, i) => (
-                  <li key={i}>Linha {s.row}: <strong>{s.name}</strong> — {s.message}</li>
+                  <li key={i}>Row {s.row}: <strong>{s.name}</strong> — {s.message}</li>
                 ))}
               </ul>
             </div>
@@ -558,7 +558,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
               <ul className="list-disc list-inside space-y-1 text-red-600/80">
                 {result?.errors.map((e, i) => (
                   <li key={i}>
-                    Linha {e.row}: <strong>{e.name}</strong>
+                    Row {e.row}: <strong>{e.name}</strong>
                     {e.column ? <span className="font-mono text-[10px] opacity-70"> [{e.column}]</span> : null}
                     {' '}— {e.message}
                   </li>
@@ -568,7 +568,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
           </div>
         )}
 
-        <div className="pt-4 border-t"><Button className="w-full" onClick={onComplete}>Concluir</Button></div>
+        <div className="pt-4 border-t"><Button className="w-full" onClick={onComplete}>Finish</Button></div>
       </CardContent>
     </Card>
   )

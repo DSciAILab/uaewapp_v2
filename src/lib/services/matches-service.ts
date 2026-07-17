@@ -55,7 +55,7 @@ export async function syncFightCardToDatabase(eventId: string): Promise<number> 
   const csvMatches = await getFightCardData(eventId);
   
   if (!csvMatches || csvMatches.length === 0) {
-    throw new Error('Nenhuma luta encontrada na planilha CSV para este evento.');
+    throw new Error('No fights found in the CSV spreadsheet for this event.');
   }
 
   // 2. Fetch all fighter enrollments for this event
@@ -69,7 +69,7 @@ export async function syncFightCardToDatabase(eventId: string): Promise<number> 
     .eq('status', 'active');
 
   if (enrollError) {
-    throw new Error('Erro ao buscar competidores matriculados: ' + enrollError.message);
+    throw new Error('Failed to fetch enrolled competitors: ' + enrollError.message);
   }
 
   // Build a map of name -> enrollmentId
@@ -100,7 +100,7 @@ export async function syncFightCardToDatabase(eventId: string): Promise<number> 
   const groupedMatches = Array.from(matchesMap.values());
 
   if (groupedMatches.length === 0) {
-      throw new Error('Nenhuma luta válida encontrada na planilha.');
+      throw new Error('No valid fights found in the spreadsheet.');
   }
 
   let upsertsCount = 0;
@@ -151,7 +151,7 @@ export async function syncFightCardToDatabase(eventId: string): Promise<number> 
       });
 
     if (upsertError) {
-      console.warn(`Erro ao sincronizar luta ${csvMatch.matchNumber}:`, upsertError);
+      console.warn(`Failed to sync fight ${csvMatch.matchNumber}:`, upsertError);
     } else {
       upsertsCount++;
     }

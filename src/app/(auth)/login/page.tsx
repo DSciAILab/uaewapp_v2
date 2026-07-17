@@ -45,7 +45,7 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (error: any) {
-      toast.error(error.message || 'Erro na autenticação')
+      toast.error(error.message || 'Authentication error')
     } finally {
       setLoading(false)
     }
@@ -64,7 +64,7 @@ export default function LoginPage() {
 
       if (error) throw error
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao fazer login com Google')
+      toast.error(error.message || 'Failed to sign in with Google')
       setLoading(false)
     }
   }

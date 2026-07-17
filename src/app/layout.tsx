@@ -19,7 +19,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export const metadata: Metadata = {
   title: 'MMA Event System',
-  description: 'Sistema de gestão de eventos de MMA',
+  description: 'MMA event management system',
 }
 
 export default function RootLayout({

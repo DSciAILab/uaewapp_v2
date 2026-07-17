@@ -851,7 +851,7 @@ export async function importStatsFromCSV(
     .eq('role.code', 'F')
     .eq('status', 'active')
 
-  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+  if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   const nameMap = new Map<string, string>()
   for (const e of (enrollments || [])) {
@@ -888,13 +888,13 @@ export async function importStatsFromCSV(
 
     const passportName = (row.passport_name || '').trim()
     if (!passportName) {
-      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome é obrigatório' })
+      errors.push({ row: rowNum, name: '(empty)', message: 'Name is required' })
       continue
     }
 
     const personId = nameMap.get(passportName.toLowerCase())
     if (!personId) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Lutador não encontrado no evento' })
+      skipped.push({ row: rowNum, name: passportName, message: 'Fighter not found in the event' })
       continue
     }
 
@@ -941,6 +941,6 @@ export async function importStatsFromCSV(
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

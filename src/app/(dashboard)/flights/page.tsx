@@ -56,21 +56,21 @@ import type { Event } from '@/types/database'
 import type { FlightSchema } from '@/lib/validations/flight'
 
 const FLIGHT_FIELDS: FieldDef[] = [
-  { value: 'passport_name', label: 'Nome Passaporte' },
-  { value: 'flight_type', label: 'Tipo de Voo' },
-  { value: 'arrival_reservation', label: 'Reserva Chegada' },
-  { value: 'arrival_flight_number', label: 'Nº Voo Chegada' },
-  { value: 'arrival_date', label: 'Data Chegada' },
-  { value: 'arrival_time', label: 'Hora Chegada' },
-  { value: 'arrival_airport', label: 'Aeroporto Chegada' },
-  { value: 'arrival_ticket_link', label: 'Link Bilhete Chegada' },
-  { value: 'departure_reservation', label: 'Reserva Partida' },
-  { value: 'departure_flight_number', label: 'Nº Voo Partida' },
-  { value: 'departure_date', label: 'Data Partida' },
-  { value: 'departure_time', label: 'Hora Partida' },
-  { value: 'departure_airport', label: 'Aeroporto Partida' },
-  { value: 'departure_ticket_link', label: 'Link Bilhete Partida' },
-  { value: 'notes', label: 'Observações' },
+  { value: 'passport_name', label: 'Passport Name' },
+  { value: 'flight_type', label: 'Flight Type' },
+  { value: 'arrival_reservation', label: 'Arrival Reservation' },
+  { value: 'arrival_flight_number', label: 'Arrival Flight Number' },
+  { value: 'arrival_date', label: 'Arrival Date' },
+  { value: 'arrival_time', label: 'Arrival Time' },
+  { value: 'arrival_airport', label: 'Arrival Airport' },
+  { value: 'arrival_ticket_link', label: 'Arrival Ticket Link' },
+  { value: 'departure_reservation', label: 'Departure Reservation' },
+  { value: 'departure_flight_number', label: 'Departure Flight Number' },
+  { value: 'departure_date', label: 'Departure Date' },
+  { value: 'departure_time', label: 'Departure Time' },
+  { value: 'departure_airport', label: 'Departure Airport' },
+  { value: 'departure_ticket_link', label: 'Departure Ticket Link' },
+  { value: 'notes', label: 'Notes' },
 ]
 
 const FLIGHT_CSV_TEMPLATE =
@@ -339,11 +339,11 @@ function FlightsContent() {
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport<FlightCSVRow>
-                title="Importar Voos via CSV"
-                subtitle={`Evento: ${selectedEvent?.name || ''}`}
+                title="Import Flights via CSV"
+                subtitle={`Event: ${selectedEvent?.name || ''}`}
                 fields={FLIGHT_FIELDS}
                 requiredField="passport_name"
-                uploadHint="A identificação é feita pelo nome no passaporte"
+                uploadHint="Matching is done by passport name"
                 onTemplateDownload={() => downloadCSVTemplate('flight_import_template.csv', FLIGHT_CSV_TEMPLATE)}
                 transformValue={(_field, value) => value || null}
                 onImport={(rows, upsertMode, onProgress) =>

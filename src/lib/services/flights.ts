@@ -369,7 +369,7 @@ export async function importFlightsFromCSV(
     .eq('event_id', eventId)
     .eq('status', 'active')
 
-  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+  if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   // Build a name→enrollment map (case insensitive)
   const nameMap = new Map<string, { enrollmentId: string; needsFlight: string }>()
@@ -384,7 +384,7 @@ export async function importFlightsFromCSV(
   }
 
   // 2. Fetch existing flights for this event
-  if (onProgress) onProgress(0, total, 'Verificando voos existentes...')
+  if (onProgress) onProgress(0, total, 'Checking existing flights...')
 
   const enrollmentIds = (enrollments || []).map((e) => e.id)
   const { data: existingFlights } = await supabase
@@ -409,13 +409,13 @@ export async function importFlightsFromCSV(
 
     const passportName = (row.passport_name || '').trim()
     if (!passportName) {
-      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome do passaporte é obrigatório' })
+      errors.push({ row: rowNum, name: '(empty)', message: 'Passport name is required' })
       continue
     }
 
     const match = nameMap.get(passportName.toLowerCase())
     if (!match) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Pessoa não encontrada no evento' })
+      skipped.push({ row: rowNum, name: passportName, message: 'Person not found in the event' })
       continue
     }
 
@@ -461,7 +461,7 @@ export async function importFlightsFromCSV(
           updated++
         }
       } else {
-        skipped.push({ row: rowNum, name: passportName, message: 'Voo já existe (upsert desativado)' })
+        skipped.push({ row: rowNum, name: passportName, message: 'Flight already exists (upsert disabled)' })
       }
     } else {
       const { error: insertError } = await supabase
@@ -477,6 +477,6 @@ export async function importFlightsFromCSV(
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

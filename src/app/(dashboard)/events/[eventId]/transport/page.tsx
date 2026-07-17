@@ -23,10 +23,10 @@ import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-
 import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
 
 const DRIVER_FIELDS: FieldDef[] = [
-  { value: 'name', label: 'Nome' },
-  { value: 'phone', label: 'Telefone' },
-  { value: 'is_active', label: 'Ativo (true/false)' },
-  { value: 'notes', label: 'Observações' },
+  { value: 'name', label: 'Name' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'is_active', label: 'Active (true/false)' },
+  { value: 'notes', label: 'Notes' },
 ];
 
 export default function TransportPage() {
@@ -252,8 +252,8 @@ export default function TransportPage() {
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport
-                title="Importar Motoristas via CSV"
-                subtitle="Motoristas globais"
+                title="Import Drivers via CSV"
+                subtitle="Global drivers"
                 fields={DRIVER_FIELDS}
                 requiredField="name"
                 onImport={(rows, upsert, progress) => importDriversFromCSV(rows as any, upsert, progress)}

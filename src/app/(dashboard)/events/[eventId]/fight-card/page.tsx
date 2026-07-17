@@ -213,14 +213,14 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
   const handleSyncToDatabase = async () => {
       try {
-          if (!confirm('Deseja salvar o estado atual do Fight Card no Banco de Dados? Isso fará a tela não ler mais o Google Sheets.')) return;
+          if (!confirm('Save the current Fight Card state to the database? The screen will stop reading from Google Sheets.')) return;
           
           setSyncing(true);
           const count = await syncFightCardToDatabase(eventId);
-          toast.success(`Sincronizado histórico de ${count} lutas com sucesso.`);
+          toast.success(`Successfully synced history of ${count} fights.`);
           setRefreshKey(prev => prev + 1);
       } catch (err: any) {
-          toast.error(err.message || 'Falha ao sincronizar');
+          toast.error(err.message || 'Sync failed');
           console.error(err);
       } finally {
           setSyncing(false);
@@ -434,7 +434,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                     className="bg-status-pending/10 text-status-pending hover:bg-status-pending/20 border-status-pending/40"
                  >
                     <Database className={`mr-2 h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
-                    {syncing ? 'Sincronizando...' : 'Gravar no Banco'}
+                    {syncing ? 'Syncing...' : 'Save to Database'}
                  </Button>
              )}
               <Button variant="outline" size="sm" onClick={handleDownloadCollectionTemplate} className="bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">

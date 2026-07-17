@@ -507,7 +507,7 @@ export async function importDriversFromCSV(
     if (onProgress && i % 5 === 0) onProgress(i, total, `Processando ${rowNum} de ${total}...`)
 
     const name = (row.name || '').trim()
-    if (!name) { errors.push({ row: rowNum, name: '(vazio)', message: 'Nome é obrigatório' }); continue }
+    if (!name) { errors.push({ row: rowNum, name: '(empty)', message: 'Name is required' }); continue }
 
     const existingId = nameIdMap.get(name.toLowerCase())
     const isActive = row.is_active ? row.is_active.toLowerCase() === 'true' || row.is_active === '1' : true
@@ -520,7 +520,7 @@ export async function importDriversFromCSV(
         if (err) errors.push({ row: rowNum, name, message: err.message })
         else updated++
       } else {
-        skipped.push({ row: rowNum, name, message: 'Motorista já existe' })
+        skipped.push({ row: rowNum, name, message: 'Driver already exists' })
       }
     } else {
       const { error: err } = await supabase.from('mma_drivers').insert({
@@ -531,6 +531,6 @@ export async function importDriversFromCSV(
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

@@ -380,7 +380,7 @@ export default function GlobalMusicPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="w-[50px]">Foto</TableHead>
+                        <TableHead className="w-[50px]">Photo</TableHead>
                         <TableHead className="w-[80px]">
                           <button
                             className="flex items-center text-xs font-medium hover:text-primary transition-colors"
@@ -430,7 +430,7 @@ export default function GlobalMusicPage() {
                             <SortIcon column="status" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead className="w-[80px] text-center">Ação</TableHead>
+                        <TableHead className="w-[80px] text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>

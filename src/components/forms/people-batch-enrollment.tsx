@@ -28,17 +28,17 @@ interface PeopleBatchEnrollmentProps {
 }
 
 const FLIGHT_OPTIONS = [
-  { value: 'none', label: 'Não', icon: XCircle },
-  { value: 'arrival_only', label: 'Chegada', icon: PlaneLanding },
-  { value: 'departure_only', label: 'Partida', icon: PlaneTakeoff },
-  { value: 'full', label: 'Ambos', icon: Plane },
+  { value: 'none', label: 'No', icon: XCircle },
+  { value: 'arrival_only', label: 'Arrival', icon: PlaneLanding },
+  { value: 'departure_only', label: 'Departure', icon: PlaneTakeoff },
+  { value: 'full', label: 'Both', icon: Plane },
 ];
 
 const TRANSPORT_OPTIONS = [
-  { value: 'none', label: 'Não', icon: XCircle },
-  { value: 'arrival', label: 'Chegada', icon: Car },
-  { value: 'departure', label: 'Partida', icon: Car },
-  { value: 'both', label: 'Ambos', icon: Bus },
+  { value: 'none', label: 'No', icon: XCircle },
+  { value: 'arrival', label: 'Arrival', icon: Car },
+  { value: 'departure', label: 'Departure', icon: Car },
+  { value: 'both', label: 'Both', icon: Bus },
 ];
 
 export function PeopleBatchEnrollment({ 

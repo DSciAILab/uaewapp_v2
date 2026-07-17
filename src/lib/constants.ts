@@ -50,11 +50,11 @@ export const PERMISSION_AREAS = [
 
 export const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
-  { label: 'Eventos', href: '/events', icon: 'Calendar', area: 'events' },
+  { label: 'Events', href: '/events', icon: 'Calendar', area: 'events' },
   { label: 'People', href: '/people', icon: 'Users', area: 'people' },
-  { label: 'Aéreo', href: '/flights', icon: 'Plane', area: 'flights' },
-  { label: 'Vistos', href: '/visas', icon: 'FileText', area: 'visas' },
+  { label: 'Flights', href: '/flights', icon: 'Plane', area: 'flights' },
+  { label: 'Visas', href: '/visas', icon: 'FileText', area: 'visas' },
   { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
-  { label: 'Transporte', href: '/transport', icon: 'Car', area: 'transport' },
-  { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },
+  { label: 'Transport', href: '/transport', icon: 'Car', area: 'transport' },
+  { label: 'Settings', href: '/settings', icon: 'Settings', area: 'admin' },
 ] as const

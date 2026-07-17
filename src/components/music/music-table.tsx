@@ -57,10 +57,10 @@ export function MusicTable({ music, onEdit, onRefresh, onPreview }: MusicTablePr
         <Table>
           <TableHeader>
             <TableRow className="bg-muted/50">
-              <TableHead className="w-[80px]">Foto</TableHead>
-              <TableHead className="w-[60px] text-center">Luta #</TableHead>
+              <TableHead className="w-[80px]">Photo</TableHead>
+              <TableHead className="w-[60px] text-center">Fight #</TableHead>
               <TableHead className="w-[100px] text-center">Fighter ID</TableHead>
-              <TableHead>Nome</TableHead>
+              <TableHead>Name</TableHead>
               <TableHead className="text-center">Corner</TableHead>
               <TableHead>Music Source</TableHead>
               <TableHead className="text-center">Status</TableHead>

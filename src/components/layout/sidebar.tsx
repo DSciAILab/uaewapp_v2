@@ -54,12 +54,12 @@ const icons = {
 
 const navItems = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
-  { label: 'Eventos', href: '/events', icon: 'Calendar', area: 'events' },
+  { label: 'Events', href: '/events', icon: 'Calendar', area: 'events' },
   { label: 'People', href: '/people', icon: 'Users', area: 'people' },
-  { label: 'Aéreo', href: '/flights', icon: 'Plane', area: 'flights' },
-  { label: 'Vistos', href: '/visas', icon: 'FileText', area: 'visas' },
+  { label: 'Flights', href: '/flights', icon: 'Plane', area: 'flights' },
+  { label: 'Visas', href: '/visas', icon: 'FileText', area: 'visas' },
   { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
-  { label: 'Transporte', href: '/transport', icon: 'Car', area: 'transport' },
+  { label: 'Transport', href: '/transport', icon: 'Car', area: 'transport' },
   { label: 'Fighter Stats', href: '/stats', icon: 'BarChart3', area: 'operations' },
   { label: 'Walk-out Songs', href: '/music', icon: 'Music', area: 'operations' },
   { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
@@ -68,7 +68,7 @@ const navItems = [
   { label: 'Medical', href: '/medical', icon: 'Stethoscope', area: 'pre_event' },
   { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
   { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
-  { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },
+  { label: 'Settings', href: '/settings', icon: 'Settings', area: 'admin' },
 ]
 
 interface SidebarProps {
@@ -126,7 +126,7 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
           <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-50">
             <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
             {(isMobile || !collapsed) && (
-              <span className="label-mono">Carregando</span>
+              <span className="label-mono">Loading</span>
             )}
           </div>
         ) : (
