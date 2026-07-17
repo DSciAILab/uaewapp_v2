@@ -302,8 +302,8 @@ export function GenericCSVImport<TRow = Record<string, string>>({
               return (
                 <div key={`${m.csvColumn}-${idx}`} className="flex flex-col gap-2 p-3 md:flex-row md:items-center md:gap-4 hover:bg-muted/30 transition-colors">
                   <div className="flex-1 min-w-0 flex flex-col gap-1 md:flex-row md:items-center md:gap-3">
-                    <div className="flex flex-col min-w-0 md:max-w-[200px]">
-                      <span className="text-sm font-bold break-words md:truncate" title={m.csvColumn}>
+                    <div className="flex flex-col min-w-0 md:flex-1">
+                      <span className="text-sm font-bold break-words" title={m.csvColumn}>
                         {m.csvColumn}
                       </span>
                       {m.csvColumn.startsWith(PLACEHOLDER_HEADER_PREFIX) && (
@@ -312,8 +312,11 @@ export function GenericCSVImport<TRow = Record<string, string>>({
                     </div>
                     <span className="hidden md:inline text-muted-foreground/30 shrink-0">→</span>
                     {sample ? (
-                      <span className="text-[11px] text-muted-foreground italic bg-muted/30 px-2 py-1 rounded border border-dashed break-words md:truncate md:max-w-[200px]">
-                        e.g. {sample.length > 30 ? `${sample.substring(0, 30)}...` : sample}
+                      <span
+                        className="text-[11px] text-muted-foreground italic bg-muted/30 px-2 py-1 rounded border border-dashed break-words md:flex-1 md:min-w-0 md:truncate"
+                        title={sample}
+                      >
+                        e.g. {sample.length > 60 ? `${sample.substring(0, 60)}…` : sample}
                       </span>
                     ) : (
                       <span className="text-[10px] text-muted-foreground/40 italic">(empty)</span>
