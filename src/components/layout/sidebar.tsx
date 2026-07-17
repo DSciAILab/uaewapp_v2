@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
+  LayoutGrid,
   Calendar,
   Users,
   Plane,
@@ -41,6 +42,7 @@ import { FightCardDialog } from '@/components/fight-card/fight-card-dialog'
 
 const icons = {
   LayoutDashboard,
+  LayoutGrid,
   Calendar,
   Users,
   Plane,
@@ -76,6 +78,7 @@ const isGroup = (entry: NavEntry): entry is NavGroup => 'children' in entry
 
 const navItems: NavEntry[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
+  { label: 'Operations Board', href: '/operations-board', icon: 'LayoutGrid' },
   { label: 'Events', href: '/events', icon: 'Calendar', area: 'events' },
   { label: 'People', href: '/people', icon: 'Users', area: 'people' },
   {
