@@ -38,6 +38,7 @@ interface FighterMusicRow {
   appadmin_fighter_id: string | null;
   phone: string | null;
   corner: string | null;
+  fight_order: number | null;
   music: EntranceMusic | null;
 }
 
@@ -100,7 +101,7 @@ function CornerPanel({ title, totals, variant }: {
   );
 }
 
-type SortKey = 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
+type SortKey = 'order' | 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
 type SortDir = 'asc' | 'desc';
 
 function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
@@ -134,7 +135,7 @@ export default function GlobalMusicPage() {
   const [eventFilter, setEventFilter] = useState('all');
   const [cornerFilter, setCornerFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>('order');
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const toggleSort = (key: SortKey) => {
@@ -167,6 +168,7 @@ export default function GlobalMusicPage() {
         appadmin_fighter_id: f.appadmin_fighter_id,
         phone: f.phone,
         corner: f.corner,
+        fight_order: f.fight_order,
         music: musicMap.get(f.enrollment_id) || null,
       }));
 
@@ -212,6 +214,9 @@ export default function GlobalMusicPage() {
       result = [...result].sort((a, b) => {
         let cmp = 0;
         switch (sortKey) {
+          case 'order':
+            cmp = (a.fight_order ?? 999) - (b.fight_order ?? 999);
+            break;
           case 'appadmin_fighter_id':
             cmp = (a.appadmin_fighter_id || '').localeCompare(b.appadmin_fighter_id || '');
             break;
@@ -423,6 +428,15 @@ export default function GlobalMusicPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
+                        <TableHead className="w-[60px] text-center bg-yellow-50/50 dark:bg-yellow-500/5">
+                          <button
+                            className="flex items-center justify-center w-full text-xs font-medium hover:text-primary transition-colors"
+                            onClick={() => toggleSort('order')}
+                          >
+                            #
+                            <SortIcon column="order" sortKey={sortKey} sortDir={sortDir} />
+                          </button>
+                        </TableHead>
                         <TableHead className="w-[80px] text-center">Photo</TableHead>
                         <TableHead className="w-[280px]">
                           <button
@@ -459,6 +473,10 @@ export default function GlobalMusicPage() {
                             className="hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => handleEditMusic(row)}
                           >
+                            <TableCell className="p-2 text-center font-bold text-lg bg-yellow-50/30 text-yellow-700/80 dark:bg-yellow-500/5 dark:text-yellow-400/80">
+                              {row.fight_order ?? '-'}
+                            </TableCell>
+
                             <TableCell className="text-center p-2">
                               <div className="flex justify-center">
                                 <Avatar className={cn('h-12 w-12 border-4 shadow-sm', AVATAR_BORDER(row.corner))}>

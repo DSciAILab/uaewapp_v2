@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { EntranceMusic, EntranceMusicFormData, MusicStatus } from '@/types/music';
+import { getFightCardData } from './stats-service';
+import { normalizeName } from '@/lib/utils';
 
 function getClient() {
   return createClient();
@@ -89,6 +91,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
   appadmin_fighter_id: string | null;
   phone: string | null;
   corner: string | null;
+  fight_order: number | null;
   has_music: boolean;
 }>> {
   const supabase = getClient();
@@ -111,7 +114,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
       event_id,
       corner,
       role:mma_roles!inner(code),
-      person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id, phone)
+      person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id, phone, name, surname, event_name)
     `)
     .in('event_id', eventIds)
     .eq('status', 'active')
@@ -127,16 +130,53 @@ export async function getActiveEventsFighters(): Promise<Array<{
 
   const musicSet = new Set((musicEntries || []).map((m: { enrolled_id: string }) => m.enrolled_id));
 
+  // Corner and fight order come from the fight-card CSV, matched by name —
+  // the same source the Medical Clearance page uses (enrollments.corner is
+  // mostly null and is NOT what the ops team maintains).
+  interface FightCardRow { name: string | null; matchNumber: number | null; corner: 'RED' | 'BLUE' | null }
+  let fightCard: FightCardRow[] = [];
+  try {
+    fightCard = await getFightCardData();
+  } catch (err) {
+    console.warn('[music-service] failed to fetch fight card:', err);
+  }
+
   return (enrollments || []).map((e) => {
-    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as { compiled_name: string; appadmin_fighter_id: string | null; phone: string | null } | null;
+    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as {
+      compiled_name: string;
+      appadmin_fighter_id: string | null;
+      phone: string | null;
+      name: string | null;
+      surname: string | null;
+      event_name: string | null;
+    } | null;
+
+    const fullName = `${person?.name || ''} ${person?.surname || ''}`.trim();
+    const ringName = person?.event_name || '';
+    const match =
+      fightCard.find((c) => {
+        const pName = normalizeName(fullName);
+        const eName = normalizeName(ringName);
+        const cName = normalizeName(c.name || '');
+        return (
+          pName === cName ||
+          eName === cName ||
+          (cName.length > 3 && pName.includes(cName)) ||
+          (pName.length > 3 && cName.includes(pName)) ||
+          (cName.length > 3 && eName.includes(cName)) ||
+          (eName.length > 3 && cName.includes(eName))
+        );
+      }) || { matchNumber: null, corner: null, name: null };
+
     return {
       enrollment_id: e.id,
       event_id: e.event_id,
       event_name: eventNameMap[e.event_id] || 'Unknown',
-      person_name: person?.compiled_name || 'Unknown',
+      person_name: match.name || person?.compiled_name || 'Unknown',
       appadmin_fighter_id: person?.appadmin_fighter_id || null,
       phone: person?.phone || null,
-      corner: e.corner || null,
+      corner: match.corner || e.corner || null,
+      fight_order: match.matchNumber ?? null,
       has_music: musicSet.has(e.id),
     };
   });
