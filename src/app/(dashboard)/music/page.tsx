@@ -25,7 +25,7 @@ import {
 import { MusicHistoryDrawer } from '@/components/music/music-history-drawer';
 import { normalizeUrl, isYouTubeLink } from '@/lib/utils/song-links';
 import { WalkoutSongCell, WalkoutNotesCell } from '@/components/music/walkout-song-cell';
-import { MedicalWhatsAppLink } from '@/components/medical/medical-whatsapp-link';
+import { WalkoutWhatsAppLink } from '@/components/music/walkout-whatsapp-link';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getFighterPhotoUrl } from '@/lib/utils';
@@ -572,7 +572,11 @@ export default function GlobalMusicPage() {
 
                             <TableCell className="text-center">
                               <div className="flex justify-center">
-                                <MedicalWhatsAppLink phone={row.phone} />
+                                <WalkoutWhatsAppLink
+                                  phone={row.phone}
+                                  fighterName={row.person_name}
+                                  eventName={row.event_name}
+                                />
                               </div>
                             </TableCell>
 
@@ -675,7 +679,11 @@ export default function GlobalMusicPage() {
                                 </div>
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
-                                <MedicalWhatsAppLink phone={row.phone} />
+                                <WalkoutWhatsAppLink
+                                  phone={row.phone}
+                                  fighterName={row.person_name}
+                                  eventName={row.event_name}
+                                />
                                 <Button
                                   variant="ghost"
                                   size="icon"
