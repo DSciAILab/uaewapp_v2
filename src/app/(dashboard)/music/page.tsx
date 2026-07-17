@@ -57,6 +57,56 @@ const AVATAR_BORDER = (corner: string | null) => {
 
 /* ---------- Corner summary panels (Medical Clearance pattern) ---------- */
 
+/**
+ * Phone version of the three corner panels (UAE-20).
+ *
+ * Three stacked panels pushed the actual table below the fold on a phone, so
+ * on mobile the numbers collapse into one strip: the totals that matter, with
+ * the red/blue split kept as a footnote rather than dropped.
+ */
+function MobileSummary({ summary }: { summary: { red: PanelTotals; blue: PanelTotals; total: PanelTotals } }) {
+  const buckets: { key: keyof PanelTotals; label: string; tone: string }[] = [
+    { key: 'noMusic', label: 'No Music', tone: 'text-red-700 dark:text-red-400' },
+    { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
+    { key: 'done', label: 'Done', tone: 'text-emerald-700 dark:text-emerald-400' },
+  ];
+  const total = summary.total.pending + summary.total.done + summary.total.noMusic;
+
+  return (
+    <div className="rounded-lg border bg-card p-3 md:hidden">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-xs font-bold uppercase tracking-wider">All Corners</span>
+        <span className="text-xs text-muted-foreground">{total} total</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {buckets.map((b) => (
+          <div
+            key={b.key}
+            className="flex flex-col items-center justify-center rounded-md bg-background/60 dark:bg-background/30 px-2 py-1.5 border border-border/50"
+          >
+            <span className={cn('text-xl font-bold leading-none tabular-nums', b.tone)}>
+              {summary.total[b.key]}
+            </span>
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">
+              {b.label}
+            </span>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-red-600" />
+          Red {summary.red.pending + summary.red.done + summary.red.noMusic}
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-2 w-2 rounded-full bg-blue-600" />
+          Blue {summary.blue.pending + summary.blue.done + summary.blue.noMusic}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 type PanelTotals = { pending: number; done: number; noMusic: number };
 
 function CornerPanel({ title, totals, variant }: {
@@ -360,15 +410,16 @@ export default function GlobalMusicPage() {
       </div>
 
       {/* Corner summary (Medical Clearance pattern) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <MobileSummary summary={summary} />
+      <div className="hidden md:grid md:grid-cols-3 gap-3">
         <CornerPanel title="Red Corner" totals={summary.red} variant="red" />
         <CornerPanel title="Blue Corner" totals={summary.blue} variant="blue" />
         <CornerPanel title="Total" totals={summary.total} variant="total" />
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3 items-center">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center">
+        <div className="relative col-span-2 sm:col-span-1 sm:flex-1 sm:min-w-[200px] sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search by name or fighter ID..."
@@ -378,7 +429,7 @@ export default function GlobalMusicPage() {
           />
         </div>
         <Select value={eventFilter} onValueChange={setEventFilter}>
-          <SelectTrigger className="w-[220px]">
+          <SelectTrigger className="w-full sm:w-[220px]">
             <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
             <SelectValue placeholder="Filter by event" />
           </SelectTrigger>
@@ -390,7 +441,7 @@ export default function GlobalMusicPage() {
           </SelectContent>
         </Select>
         <Select value={cornerFilter} onValueChange={setCornerFilter}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-full sm:w-[140px]">
             <SelectValue placeholder="Corner" />
           </SelectTrigger>
           <SelectContent>
@@ -400,7 +451,7 @@ export default function GlobalMusicPage() {
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -436,7 +487,9 @@ export default function GlobalMusicPage() {
                   </p>
                 </div>
               ) : (
-                <div className="rounded-md border overflow-hidden">
+                <>
+                {/* Desktop table */}
+                <div className="hidden md:block rounded-md border overflow-hidden">
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
@@ -584,6 +637,93 @@ export default function GlobalMusicPage() {
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Mobile card stack — a 10-column table can't be read on a phone */}
+                <div className="md:hidden space-y-2">
+                  {filtered.map((row) => {
+                    const m = row.music;
+                    return (
+                      <div key={`m-${row.enrollment_id}`} className="rounded-lg border bg-card overflow-hidden">
+                        <div className="flex items-stretch">
+                          <div className="flex items-center justify-center w-10 shrink-0 border-r font-bold text-lg bg-yellow-50/30 text-amber-700/80 dark:bg-yellow-500/5 dark:text-amber-400/80">
+                            {row.fight_order ?? '-'}
+                          </div>
+                          <div className="flex-1 p-3 min-w-0 space-y-2">
+                            <div className="flex items-center gap-2.5">
+                              <Avatar className={cn('h-10 w-10 border-4 shrink-0 shadow-sm', AVATAR_BORDER(row.corner))}>
+                                <AvatarImage src={getFighterPhotoUrl(row.appadmin_fighter_id)} className="object-cover" />
+                                <AvatarFallback className="text-[10px] font-bold bg-muted text-muted-foreground">
+                                  {row.person_name.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="min-w-0 flex-1">
+                                <p className="font-bold text-sm leading-tight truncate">{row.person_name}</p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  <Badge
+                                    variant="outline"
+                                    className="font-mono text-[9px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4"
+                                  >
+                                    ID: {row.appadmin_fighter_id || 'N/A'}
+                                  </Badge>
+                                  {hasSongs(m) ? (
+                                    <MusicStatusBadge status={m.status} />
+                                  ) : (
+                                    <Badge variant="outline" className="text-[9px] border-dashed text-muted-foreground">
+                                      No music
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <MedicalWhatsAppLink phone={row.phone} />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  title="View change history"
+                                  onClick={() => setHistoryOpenFor(row)}
+                                >
+                                  <History className="h-3.5 w-3.5" />
+                                </Button>
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5 border-t border-border/40 pt-2">
+                              {([1, 2, 3] as const).map((slot) => (
+                                <div key={slot} className="flex items-center gap-2">
+                                  <span className="w-11 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                    Song {slot}
+                                  </span>
+                                  <div className="flex-1 min-w-0">
+                                    <WalkoutSongCell
+                                      value={(m?.[SLOT_FIELDS[slot]] as string | null) ?? null}
+                                      title={(m?.[SLOT_TITLE[slot]] as string | null) ?? null}
+                                      label={`Song ${slot}`}
+                                      status={(m?.[SLOT_STATUS[slot]] as SongStatus) || 'pending'}
+                                      onSave={(v) => handleCellSave(row, slot, v)}
+                                    />
+                                  </div>
+                                </div>
+                              ))}
+                              <div className="flex items-center gap-2">
+                                <span className="w-11 shrink-0 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                  Notes
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <WalkoutNotesCell
+                                    value={m?.notes ?? null}
+                                    onSave={(v) => handleCellSave(row, 'notes', v)}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>
