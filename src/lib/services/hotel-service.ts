@@ -553,7 +553,7 @@ export async function updateHotelBatch(
 ): Promise<void> {
   if (!hotelIds.length) return;
 
-  const updateData: Record<string, unknown> = {
+  const updateData: Database['public']['Tables']['mma_hotels']['Update'] = {
     updated_at: new Date().toISOString()
   };
 
@@ -656,7 +656,7 @@ export async function importHotelsFromCSV(
       continue
     }
 
-    const hotelData: Record<string, unknown> = {
+    const hotelData: Database['public']['Tables']['mma_hotels']['Insert'] = {
       enrollment_id: enrollmentId,
       checkin_date: row.checkin_date || null,
       checkin_time: row.checkin_time || null,

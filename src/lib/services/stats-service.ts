@@ -314,7 +314,7 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
 
   const { data, error } = await supabase
     .from('mma_fighter_stats')
-    .update(updatePayload)
+    .update(updatePayload as Database['public']['Tables']['mma_fighter_stats']['Update'])
     .eq('id', statsId)
     .select(`
       *,
@@ -461,7 +461,7 @@ export async function updateCoachData(dataId: string, formData: Partial<CoachDat
 
   const { data, error } = await supabase
     .from('mma_coach_data')
-    .update(updatePayload)
+    .update(updatePayload as Database['public']['Tables']['mma_coach_data']['Update'])
     .eq('id', dataId)
     .select(`
       *,

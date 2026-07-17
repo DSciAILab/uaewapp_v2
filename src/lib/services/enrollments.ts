@@ -164,7 +164,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .maybeSingle()
 
     if (!existingVisa) {
-      const visaInsert: Record<string, unknown> = {
+      const visaInsert: Partial<Database['public']['Tables']['mma_visas']['Insert']> = {
         enrollment_id: enrolled_id,
         status: 2, // Required/Pendente
         is_done: false

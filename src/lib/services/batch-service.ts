@@ -175,15 +175,13 @@ export async function deleteBatch(batchId: string): Promise<void> {
 }
 
 export async function updateBatchStatus(batchId: string, status: BatchStatus): Promise<Batch> {
-  const updateData: Record<string, unknown> = { status };
+  const updateData: Database['public']['Tables']['mma_batches']['Update'] = { status };
 
   if (status === 'in_progress') {
     updateData.started_at = new Date().toISOString();
   } else if (status === 'completed') {
     updateData.completed_at = new Date().toISOString();
   }
-
-
 
   const supabase = getClient();
   const { data, error } = await supabase
@@ -271,7 +269,7 @@ export async function updateParticipantStatus(
   participantId: string,
   status: BatchParticipantStatus
 ): Promise<BatchParticipant> {
-  const updateData: Record<string, unknown> = { status };
+  const updateData: Database['public']['Tables']['mma_batch_participants']['Update'] = { status };
 
   if (status === 'checked_in') {
     updateData.checked_in_at = new Date().toISOString();
