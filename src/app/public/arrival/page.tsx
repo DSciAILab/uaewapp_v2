@@ -273,10 +273,17 @@ export default function PublicArrivalPage() {
                       const flight = [r.flight, r.flightDate && `on ${r.flightDate}`, r.flightTime && `at ${r.flightTime}`, r.airport && `(${r.airport})`]
                         .filter(Boolean)
                         .join(' ');
+                      // WhatsApp monospace: ```text```
                       const carPart = r.carNumber
-                        ? `my assigned car is ${r.carNumber}${r.driver ? ` with driver ${r.driver}` : ''}`
-                        : 'my car has not been assigned yet';
-                      const msg = `Hello, I am ${r.name} from ${title}. My flight is ${flight || 'not listed'} and ${carPart}. I need support.`;
+                        ? `Car: \`\`\`${r.carNumber}\`\`\`${r.driver ? ` — driver ${r.driver}` : ''}`
+                        : 'Car: not assigned yet';
+                      const msg = [
+                        `Hello, I am \`\`\`${r.name}\`\`\` from ${title}.`,
+                        `Flight: ${flight || 'not listed'}`,
+                        carPart,
+                        '',
+                        'I need support.',
+                      ].join('\n');
                       window.open(
                         `https://wa.me/${COORDINATOR_PHONE.replace(/[^\d]/g, '')}?text=${encodeURIComponent(msg)}`,
                         '_blank',
