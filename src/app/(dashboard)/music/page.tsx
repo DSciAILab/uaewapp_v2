@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Music, Music2, CheckCircle, CheckCircle2, XCircle, Clock, AlertTriangle,
+  Music, Music2, CheckCircle2, XCircle,
   Search, ExternalLink, Filter, Pencil, Plus, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { MusicForm } from '@/components/music/music-form';
@@ -22,6 +22,8 @@ import {
   updateAthleteMusic,
 } from '@/lib/services/music-service';
 import { WalkoutSongCell, WalkoutNotesCell } from '@/components/music/walkout-song-cell';
+import { MedicalWhatsAppLink } from '@/components/medical/medical-whatsapp-link';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
@@ -34,8 +36,68 @@ interface FighterMusicRow {
   event_name: string;
   person_name: string;
   appadmin_fighter_id: string | null;
+  phone: string | null;
   corner: string | null;
   music: EntranceMusic | null;
+}
+
+// Mirrors the Medical Clearance table: avatar ring tinted by corner.
+const AVATAR_BORDER = (corner: string | null) => {
+  const c = (corner || '').toLowerCase();
+  return c === 'red' ? 'border-red-600' : c === 'blue' ? 'border-blue-600' : 'border-muted';
+};
+
+/* ---------- Corner summary panels (Medical Clearance pattern) ---------- */
+
+type PanelTotals = { pending: number; done: number; noMusic: number };
+
+function CornerPanel({ title, totals, variant }: {
+  title: string;
+  totals: PanelTotals;
+  variant: 'red' | 'blue' | 'total';
+}) {
+  const styles = {
+    red: {
+      container: 'bg-red-50/70 border-red-200 dark:bg-red-950/20 dark:border-red-900/40',
+      title: 'text-red-700 dark:text-red-400',
+    },
+    blue: {
+      container: 'bg-blue-50/70 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/40',
+      title: 'text-blue-700 dark:text-blue-400',
+    },
+    total: {
+      container: 'bg-card border-border',
+      title: 'text-foreground',
+    },
+  }[variant];
+
+  const buckets: { key: keyof PanelTotals; label: string; tone: string }[] = [
+    { key: 'noMusic', label: 'No Music', tone: 'text-red-700 dark:text-red-400' },
+    { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
+    { key: 'done', label: 'Done', tone: 'text-emerald-700 dark:text-emerald-400' },
+  ];
+
+  const total = totals.pending + totals.done + totals.noMusic;
+
+  return (
+    <div className={cn('rounded-lg border p-4 flex flex-col gap-3 transition-colors', styles.container)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn('text-xs font-bold uppercase tracking-wider', styles.title)}>{title}</span>
+        <span className="text-xs font-medium text-muted-foreground">{total} total</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {buckets.map((b) => (
+          <div
+            key={b.key}
+            className="flex flex-col items-center justify-center rounded-md bg-background/60 dark:bg-background/30 px-2 py-2 border border-border/50"
+          >
+            <span className={cn('text-2xl font-bold leading-none tabular-nums', b.tone)}>{totals[b.key]}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-medium">{b.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 type SortKey = 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
@@ -70,6 +132,7 @@ export default function GlobalMusicPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [eventFilter, setEventFilter] = useState('all');
+  const [cornerFilter, setCornerFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
@@ -102,6 +165,7 @@ export default function GlobalMusicPage() {
         event_name: f.event_name,
         person_name: f.person_name,
         appadmin_fighter_id: f.appadmin_fighter_id,
+        phone: f.phone,
         corner: f.corner,
         music: musicMap.get(f.enrollment_id) || null,
       }));
@@ -130,6 +194,7 @@ export default function GlobalMusicPage() {
   const filtered = useMemo(() => {
     let result = rows.filter(r => {
       if (eventFilter !== 'all' && r.event_id !== eventFilter) return false;
+      if (cornerFilter !== 'all' && (r.corner || '').toLowerCase() !== cornerFilter) return false;
       if (statusFilter !== 'all') {
         if (statusFilter === 'no_music' && r.music !== null) return false;
         if (statusFilter !== 'no_music' && r.music?.status !== statusFilter) return false;
@@ -168,14 +233,23 @@ export default function GlobalMusicPage() {
     }
 
     return result;
-  }, [rows, eventFilter, statusFilter, search, sortKey, sortDir]);
+  }, [rows, eventFilter, cornerFilter, statusFilter, search, sortKey, sortDir]);
 
-  const stats = useMemo(() => ({
-    total: filtered.length,
-    confirmed: filtered.filter(r => r.music?.status === 'confirmed').length,
-    pending: filtered.filter(r => r.music?.status === 'pending' || r.music?.status === 'uploaded').length,
-    noMusic: filtered.filter(r => !r.music).length,
-  }), [filtered]);
+  // Corner summary (Medical Clearance pattern): a row with no music row (or no
+  // songs at all) counts as No Music; 3 songs = Done; anything else = Pending.
+  const summary = useMemo(() => {
+    const empty = (): PanelTotals => ({ pending: 0, done: 0, noMusic: 0 });
+    const out = { red: empty(), blue: empty(), total: empty() };
+    for (const r of rows) {
+      const hasSongs = !!r.music && !!(r.music.source_url || r.music.source_url_2 || r.music.source_url_3);
+      const bucket: keyof PanelTotals = !hasSongs ? 'noMusic' : r.music!.status === 'confirmed' ? 'done' : 'pending';
+      out.total[bucket]++;
+      const c = (r.corner || '').toLowerCase();
+      if (c === 'red') out.red[bucket]++;
+      else if (c === 'blue') out.blue[bucket]++;
+    }
+    return out;
+  }, [rows]);
 
   const handleAddMusic = (row: FighterMusicRow) => {
     setEditingMusic(null);
@@ -268,52 +342,11 @@ export default function GlobalMusicPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Fighters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Music className="h-5 w-5 text-blue-600" />
-              <span className="text-2xl font-bold">{stats.total}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-2xl font-bold">{stats.confirmed}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending / Uploaded</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-gray-400" />
-              <span className="text-2xl font-bold">{stats.pending}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">No Music</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <span className="text-2xl font-bold">{stats.noMusic}</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Corner summary (Medical Clearance pattern) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CornerPanel title="Red Corner" totals={summary.red} variant="red" />
+        <CornerPanel title="Blue Corner" totals={summary.blue} variant="blue" />
+        <CornerPanel title="Total" totals={summary.total} variant="total" />
       </div>
 
       {/* Filters */}
@@ -337,6 +370,16 @@ export default function GlobalMusicPage() {
             {events.map(ev => (
               <SelectItem key={ev.id} value={ev.id}>{ev.name}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={cornerFilter} onValueChange={setCornerFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Corner" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Corners</SelectItem>
+            <SelectItem value="red">Red</SelectItem>
+            <SelectItem value="blue">Blue</SelectItem>
           </SelectContent>
         </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -380,17 +423,8 @@ export default function GlobalMusicPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="w-[50px]">Photo</TableHead>
-                        <TableHead className="w-[80px]">
-                          <button
-                            className="flex items-center text-xs font-medium hover:text-primary transition-colors"
-                            onClick={() => toggleSort('appadmin_fighter_id')}
-                          >
-                            ID
-                            <SortIcon column="appadmin_fighter_id" sortKey={sortKey} sortDir={sortDir} />
-                          </button>
-                        </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[80px] text-center">Photo</TableHead>
+                        <TableHead className="w-[280px]">
                           <button
                             className="flex items-center text-xs font-medium hover:text-primary transition-colors"
                             onClick={() => toggleSort('person_name')}
@@ -399,24 +433,7 @@ export default function GlobalMusicPage() {
                             <SortIcon column="person_name" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead>
-                          <button
-                            className="flex items-center text-xs font-medium hover:text-primary transition-colors"
-                            onClick={() => toggleSort('event_name')}
-                          >
-                            Evento
-                            <SortIcon column="event_name" sortKey={sortKey} sortDir={sortDir} />
-                          </button>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <button
-                            className="flex items-center text-xs font-medium hover:text-primary transition-colors mx-auto"
-                            onClick={() => toggleSort('corner')}
-                          >
-                            Corner
-                            <SortIcon column="corner" sortKey={sortKey} sortDir={sortDir} />
-                          </button>
-                        </TableHead>
+                        <TableHead className="w-[60px] text-center">WA</TableHead>
                         <TableHead>Song 1</TableHead>
                         <TableHead>Song 2</TableHead>
                         <TableHead>Song 3</TableHead>
@@ -442,45 +459,38 @@ export default function GlobalMusicPage() {
                             className="hover:bg-muted/50 transition-colors cursor-pointer"
                             onClick={() => handleEditMusic(row)}
                           >
+                            <TableCell className="text-center p-2">
+                              <div className="flex justify-center">
+                                <Avatar className={cn('h-12 w-12 border-4 shadow-sm', AVATAR_BORDER(row.corner))}>
+                                  <AvatarImage src={getFighterPhotoUrl(row.appadmin_fighter_id)} className="object-cover" />
+                                  <AvatarFallback className="font-bold bg-muted text-muted-foreground">
+                                    {row.person_name.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </div>
+                            </TableCell>
+
                             <TableCell>
-                              <Avatar className="h-9 w-9 border border-muted shadow-sm">
-                                <AvatarImage src={getFighterPhotoUrl(row.appadmin_fighter_id)} />
-                                <AvatarFallback className="text-xs font-bold bg-muted/50">
-                                  {row.person_name.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-bold text-base truncate">{row.person_name}</span>
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className="font-mono text-[10px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4"
+                                  >
+                                    ID: {row.appadmin_fighter_id || 'N/A'}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                    {row.event_name}
+                                  </span>
+                                </div>
+                              </div>
                             </TableCell>
 
                             <TableCell className="text-center">
-                              <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                                {row.appadmin_fighter_id || '-'}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell>
-                              <span className="font-bold text-sm">{row.person_name}</span>
-                            </TableCell>
-
-                            <TableCell>
-                              <Badge variant="secondary" className="text-[10px]">
-                                {row.event_name}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="text-center">
-                              {row.corner ? (
-                                <Badge
-                                  className={`text-[10px] px-2 py-0 h-5 border-none shadow-sm uppercase min-w-[50px] justify-center ${
-                                    row.corner.toLowerCase() === 'red'
-                                      ? 'bg-red-500 hover:bg-red-600 text-white'
-                                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                  }`}
-                                >
-                                  {row.corner}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">-</span>
-                              )}
+                              <div className="flex justify-center">
+                                <MedicalWhatsAppLink phone={row.phone} />
+                              </div>
                             </TableCell>
 
                             <TableCell onClick={e => e.stopPropagation()}>

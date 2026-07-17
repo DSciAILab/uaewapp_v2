@@ -87,6 +87,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
   event_name: string;
   person_name: string;
   appadmin_fighter_id: string | null;
+  phone: string | null;
   corner: string | null;
   has_music: boolean;
 }>> {
@@ -110,7 +111,7 @@ export async function getActiveEventsFighters(): Promise<Array<{
       event_id,
       corner,
       role:mma_roles!inner(code),
-      person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id)
+      person:mma_people!inner(id, compiled_name:compiled_name, appadmin_fighter_id, phone)
     `)
     .in('event_id', eventIds)
     .eq('status', 'active')
@@ -127,13 +128,14 @@ export async function getActiveEventsFighters(): Promise<Array<{
   const musicSet = new Set((musicEntries || []).map((m: { enrolled_id: string }) => m.enrolled_id));
 
   return (enrollments || []).map((e) => {
-    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as { compiled_name: string; appadmin_fighter_id: string | null } | null;
+    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as { compiled_name: string; appadmin_fighter_id: string | null; phone: string | null } | null;
     return {
       enrollment_id: e.id,
       event_id: e.event_id,
       event_name: eventNameMap[e.event_id] || 'Unknown',
       person_name: person?.compiled_name || 'Unknown',
       appadmin_fighter_id: person?.appadmin_fighter_id || null,
+      phone: person?.phone || null,
       corner: e.corner || null,
       has_music: musicSet.has(e.id),
     };
