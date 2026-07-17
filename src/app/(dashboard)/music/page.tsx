@@ -8,17 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Music, Music2, CheckCircle2, XCircle,
+  Music, Music2, CheckCircle2, XCircle, History,
   Search, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
-import { EntranceMusic, MusicStatus } from '@/types/music';
+import { EntranceMusic, MusicStatus, SongStatus } from '@/types/music';
 import {
   getAllActiveEventsMusic,
   getActiveEventsFighters,
   createAthleteMusic,
   updateAthleteMusic,
+  logMusicChange,
+  getMusicHistory,
 } from '@/lib/services/music-service';
+import { MusicHistoryDrawer } from '@/components/music/music-history-drawer';
 import { WalkoutSongCell, WalkoutNotesCell } from '@/components/music/walkout-song-cell';
 import { MedicalWhatsAppLink } from '@/components/medical/medical-whatsapp-link';
 import { cn } from '@/lib/utils';
@@ -129,6 +132,7 @@ export default function GlobalMusicPage() {
   const [cornerFilter, setCornerFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sortKey, setSortKey] = useState<SortKey | null>('order');
+  const [historyOpenFor, setHistoryOpenFor] = useState<FighterMusicRow | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const toggleSort = (key: SortKey) => {
@@ -233,8 +237,8 @@ export default function GlobalMusicPage() {
     return result;
   }, [rows, eventFilter, cornerFilter, statusFilter, search, sortKey, sortDir]);
 
-  // Corner summary (Medical Clearance pattern): a row with no music row (or no
-  // songs at all) counts as No Music; 3 songs = Done; anything else = Pending.
+  // Corner summary (Medical Clearance pattern): a row with no songs counts as
+  // No Music; Done means at least one song is approved; anything else Pending.
   const summary = useMemo(() => {
     const empty = (): PanelTotals => ({ pending: 0, done: 0, noMusic: 0 });
     const out = { red: empty(), blue: empty(), total: empty() };
@@ -251,19 +255,36 @@ export default function GlobalMusicPage() {
 
   type SongSlot = 1 | 2 | 3 | 'notes';
   const SLOT_FIELDS = { 1: 'source_url', 2: 'source_url_2', 3: 'source_url_3' } as const;
+  const SLOT_STATUS = { 1: 'status_1', 2: 'status_2', 3: 'status_3' } as const;
+
+  /** Row status is derived: any approved song makes the row Done. */
+  const deriveRowStatus = (statuses: SongStatus[]): MusicStatus =>
+    statuses.includes('approved') ? 'confirmed' : 'pending';
 
   /**
-   * Inline cell save (UAE-20 Mod 5). Creates the music row on first fill;
-   * when all 3 songs are present the row is automatically marked done
-   * (status 'confirmed'), and drops back to 'pending' if a song is removed.
+   * Inline cell save (UAE-20 Mod 5). Creates the music row on first fill.
+   * Changing a song link resets that slot's approval to pending; every change
+   * is written to the walkout change log.
    */
   const handleCellSave = async (row: FighterMusicRow, slot: SongSlot, value: string) => {
     try {
+      const m = row.music;
       const patch: Partial<Record<string, string | null>> = {};
-      if (slot === 'notes') patch.notes = value || null;
-      else patch[SLOT_FIELDS[slot]] = value || null;
+      let oldValue: string | null = null;
+      let field = 'notes';
 
-      if (!row.music) {
+      if (slot === 'notes') {
+        patch.notes = value || null;
+        oldValue = m?.notes ?? null;
+      } else {
+        patch[SLOT_FIELDS[slot]] = value || null;
+        oldValue = (m?.[SLOT_FIELDS[slot]] as string | null) ?? null;
+        // New/changed link restarts that song's approval.
+        patch[SLOT_STATUS[slot]] = 'pending';
+        field = `song_${slot}`;
+      }
+
+      if (!m) {
         if (!value) return;
         await createAthleteMusic(row.event_id, {
           enrolled_id: row.enrollment_id,
@@ -273,21 +294,44 @@ export default function GlobalMusicPage() {
           ...patch,
         });
       } else {
-        const urls = {
-          source_url: row.music.source_url,
-          source_url_2: row.music.source_url_2,
-          source_url_3: row.music.source_url_3,
-          ...patch,
-        };
-        const filled = [urls.source_url, urls.source_url_2, urls.source_url_3].filter(Boolean).length;
-        let status: MusicStatus = row.music.status;
-        if (filled === 3) status = 'confirmed';
-        else if (row.music.status === 'confirmed') status = 'pending';
-        await updateAthleteMusic(row.music.id, { ...patch, status });
+        const statuses: SongStatus[] = [
+          slot === 1 ? 'pending' : m.status_1 || 'pending',
+          slot === 2 ? 'pending' : m.status_2 || 'pending',
+          slot === 3 ? 'pending' : m.status_3 || 'pending',
+        ];
+        await updateAthleteMusic(m.id, { ...patch, status: deriveRowStatus(statuses) });
       }
+      await logMusicChange(row.event_id, row.enrollment_id, field, oldValue, value || null);
       await loadData();
     } catch (error: any) {
       toast.error(error.message || 'Failed to save song');
+    }
+  };
+
+  /** Per-song approval (UAE-20): one approved song = row Done. */
+  const handleSongStatus = async (row: FighterMusicRow, slot: 1 | 2 | 3, status: SongStatus) => {
+    const m = row.music;
+    if (!m) return;
+    try {
+      const statuses: SongStatus[] = [
+        slot === 1 ? status : m.status_1 || 'pending',
+        slot === 2 ? status : m.status_2 || 'pending',
+        slot === 3 ? status : m.status_3 || 'pending',
+      ];
+      await updateAthleteMusic(m.id, {
+        [SLOT_STATUS[slot]]: status,
+        status: deriveRowStatus(statuses),
+      });
+      await logMusicChange(
+        row.event_id,
+        row.enrollment_id,
+        `status_${slot}`,
+        m[SLOT_STATUS[slot]] || 'pending',
+        status
+      );
+      await loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save status');
     }
   };
 
@@ -429,6 +473,7 @@ export default function GlobalMusicPage() {
                             <SortIcon column="status" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
+                        <TableHead className="w-[60px] text-center">Log</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -478,21 +523,27 @@ export default function GlobalMusicPage() {
                               <WalkoutSongCell
                                 value={m?.source_url ?? null}
                                 label="Song 1"
+                                status={m?.status_1 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 1, v)}
+                                onStatusChange={(st) => handleSongStatus(row, 1, st)}
                               />
                             </TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
                               <WalkoutSongCell
                                 value={m?.source_url_2 ?? null}
                                 label="Song 2"
+                                status={m?.status_2 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 2, v)}
+                                onStatusChange={(st) => handleSongStatus(row, 2, st)}
                               />
                             </TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
                               <WalkoutSongCell
                                 value={m?.source_url_3 ?? null}
                                 label="Song 3"
+                                status={m?.status_3 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 3, v)}
+                                onStatusChange={(st) => handleSongStatus(row, 3, st)}
                               />
                             </TableCell>
                             <TableCell onClick={e => e.stopPropagation()}>
@@ -510,6 +561,18 @@ export default function GlobalMusicPage() {
                                   —
                                 </Badge>
                               )}
+                            </TableCell>
+
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="View change history"
+                                onClick={() => setHistoryOpenFor(row)}
+                              >
+                                <History className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );

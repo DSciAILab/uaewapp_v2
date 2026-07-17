@@ -3008,6 +3008,9 @@ export type Database = {
           start_time_3: number | null
           start_time_seconds: number | null
           status: string | null
+          status_1: string
+          status_2: string
+          status_3: string
           updated_at: string | null
           walkout_order: number | null
         }
@@ -3029,6 +3032,9 @@ export type Database = {
           start_time_3?: number | null
           start_time_seconds?: number | null
           status?: string | null
+          status_1?: string
+          status_2?: string
+          status_3?: string
           updated_at?: string | null
           walkout_order?: number | null
         }
@@ -3050,6 +3056,9 @@ export type Database = {
           start_time_3?: number | null
           start_time_seconds?: number | null
           status?: string | null
+          status_1?: string
+          status_2?: string
+          status_3?: string
           updated_at?: string | null
           walkout_order?: number | null
         }
@@ -3069,6 +3078,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      mma_entrance_music_log: {
+        Row: {
+          changed_at: string
+          enrolled_id: string
+          event_id: string
+          field: string
+          id: string
+          new_value: string | null
+          old_value: string | null
+        }
+        Insert: {
+          changed_at?: string
+          enrolled_id: string
+          event_id: string
+          field: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          changed_at?: string
+          enrolled_id?: string
+          event_id?: string
+          field?: string
+          id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Relationships: []
       }
       mma_event_cars: {
         Row: {

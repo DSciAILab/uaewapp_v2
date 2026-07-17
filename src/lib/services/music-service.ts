@@ -197,6 +197,9 @@ export async function createAthleteMusic(eventId: string, formData: EntranceMusi
       source_url_3: formData.source_url_3 || null,
       start_time_3: formData.start_time_3 || null,
       status: formData.status,
+      status_1: formData.status_1 || 'pending',
+      status_2: formData.status_2 || 'pending',
+      status_3: formData.status_3 || 'pending',
       notes: formData.notes || null,
     })
     .select()
@@ -224,6 +227,9 @@ export async function updateAthleteMusic(musicId: string, formData: Partial<Entr
       source_url_3: formData.source_url_3,
       start_time_3: formData.start_time_3,
       status: formData.status,
+      status_1: formData.status_1,
+      status_2: formData.status_2,
+      status_3: formData.status_3,
       notes: formData.notes,
     })
     .eq('id', musicId)
@@ -256,4 +262,45 @@ export function formatDuration(seconds: number | null): string {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+/* ---------- Walkout change log (UAE-20) ---------- */
+
+export interface MusicLogEntry {
+  id: string;
+  field: string;
+  old_value: string | null;
+  new_value: string | null;
+  changed_at: string;
+}
+
+/** Best-effort: a failed log write never blocks the actual save. */
+export async function logMusicChange(
+  eventId: string,
+  enrolledId: string,
+  field: string,
+  oldValue: string | null,
+  newValue: string | null
+): Promise<void> {
+  if ((oldValue ?? '') === (newValue ?? '')) return;
+  const supabase = getClient();
+  const { error } = await supabase.from('mma_entrance_music_log').insert({
+    event_id: eventId,
+    enrolled_id: enrolledId,
+    field,
+    old_value: oldValue,
+    new_value: newValue,
+  });
+  if (error) console.warn('[music-service] log write failed:', error.message);
+}
+
+export async function getMusicHistory(enrolledId: string): Promise<MusicLogEntry[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('mma_entrance_music_log')
+    .select('id, field, old_value, new_value, changed_at')
+    .eq('enrolled_id', enrolledId)
+    .order('changed_at', { ascending: false });
+  if (error) throw new Error('Failed to fetch music history');
+  return (data || []) as MusicLogEntry[];
 }
