@@ -533,7 +533,7 @@ export default function PeoplePage() {
       <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
         <DialogContent className={cn(
           "transition-all duration-300 ease-in-out p-0 border-none bg-transparent gap-0",
-          "max-w-4xl max-h-[95vh]",
+          "sm:max-w-4xl max-h-[95vh]",
           "data-[fullscreen=true]:max-w-[98vw] data-[fullscreen=true]:max-h-[98vh] data-[fullscreen=true]:w-[98vw] data-[fullscreen=true]:h-[98vh]"
         )} data-fullscreen={csvFullscreen}>
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">

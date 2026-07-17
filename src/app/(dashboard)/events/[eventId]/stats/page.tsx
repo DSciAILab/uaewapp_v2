@@ -294,7 +294,7 @@ export default function StatsPage() {
       )}
 
       <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
-        <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
+        <DialogContent className="sm:max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport
