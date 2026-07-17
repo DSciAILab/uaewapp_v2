@@ -27,6 +27,11 @@ export interface EntranceMusic {
   status_1: SongStatus;
   status_2: SongStatus;
   status_3: SongStatus;
+
+  // Resolved YouTube titles, cached at save time (null for non-YouTube links).
+  title_1: string | null;
+  title_2: string | null;
+  title_3: string | null;
   
   notes: string | null;
   
@@ -61,7 +66,10 @@ export interface EntranceMusicFormData {
   status_1?: SongStatus;
   status_2?: SongStatus;
   status_3?: SongStatus;
-  notes?: string;
+  title_1?: string | null;
+  title_2?: string | null;
+  title_3?: string | null;
+  notes?: string | null;
 }
 
 export interface MusicFilters {

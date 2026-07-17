@@ -3009,6 +3009,9 @@ export type Database = {
           start_time_seconds: number | null
           status: string | null
           status_1: string
+          title_1: string | null
+          title_2: string | null
+          title_3: string | null
           status_2: string
           status_3: string
           updated_at: string | null
@@ -3033,6 +3036,9 @@ export type Database = {
           start_time_seconds?: number | null
           status?: string | null
           status_1?: string
+          title_1?: string | null
+          title_2?: string | null
+          title_3?: string | null
           status_2?: string
           status_3?: string
           updated_at?: string | null
@@ -3057,6 +3063,9 @@ export type Database = {
           start_time_seconds?: number | null
           status?: string | null
           status_1?: string
+          title_1?: string | null
+          title_2?: string | null
+          title_3?: string | null
           status_2?: string
           status_3?: string
           updated_at?: string | null

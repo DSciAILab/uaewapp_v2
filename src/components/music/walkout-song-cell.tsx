@@ -6,10 +6,18 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ExternalLink, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { normalizeUrl } from '@/lib/utils/song-links';
 import type { SongStatus } from '@/types/music';
 
+/** Badge tone per approval status: pending amber, approved green, rejected red. */
+const STATUS_BADGE: Record<SongStatus, string> = {
+  pending: 'bg-amber-500/15 text-amber-600 border-amber-500/40 dark:text-amber-400 hover:bg-amber-500/25',
+  approved: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/40 dark:text-emerald-400 hover:bg-emerald-500/25',
+  rejected: 'bg-red-500/15 text-red-600 border-red-500/40 dark:text-red-400 hover:bg-red-500/25',
+};
+
 const STATUS_DOT: Record<SongStatus, string> = {
-  pending: 'bg-yellow-500',
+  pending: 'bg-amber-500',
   approved: 'bg-emerald-500',
   rejected: 'bg-red-500',
 };
@@ -22,6 +30,8 @@ const STATUS_LABEL: Record<SongStatus, string> = {
 
 interface WalkoutSongCellProps {
   value: string | null;
+  /** Resolved YouTube title; falls back to `label` when absent. */
+  title?: string | null;
   label: string;
   status: SongStatus;
   onSave: (value: string) => Promise<void> | void;
@@ -29,14 +39,13 @@ interface WalkoutSongCellProps {
 }
 
 /**
- * Inline song-link cell (UAE-20 Mod 5).
+ * Inline song cell (UAE-20).
  *
  * Empty: free input, saves on blur.
- * Filled: LOCKED — shows the link plus its own approval status; changing the
- * link requires an explicit click on the pencil, and the cell locks again on
- * blur. Approval is per song: the row is Done once any song is approved.
+ * Filled: LOCKED — a status-coloured badge carrying the song title, linking to
+ * the track. Changing the link needs an explicit pencil click.
  */
-export function WalkoutSongCell({ value, label, status, onSave, onStatusChange }: WalkoutSongCellProps) {
+export function WalkoutSongCell({ value, title, label, status, onSave, onStatusChange }: WalkoutSongCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
   const [saving, setSaving] = useState(false);
@@ -57,21 +66,26 @@ export function WalkoutSongCell({ value, label, status, onSave, onStatusChange }
     }
   };
 
+  const href = normalizeUrl(value);
   const locked = !!value && !editing;
 
   if (locked) {
     return (
-      <div className="flex flex-col gap-1 min-w-[130px]">
+      <div className="flex flex-col gap-1 min-w-[150px]">
         <div className="flex items-center gap-1">
           <a
-            href={value!}
+            href={href ?? '#'}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-1 text-xs text-blue-600 hover:underline truncate max-w-[120px]"
-            title={value!}
+            title={title || value || undefined}
+            className={cn(
+              'inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs font-medium transition-colors max-w-[170px]',
+              STATUS_BADGE[status]
+            )}
           >
-            <ExternalLink className="h-3 w-3 shrink-0" />
-            {label}
+            <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', STATUS_DOT[status])} />
+            <span className="truncate">{title || label}</span>
+            <ExternalLink className="h-3 w-3 shrink-0 opacity-70" />
           </a>
           <Button
             variant="ghost"
@@ -85,10 +99,7 @@ export function WalkoutSongCell({ value, label, status, onSave, onStatusChange }
         </div>
         <Select value={status} onValueChange={(v) => onStatusChange(v as SongStatus)}>
           <SelectTrigger className="h-6 w-[110px] text-[10px] px-2 py-0">
-            <span className="flex items-center gap-1.5">
-              <span className={cn('h-1.5 w-1.5 rounded-full shrink-0', STATUS_DOT[status])} />
-              <SelectValue>{STATUS_LABEL[status]}</SelectValue>
-            </span>
+            <SelectValue>{STATUS_LABEL[status]}</SelectValue>
           </SelectTrigger>
           <SelectContent>
             {(Object.keys(STATUS_LABEL) as SongStatus[]).map((s) => (

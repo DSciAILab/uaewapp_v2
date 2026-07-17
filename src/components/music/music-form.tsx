@@ -447,7 +447,9 @@ export function MusicForm({ eventId, music, open, onOpenChange, onSuccess, defau
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Notes</FormLabel>
-                  <FormControl><Textarea placeholder="Instructions..." {...field} /></FormControl>
+                  <FormControl>
+                    <Textarea placeholder="Instructions..." {...field} value={field.value ?? ''} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
