@@ -14,8 +14,15 @@ import {
 import { MusicForm } from '@/components/music/music-form';
 import { MusicPlayer } from '@/components/music/music-player';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
-import { EntranceMusic } from '@/types/music';
-import { getAllActiveEventsMusic, getActiveEventsFighters, formatDuration } from '@/lib/services/music-service';
+import { EntranceMusic, MusicStatus } from '@/types/music';
+import {
+  getAllActiveEventsMusic,
+  getActiveEventsFighters,
+  createAthleteMusic,
+  updateAthleteMusic,
+} from '@/lib/services/music-service';
+import { WalkoutSongCell, WalkoutNotesCell } from '@/components/music/walkout-song-cell';
+import { toast } from 'sonner';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
 import { MusicBulkDownload } from '@/components/music/music-bulk-download';
@@ -185,6 +192,48 @@ export default function GlobalMusicPage() {
       setIsFormOpen(true);
     } else {
       handleAddMusic(row);
+    }
+  };
+
+  type SongSlot = 1 | 2 | 3 | 'notes';
+  const SLOT_FIELDS = { 1: 'source_url', 2: 'source_url_2', 3: 'source_url_3' } as const;
+
+  /**
+   * Inline cell save (UAE-20 Mod 5). Creates the music row on first fill;
+   * when all 3 songs are present the row is automatically marked done
+   * (status 'confirmed'), and drops back to 'pending' if a song is removed.
+   */
+  const handleCellSave = async (row: FighterMusicRow, slot: SongSlot, value: string) => {
+    try {
+      const patch: Partial<Record<string, string | null>> = {};
+      if (slot === 'notes') patch.notes = value || null;
+      else patch[SLOT_FIELDS[slot]] = value || null;
+
+      if (!row.music) {
+        if (!value) return;
+        await createAthleteMusic(row.event_id, {
+          enrolled_id: row.enrollment_id,
+          source_type: 'url',
+          start_time_seconds: 0,
+          status: 'pending',
+          ...patch,
+        });
+      } else {
+        const urls = {
+          source_url: row.music.source_url,
+          source_url_2: row.music.source_url_2,
+          source_url_3: row.music.source_url_3,
+          ...patch,
+        };
+        const filled = [urls.source_url, urls.source_url_2, urls.source_url_3].filter(Boolean).length;
+        let status: MusicStatus = row.music.status;
+        if (filled === 3) status = 'confirmed';
+        else if (row.music.status === 'confirmed') status = 'pending';
+        await updateAthleteMusic(row.music.id, { ...patch, status });
+      }
+      await loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save song');
     }
   };
 
@@ -368,7 +417,10 @@ export default function GlobalMusicPage() {
                             <SortIcon column="corner" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead>Music</TableHead>
+                        <TableHead>Song 1</TableHead>
+                        <TableHead>Song 2</TableHead>
+                        <TableHead>Song 3</TableHead>
+                        <TableHead>Notes</TableHead>
                         <TableHead className="text-center">
                           <button
                             className="flex items-center text-xs font-medium hover:text-primary transition-colors mx-auto"
@@ -432,39 +484,31 @@ export default function GlobalMusicPage() {
                             </TableCell>
 
                             <TableCell onClick={e => e.stopPropagation()}>
-                              {m ? (
-                                <div className="flex flex-col gap-0.5 min-w-[120px]">
-                                  {m.source_url && (
-                                    <a href={m.source_url} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                      <ExternalLink className="h-3 w-3" /> Link 1
-                                      <Badge variant="secondary" className="text-[9px] py-0 h-3.5 ml-auto">
-                                        {formatDuration(m.start_time_seconds)}
-                                      </Badge>
-                                    </a>
-                                  )}
-                                  {m.source_url_2 && (
-                                    <a href={m.source_url_2} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                      <ExternalLink className="h-3 w-3" /> Link 2
-                                    </a>
-                                  )}
-                                  {m.source_url_3 && (
-                                    <a href={m.source_url_3} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                      <ExternalLink className="h-3 w-3" /> Link 3
-                                    </a>
-                                  )}
-                                  {!m.source_url && !m.source_url_2 && !m.source_url_3 && (
-                                    <span className="text-xs text-muted-foreground italic">No links</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground/60 italic flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3 text-amber-400" />
-                                  Not added
-                                </span>
-                              )}
+                              <WalkoutSongCell
+                                value={m?.source_url ?? null}
+                                label="Song 1"
+                                onSave={(v) => handleCellSave(row, 1, v)}
+                              />
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <WalkoutSongCell
+                                value={m?.source_url_2 ?? null}
+                                label="Song 2"
+                                onSave={(v) => handleCellSave(row, 2, v)}
+                              />
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <WalkoutSongCell
+                                value={m?.source_url_3 ?? null}
+                                label="Song 3"
+                                onSave={(v) => handleCellSave(row, 3, v)}
+                              />
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <WalkoutNotesCell
+                                value={m?.notes ?? null}
+                                onSave={(v) => handleCellSave(row, 'notes', v)}
+                              />
                             </TableCell>
 
                             <TableCell className="text-center">

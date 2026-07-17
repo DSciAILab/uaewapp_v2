@@ -12,7 +12,7 @@ type IconType = React.ComponentType<{ className?: string }>;
 // and labels keep them distinguishable. Colours come from the locked status
 // tokens rather than the old light-only bg-*-100 / text-*-800 palette.
 const statusConfig: Record<MusicStatus, { label: string; status: DSStatus; icon: IconType }> = {
-  confirmed: { label: 'Confirmed', status: 'confirmed', icon: CheckCircle },
+  confirmed: { label: 'Done', status: 'confirmed', icon: CheckCircle },
   pending: { label: 'Pending', status: 'pending', icon: Clock },
   uploaded: { label: 'Uploaded', status: 'pending', icon: Upload },
   not_provided: { label: 'Not Provided', status: 'neutral', icon: XCircle },
