@@ -190,7 +190,9 @@ export default function PublicArrivalPage() {
             {error}
           </div>
         ) : (
-          <div className="rounded-md border bg-card overflow-x-auto">
+          <>
+          {/* Desktop table */}
+          <div className="hidden md:block rounded-md border bg-card overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
@@ -241,6 +243,48 @@ export default function PublicArrivalPage() {
               </TableBody>
             </Table>
           </div>
+
+          {/* Mobile card stack */}
+          <div className="md:hidden space-y-2">
+            {filtered.length === 0 ? (
+              <div className="rounded-md border bg-card p-6 text-center text-sm text-muted-foreground">
+                No arrivals match your search.
+              </div>
+            ) : (
+              filtered.map((r, i) => (
+                <div key={`m-${r.order}-${r.name}-${i}`} className="rounded-lg border bg-card overflow-hidden">
+                  <div className="flex items-stretch">
+                    <div className="flex items-center justify-center w-10 shrink-0 border-r font-bold text-lg text-muted-foreground">
+                      {r.order || '-'}
+                    </div>
+                    <div className="flex-1 p-3 min-w-0 space-y-1.5">
+                      <p className="font-bold text-sm leading-tight">{r.name}</p>
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Plane className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                        {[r.flight, r.flightDate, r.flightTime, r.airport && `· ${r.airport}`]
+                          .filter(Boolean)
+                          .join(' ') || 'Flight not listed'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                        {r.carNumber ? (
+                          <Badge variant="secondary" className="font-mono text-[10px]">{r.carNumber}</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] border-dashed text-muted-foreground">Car TBA</Badge>
+                        )}
+                        {r.driver && (
+                          <span className="text-xs text-muted-foreground">driver {r.driver}</span>
+                        )}
+                        {r.hotelBooking && (
+                          <span className="text-[10px] font-mono text-muted-foreground">hotel {r.hotelBooking}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          </>
         )}
 
         <p className="pb-6 text-center text-xs text-muted-foreground">
