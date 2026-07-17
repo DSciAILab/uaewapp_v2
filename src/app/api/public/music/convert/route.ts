@@ -60,6 +60,24 @@ function safeFilename(raw: unknown): string {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
+    // Auth for the WHOLE route, before dispatch.
+    //
+    // It used to guard 'upload' alone, leaving check/download open: anyone on
+    // the internet could spawn yt-dlp on this machine — free CPU and bandwidth,
+    // and a YouTube rate-limit lands on the host's IP. The only anonymous
+    // caller was /public/music-submission, now removed: athlete submission
+    // lives inside the authenticated app. Gating here rather than per-action
+    // means a new action cannot forget to.
+    const { createClient } = await import('@/lib/supabase/server');
+    const authClient = await createClient();
+    const {
+      data: { user },
+    } = await authClient.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { action } = body;
 
@@ -161,19 +179,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // ACTION: UPLOAD (To Supabase)
     if (action === 'upload') {
-        // Auth ANTES de qualquer spawn/escrita: sem isto, o service-role abaixo
-        // dá escrita anônima ilimitada no bucket. Mesmo padrão de
-        // src/app/api/proxy-image/route.ts.
-        const { createClient } = await import('@/lib/supabase/server');
-        const authClient = await createClient();
-        const {
-            data: { user },
-        } = await authClient.auth.getUser();
-
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-        }
-
         // PRIORITY: Use Service Role Key (Bypass RLS)
         let supabase;
         if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
