@@ -16,6 +16,10 @@ export interface FighterStats {
   person_id: string;
   /** Enrollment this row was built from — the key for fight-card positions. */
   enrollment_id?: string;
+
+  /** Set when staff confirm this athlete's stats are current for the event. */
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
   
   // Physical stats
   height_cm: number | null;

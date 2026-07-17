@@ -8,6 +8,8 @@ import { Pencil } from 'lucide-react';
 import { FighterStats } from '@/types/stats';
 import { formatHeight, formatReach } from '@/lib/services/stats-service';
 import { flagFor } from '@/lib/countries';
+import { cn } from '@/lib/utils';
+import { CheckCircle2, Circle } from 'lucide-react';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import {
   FIGHT_ORDER_CELL_CLASS,
@@ -31,12 +33,14 @@ type SortKey =
   | 'residency'
   | 'weight'
   | 'height'
-  | 'team';
+  | 'team'
+  | 'done';
 
 interface StatsTableProps {
   stats: FighterStats[];
   eventId?: string;
   onEdit: (stats: FighterStats) => void;
+  onToggleConfirm?: (stats: FighterStats, confirmed: boolean) => void;
 }
 
 /** Falls back to the row's own corner when the card has nothing for it. */
@@ -48,7 +52,7 @@ const cornerOf = (s: FighterStats): Corner => {
 const photoOf = (s: FighterStats): string =>
   getFighterPhotoUrl(s.person?.appadmin_fighter_id) || s.person?.passport_photo || '';
 
-export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
+export function StatsTable({ stats, eventId, onEdit, onToggleConfirm }: StatsTableProps) {
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
   // Same resolver as every other table: an exact join on mma_matches, with the
@@ -90,6 +94,8 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
           return s.height_cm ?? null;
         case 'team':
           return s.team_gym;
+        case 'done':
+          return s.confirmed_at ? 1 : 0;
         default:
           return null;
       }
@@ -106,6 +112,7 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
+            <SortableHead column="done" label="Done" sort={sort} onSort={toggleSort} className="w-[70px] text-center" center />
             <SortableHead column="order" label="#" sort={sort} onSort={toggleSort} className={FIGHT_ORDER_HEAD_CLASS} center />
             <SortableHead column="corner" label="Photo" sort={sort} onSort={toggleSort} className="w-[80px] text-center" center />
             <SortableHead column="fighter" label="Fighter" sort={sort} onSort={toggleSort} className="min-w-[240px]" />
@@ -120,13 +127,36 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
         <TableBody>
           {sorted.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
+              <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                 No fighter stats found
               </TableCell>
             </TableRow>
           ) : (
             sorted.map((s) => (
-              <TableRow key={s.id} className="hover:bg-muted/50 cursor-pointer" onClick={() => onEdit(s)}>
+              <TableRow
+                key={s.id}
+                className={cn(
+                  'cursor-pointer',
+                  s.confirmed_at
+                    ? 'bg-emerald-50/60 hover:bg-emerald-50/80 dark:bg-emerald-500/10 dark:hover:bg-emerald-500/20'
+                    : 'hover:bg-muted/50'
+                )}
+                onClick={() => onEdit(s)}
+              >
+                <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    type="button"
+                    title={s.confirmed_at ? 'Confirmed — click to undo' : 'Mark as done'}
+                    onClick={() => onToggleConfirm?.(s, !s.confirmed_at)}
+                    className="inline-flex items-center justify-center"
+                  >
+                    {s.confirmed_at ? (
+                      <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                    ) : (
+                      <Circle className="h-5 w-5 text-muted-foreground/40 hover:text-muted-foreground" />
+                    )}
+                  </button>
+                </TableCell>
                 <TableCell className={FIGHT_ORDER_CELL_CLASS}>
                   <FightOrderCell order={orderOf(s)} />
                 </TableCell>

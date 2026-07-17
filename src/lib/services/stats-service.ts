@@ -54,6 +54,8 @@ function toFighterStats(
   return {
     id: row.id,
     person_id: row.person_id,
+    confirmed_at: (row as { confirmed_at?: string | null }).confirmed_at ?? null,
+    confirmed_by: (row as { confirmed_by?: string | null }).confirmed_by ?? null,
     height_cm: row.height_cm,
     reach_cm: row.reach_cm,
     weight_class: toWeightClass(row.weight_class),
@@ -984,4 +986,19 @@ export async function getStatsFacets(): Promise<{ styles: string[]; teams: strin
     styles: [...styles].sort((a, b) => a.localeCompare(b)),
     teams: [...teams].sort((a, b) => a.localeCompare(b)),
   };
+}
+
+
+/** Mark an athlete's stats confirmed for the event (or clear it). Toggle. */
+export async function setStatsConfirmed(statsId: string, confirmed: boolean, userId?: string | null): Promise<void> {
+  const supabase = getClient();
+  const { error } = await supabase
+    .from('mma_fighter_stats')
+    .update({
+      confirmed_at: confirmed ? new Date().toISOString() : null,
+      confirmed_by: confirmed ? (userId ?? null) : null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', statsId);
+  if (error) throw new Error('Failed to update confirmation: ' + error.message);
 }

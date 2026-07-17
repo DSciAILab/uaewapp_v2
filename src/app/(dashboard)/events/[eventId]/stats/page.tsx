@@ -6,7 +6,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Search, Printer, Loader2 } from 'lucide-react';
 import { StatsTable } from '@/components/stats/stats-table';
 import { StatsForm } from '@/components/stats/stats-form';
 import { CoachStatsForm } from '@/components/operations/coach-stats-form';
@@ -14,7 +15,14 @@ import { StatsCard } from '@/components/stats/stats-card';
 import { StatsHistory } from '@/components/stats/stats-history';
 import { UniformsTab } from '@/components/stats/uniforms-tab';
 import { FighterStats, EventWeighIn, CoachData } from '@/types/stats';
-import { getEventFighterStats, getEventWeighIns, getEventCoachData, importStatsFromCSV, type StatsCSVRow } from '@/lib/services/stats-service';
+import { getEventFighterStats, getEventWeighIns, getEventCoachData, importStatsFromCSV, setStatsConfirmed, formatHeight, formatReach, type StatsCSVRow } from '@/lib/services/stats-service';
+import { useUser } from '@/hooks/use-user';
+import { getEventById } from '@/lib/services/events';
+import { getFightCardPositions } from '@/lib/services/fight-card-positions';
+import { flagFor } from '@/lib/countries';
+import { toast } from 'sonner';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
 import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
 
@@ -65,6 +73,7 @@ export default function StatsPage() {
       ]);
       setStats(fighterData);
       setCoachStats(coachData);
+      getEventById(eventId).then((e) => setEventName(e?.name ?? '')).catch(() => {});
     } catch (error) {
       console.error('Failed to load stats:', error);
     } finally {
@@ -94,6 +103,76 @@ export default function StatsPage() {
     }
   }, [activeTab, loadWeighIns]);
 
+  // Optimistic — the row tints instantly; the DB write catches up.
+  const handleToggleConfirm = async (s: FighterStats, confirmed: boolean) => {
+    setStats((prev) => prev.map((r) => (r.id === s.id ? { ...r, confirmed_at: confirmed ? new Date().toISOString() : null } : r)));
+    try {
+      await setStatsConfirmed(s.id, confirmed, user?.id);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to update');
+      loadData();
+    }
+  };
+
+  // Landscape sheet the staff prints, updates on paper, then confirms in the app.
+  const handlePrint = async () => {
+    setPrinting(true);
+    try {
+      const positions = await getFightCardPositions(
+        eventId,
+        filteredStats.filter((s) => s.enrollment_id).map((s) => ({
+          enrollmentId: s.enrollment_id!,
+          fullName: s.person?.compiled_name ?? '',
+          ringName: s.person?.event_name ?? null,
+        }))
+      );
+      const ordered = [...filteredStats].sort((a, b) => {
+        const oa = (a.enrollment_id ? positions.get(a.enrollment_id)?.fightOrder : null) ?? a.matchNumber ?? 999;
+        const ob = (b.enrollment_id ? positions.get(b.enrollment_id)?.fightOrder : null) ?? b.matchNumber ?? 999;
+        return oa - ob;
+      });
+
+      const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
+      doc.setFontSize(15);
+      doc.text(`${eventName || 'Event'} — Fighter Stats`, 14, 14);
+      doc.setFontSize(9);
+      doc.setTextColor(120);
+      doc.text(`Generated ${new Date().toLocaleString('en-GB')}`, 14, 20);
+
+      autoTable(doc, {
+        startY: 26,
+        head: [['#', 'Done', 'Fighter', 'ID', 'Nationality', 'Residency', 'Weight', 'Height', 'Reach', 'Style', 'Team']],
+        body: ordered.map((s) => {
+          const pos = s.enrollment_id ? positions.get(s.enrollment_id) : undefined;
+          return [
+            String(pos?.fightOrder ?? s.matchNumber ?? '-'),
+            s.confirmed_at ? 'X' : '',
+            s.person?.event_name || s.person?.compiled_name || '',
+            s.person?.appadmin_fighter_id || '',
+            s.person?.nationality || '',
+            s.residency || '',
+            s.weight_kg ? `${s.weight_kg} kg` : '',
+            s.height_cm ? formatHeight(s.height_cm) : '',
+            s.reach_cm ? formatReach(s.reach_cm) : '',
+            s.fighting_style || '',
+            s.team_gym || '',
+          ];
+        }),
+        styles: { fontSize: 8, cellPadding: 1.5 },
+        headStyles: { fillColor: [38, 38, 38], textColor: 255, fontSize: 8 },
+        columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 12, halign: 'center' } },
+        // Blank cells to write on: the whole point is updating on paper.
+        didParseCell: (data) => { if (data.section === 'body' && data.cell.text.join('') === '') data.cell.text = ['']; },
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      doc.save(`fighter-stats-${(eventName || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${stamp}.pdf`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to build the PDF');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   const handleEdit = (s: FighterStats) => {
     setEditingStats(s);
     setEditingCoach(null);
@@ -113,6 +192,9 @@ export default function StatsPage() {
   };
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [eventName, setEventName] = useState('');
+  const [printing, setPrinting] = useState(false);
+  const { user } = useUser();
 
   const filteredStats = stats.filter(s => {
     if (!searchQuery.trim()) return true;
@@ -161,14 +243,20 @@ export default function StatsPage() {
           </TabsList>
 
           {activeTab === 'list' && (
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search athletes..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search athletes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9 h-9"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} disabled={printing || filteredStats.length === 0}>
+                {printing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                Print
+              </Button>
             </div>
           )}
 
@@ -201,7 +289,7 @@ export default function StatsPage() {
           {isLoading ? (
             <div className="text-center py-8">Loading stats...</div>
           ) : viewMode === 'table' ? (
-            <StatsTable stats={filteredStats} eventId={eventId} onEdit={handleEdit} />
+            <StatsTable stats={filteredStats} eventId={eventId} onEdit={handleEdit} onToggleConfirm={handleToggleConfirm} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredStats.map((s) => (

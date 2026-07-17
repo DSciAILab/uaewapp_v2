@@ -3437,6 +3437,8 @@ export type Database = {
           coach3_size: string | null
           corner: string | null
           collected_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
           collected_by: string | null
           created_at: string | null
           draws: number | null
@@ -3473,6 +3475,8 @@ export type Database = {
           coach3_size?: string | null
           corner?: string | null
           collected_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           collected_by?: string | null
           created_at?: string | null
           draws?: number | null
@@ -3509,6 +3513,8 @@ export type Database = {
           coach3_size?: string | null
           corner?: string | null
           collected_at?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           collected_by?: string | null
           created_at?: string | null
           draws?: number | null
