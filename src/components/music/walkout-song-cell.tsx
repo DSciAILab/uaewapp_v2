@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ExternalLink, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { normalizeUrl } from '@/lib/utils/song-links';
@@ -22,12 +21,6 @@ const STATUS_DOT: Record<SongStatus, string> = {
   rejected: 'bg-red-500',
 };
 
-const STATUS_LABEL: Record<SongStatus, string> = {
-  pending: 'Pending',
-  approved: 'Approved',
-  rejected: 'Rejected',
-};
-
 interface WalkoutSongCellProps {
   value: string | null;
   /** Resolved YouTube title; falls back to `label` when absent. */
@@ -35,7 +28,6 @@ interface WalkoutSongCellProps {
   label: string;
   status: SongStatus;
   onSave: (value: string) => Promise<void> | void;
-  onStatusChange: (status: SongStatus) => Promise<void> | void;
 }
 
 /**
@@ -44,8 +36,11 @@ interface WalkoutSongCellProps {
  * Empty: free input, saves on blur.
  * Filled: LOCKED — a status-coloured badge carrying the song title, linking to
  * the track. Changing the link needs an explicit pencil click.
+ *
+ * Read-only for approval on purpose: the colour already says the status, and
+ * approving happens card-by-card on the athlete page.
  */
-export function WalkoutSongCell({ value, title, label, status, onSave, onStatusChange }: WalkoutSongCellProps) {
+export function WalkoutSongCell({ value, title, label, status, onSave }: WalkoutSongCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
   const [saving, setSaving] = useState(false);
@@ -71,8 +66,7 @@ export function WalkoutSongCell({ value, title, label, status, onSave, onStatusC
 
   if (locked) {
     return (
-      <div className="flex flex-col gap-1 min-w-[150px]">
-        <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1 min-w-[150px]">
           <a
             href={href ?? '#'}
             target="_blank"
@@ -96,22 +90,6 @@ export function WalkoutSongCell({ value, title, label, status, onSave, onStatusC
           >
             <Pencil className="h-3 w-3" />
           </Button>
-        </div>
-        <Select value={status} onValueChange={(v) => onStatusChange(v as SongStatus)}>
-          <SelectTrigger className="h-6 w-[110px] text-[10px] px-2 py-0">
-            <SelectValue>{STATUS_LABEL[status]}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {(Object.keys(STATUS_LABEL) as SongStatus[]).map((s) => (
-              <SelectItem key={s} value={s} className="text-xs">
-                <span className="flex items-center gap-1.5">
-                  <span className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[s])} />
-                  {STATUS_LABEL[s]}
-                </span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
     );
   }
