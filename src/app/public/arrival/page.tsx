@@ -322,12 +322,13 @@ export default function PublicArrivalPage() {
                       const flight = [r.flight, r.flightDate && `on ${r.flightDate}`, r.flightTime && `at ${r.flightTime}`, r.airport && `(${r.airport})`]
                         .filter(Boolean)
                         .join(' ');
-                      // WhatsApp monospace: ```text```
+                      // WhatsApp inline monospace is a SINGLE backtick; ``` is a
+                      // block fence and does not render mid-sentence.
                       const carPart = r.carNumber
-                        ? `Car: \`\`\`${r.carNumber}\`\`\`${r.driver ? ` — driver ${r.driver}` : ''}`
+                        ? `Car: \`${r.carNumber}\`${r.driver ? ` — driver ${r.driver}` : ''}`
                         : 'Car: not assigned yet';
                       const msg = [
-                        `Hello, I am \`\`\`${r.name}\`\`\` from ${title}.`,
+                        `Hello, I am \`${r.name}\` from ${title}.`,
                         `Flight: ${flight || 'not listed'}`,
                         carPart,
                         '',
