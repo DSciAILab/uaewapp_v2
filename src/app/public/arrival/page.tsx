@@ -6,6 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowDown, ArrowUp, ArrowUpDown, MessageCircle, Plane, RefreshCw, Search } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 // UAE-20: public mirror of the ops sheet's Arrival List tab. The sheet is the
 // source of truth; data comes through /api/public/arrival and refreshes both
@@ -42,6 +49,8 @@ export default function PublicArrivalPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [supportOpen, setSupportOpen] = useState(false);
+  const [supportSearch, setSupportSearch] = useState('');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const toggleSort = (key: SortKey) => {
@@ -136,15 +145,14 @@ export default function PublicArrivalPage() {
 
         {/* Coordinator + refresh bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
-          <a
-            href={`https://wa.me/${COORDINATOR_PHONE.replace(/[^\d]/g, '')}`}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => { setSupportSearch(''); setSupportOpen(true); }}
             className="flex items-center gap-2 text-sm font-medium text-green-600 hover:text-green-700"
           >
             <MessageCircle className="h-4 w-4" />
             Transport Coordinator (24x7) · {COORDINATOR_PHONE}
-          </a>
+          </button>
           <div className="flex items-center gap-3">
             {fetchedAt && (
               <span className="text-xs text-muted-foreground tabular-nums">
@@ -233,6 +241,62 @@ export default function PublicArrivalPage() {
         <p className="pb-6 text-center text-xs text-muted-foreground">
           List refreshes automatically every minute — or tap Refresh.
         </p>
+
+        {/* Support dialog: pick your name, WhatsApp opens with a personalized message */}
+        <Dialog open={supportOpen} onOpenChange={setSupportOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Contact Transport Coordinator</DialogTitle>
+              <DialogDescription>
+                Select your name and WhatsApp will open with your flight and car details filled in.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                autoFocus
+                placeholder="Type your name..."
+                value={supportSearch}
+                onChange={(e) => setSupportSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+              {rows
+                .filter((r) => r.name.toLowerCase().includes(supportSearch.toLowerCase()))
+                .map((r, i) => (
+                  <button
+                    key={`${r.name}-${i}`}
+                    type="button"
+                    className="w-full px-3 py-2.5 text-left text-sm hover:bg-muted/50 transition-colors"
+                    onClick={() => {
+                      const flight = [r.flight, r.flightDate && `on ${r.flightDate}`, r.flightTime && `at ${r.flightTime}`, r.airport && `(${r.airport})`]
+                        .filter(Boolean)
+                        .join(' ');
+                      const carPart = r.carNumber
+                        ? `my assigned car is ${r.carNumber}${r.driver ? ` with driver ${r.driver}` : ''}`
+                        : 'my car has not been assigned yet';
+                      const msg = `Hello, I am ${r.name} from ${title}. My flight is ${flight || 'not listed'} and ${carPart}. I need support.`;
+                      window.open(
+                        `https://wa.me/${COORDINATOR_PHONE.replace(/[^\d]/g, '')}?text=${encodeURIComponent(msg)}`,
+                        '_blank',
+                        'noopener,noreferrer'
+                      );
+                      setSupportOpen(false);
+                    }}
+                  >
+                    <span className="font-medium">{r.name}</span>
+                    <span className="block text-xs text-muted-foreground">
+                      {[r.flight, r.flightDate, r.carNumber].filter(Boolean).join(' · ') || 'no details yet'}
+                    </span>
+                  </button>
+                ))}
+              {rows.filter((r) => r.name.toLowerCase().includes(supportSearch.toLowerCase())).length === 0 && (
+                <div className="px-3 py-6 text-center text-sm text-muted-foreground">No names match.</div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
