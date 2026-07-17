@@ -9,38 +9,18 @@ import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Swords, Download, FileText, RefreshCw, Database } from 'lucide-react';
-import { getEventById } from '@/lib/services/events';
-import { getEventFighterStats } from '@/lib/services/stats-service';
-import { getEventMatches, syncFightCardToDatabase } from '@/lib/services/matches-service';
-import { getFighterPhotoUrl, normalizeName, getDataUrl } from '@/lib/utils';
+import { syncFightCardToDatabase } from '@/lib/services/matches-service';
+import { loadFightCard, type FightCardFighter, type FightCardMatch } from '@/lib/services/fight-card';
+import { getDataUrl } from '@/lib/utils';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
-import Papa from 'papaparse';
 
 const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL'];
 const GLOVE_SIZES = ['S', 'M', 'L', 'XL'];
 
-interface FighterCSV {
-  matchNumber: number;
-  event: string;
-  corner: 'RED' | 'BLUE';
-  division: string;
-  name: string;
-  nickname: string;
-  record: string;
-  nationality: string;
-  residency: string;
-}
-
-interface MatchPair {
-  matchNumber: number;
-  division: string;
-  red?: FighterCSV & { photoUrl?: string; eventValues?: string };
-  blue?: FighterCSV & { photoUrl?: string; eventValues?: string };
-}
-
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQ8I30mTm8ZyuBttmebz9wv-41TIZ-8HzHiLEYcEhXD2Y5JXCn7AD3aDmOIBpYSp-9tMF7F7obDdQsw/pub?gid=1830739607&single=true&output=csv';
+type FighterCSV = FightCardFighter;
+type MatchPair = FightCardMatch;
 
 export default function FightCardPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = use(params);
@@ -56,150 +36,25 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
   useEffect(() => {
     let intervalId: NodeJS.Timeout;
+    let cancelled = false;
 
+    // Loading lives in lib/services/fight-card so this page and the quick-look
+    // dialog can never disagree about what's on the card.
     async function init() {
       try {
-        const [eventData, fightersData, dbMatches] = await Promise.all([
-          getEventById(eventId),
-          getEventFighterStats(eventId),
-          getEventMatches(eventId)
-        ]);
-
-        setEvent(eventData);
-
-        if (dbMatches && dbMatches.length > 0) {
-            const mappedMatches = dbMatches.map(m => {
-               const red = m.red_corner;
-               const blue = m.blue_corner;
-
-               const createFighterUI = (cornerData: any, cornerLabel: 'RED' | 'BLUE'): (FighterCSV & { photoUrl?: string; eventValues?: string }) | undefined => {
-                  if (!cornerData) return undefined;
-                  const p = cornerData.person;
-                  const stArray = p?.stats;
-                  const st = Array.isArray(stArray) && stArray.length > 0 ? stArray[0] : null;
-                  return {
-                      matchNumber: m.match_number,
-                      event: eventData?.code || '',
-                      corner: cornerLabel,
-                      division: m.division || '',
-                      name: p?.compiled_name || '',
-                      nickname: st?.nickname || '',
-                      record: st ? `${st.wins}-${st.losses}${st.draws > 0 ? `-${st.draws}` : ''}${st.no_contests > 0 ? ` (${st.no_contests} NC)` : ''}` : '',
-                      nationality: p?.nationality || '',
-                      residency: st?.residency || '',
-                      photoUrl: p ? getFighterPhotoUrl(p.appadmin_fighter_id) : '',
-                      eventValues: p ? `${p.event_name ?? ''} ${p.appadmin_fighter_id ?? ''}`.trim() : ''
-                  };
-               };
-
-               return {
-                  matchNumber: m.match_number,
-                  division: m.division || '',
-                  red: createFighterUI(red, 'RED'),
-                  blue: createFighterUI(blue, 'BLUE')
-               };
-            });
-            setMatches(mappedMatches);
-            setIsFromDB(true);
-            setLoading(false);
-            setRefreshing(false);
-            return;
-        }
-
-        setIsFromDB(false);
-        // Add cache buster to avoid stale data
-        const baseUrl = eventData?.fight_card_csv_url || CSV_URL;
-        const targetUrl = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 't=' + Date.now();
-        
-        if (!targetUrl) {
-            setLoading(false);
-            setRefreshing(false);
-            return;
-        }
-
-        const csvText = await fetch(targetUrl).then(r => r.text());
-
-        // Parse CSV with PapaParse
-        const { data: rawData } = Papa.parse(csvText, {
-            header: true,
-            skipEmptyLines: true,
-            dynamicTyping: true
-        });
-
-        const parsedRows: FighterCSV[] = (rawData as any[]).map(row => {
-            // Map header names to our interface
-            return {
-                matchNumber: row['#'] || 0,
-                event: row['EVENT'],
-                corner: row['CORNER'] as 'RED' | 'BLUE',
-                division: row['DIVISION'],
-                name: row['NAME'],
-                nickname: row['NICKNAME'],
-                record: row['RECORD'],
-                nationality: row['NATIONALITY'],
-                residency: row['RESIDENCY']
-            };
-        }).filter(r => 
-            r.name && 
-            r.event?.toString().toUpperCase() === eventData?.code?.toUpperCase()
-        );
-
-        // Identify Photos
-        const matchesMap = new Map<number, MatchPair>();
-
-        parsedRows.forEach(row => {
-            if (!row.matchNumber) return;
-
-            if (!matchesMap.has(row.matchNumber)) {
-                matchesMap.set(row.matchNumber, { 
-                    matchNumber: row.matchNumber, 
-                    division: row.division 
-                });
-            }
-
-            const match = matchesMap.get(row.matchNumber)!;
-            
-            // Find stats for photo
-            // Normalize names for comparison
-            const fighterStats = fightersData.find(f => {
-                const pName = normalizeName(f.person?.compiled_name || '');
-                const eName = normalizeName(f.person?.event_name || '');
-                const cName = normalizeName(row.name);
-                
-                return pName === cName || 
-                       eName === cName || 
-                       pName.includes(cName) || 
-                       cName.includes(pName) ||
-                       eName.includes(cName) ||
-                       cName.includes(eName);
-            });
-
-            const person = fighterStats?.person as any;
-            const enrichedFighter = {
-                ...row,
-                photoUrl: person ? getFighterPhotoUrl(person.appadmin_fighter_id) : '',
-                eventValues: person 
-                  ? `${person.event_name ?? ''} ${person.appadmin_fighter_id ?? ''}`.trim()
-                  : ''
-            };
-
-            if (row.corner === 'RED') {
-                match.red = enrichedFighter;
-            } else {
-                match.blue = enrichedFighter;
-            }
-        });
-
-        // Convert map to array and sort
-        const matchesArray = Array.from(matchesMap.values()).sort((a, b) => a.matchNumber - b.matchNumber);
-        setMatches(matchesArray);
-
+        const data = await loadFightCard(eventId);
+        if (cancelled) return;
+        setEvent(data.event);
+        setMatches(data.matches);
+        setIsFromDB(data.isFromDB);
       } catch (e) {
         console.error(e);
-        toast.error('Failed to load fight card data');
+        if (!cancelled) toast.error('Failed to load fight card data');
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (!cancelled) {
+          setLoading(false);
+          setRefreshing(false);
+        }
       }
     }
 
@@ -208,7 +63,10 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
     // Fetch every 30 seconds for dynamic updates
     intervalId = setInterval(init, 30000);
 
-    return () => clearInterval(intervalId);
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, [eventId, refreshKey]);
 
   const handleSyncToDatabase = async () => {

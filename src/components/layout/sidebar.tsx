@@ -27,6 +27,7 @@ import {
   Luggage,
   Command,
   LogOut,
+  Swords,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,7 @@ import { StatusDot } from '@/components/ui/status-dot'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { createClient } from '@/lib/supabase/client'
+import { FightCardDialog } from '@/components/fight-card/fight-card-dialog'
 
 const icons = {
   LayoutDashboard,
@@ -110,6 +112,7 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [openGroups, setOpenGroups] = useState<string[]>([])
+  const [fightCardOpen, setFightCardOpen] = useState(false)
 
   const eventIdMatch = pathname.match(/\/events\/([^\/]+)/)
   const eventId = eventIdMatch ? eventIdMatch[1] : null
@@ -322,6 +325,25 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
     )
   }
 
+  const fightCardTrigger = (variant: 'desktop' | 'mobile') => {
+    const isMobile = variant === 'mobile'
+    const showLabels = isMobile || !collapsed
+    return (
+      <button
+        onClick={() => setFightCardOpen(true)}
+        className={cn(
+          'flex items-center gap-2 px-2.5 h-8 mx-2 mb-2 rounded-md border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition-colors',
+          !isMobile && collapsed && 'justify-center px-0 mx-1'
+        )}
+        title="Fight Card"
+        aria-label="Open fight card"
+      >
+        <Swords className="h-3.5 w-3.5 shrink-0" />
+        {showLabels && <span className="text-xs flex-1 text-left">Fight Card</span>}
+      </button>
+    )
+  }
+
   const commandTrigger = (variant: 'desktop' | 'mobile') => {
     if (variant === 'mobile' || !onCommandPalette) return null
     return (
@@ -346,6 +368,8 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
 
   return (
     <>
+      <FightCardDialog open={fightCardOpen} onOpenChange={setFightCardOpen} />
+
       {/* Mobile top bar */}
       <header className="md:hidden sticky top-0 z-40 flex items-center justify-between gap-2 bg-surface-1/60 border-b border-border/60 px-3 h-12">
         <Button
@@ -380,6 +404,7 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
             Main navigation links and account info
           </SheetDescription>
           {brand('mobile')}
+          <div className="pt-2">{fightCardTrigger('mobile')}</div>
           {navContent('mobile')}
           {userBlock('mobile')}
         </SheetContent>
@@ -409,6 +434,7 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
             )}
           </Button>
         </div>
+        {fightCardTrigger('desktop')}
         {navContent('desktop')}
         {userBlock('desktop')}
       </aside>
