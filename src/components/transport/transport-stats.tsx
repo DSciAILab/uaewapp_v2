@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Car, User, Ban, LayoutList } from "lucide-react";
+import { Car, User, LayoutList, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TransportStatsProps {
@@ -10,6 +10,8 @@ interface TransportStatsProps {
     total_drivers: number;
     active_drivers: number;
     assigned_cars: number;
+    /** Sum of mma_event_cars.capacity — a real column, no longer hardcoded 0. */
+    total_capacity?: number;
   };
   className?: string;
   onFilterClick?: (filter: string) => void;
@@ -37,6 +39,15 @@ export function TransportStats({ stats, className, onFilterClick, activeFilter }
       border: "border-green-500/20",
     },
     {
+      label: "Total Seats",
+      value: stats.total_capacity ?? 0,
+      icon: Users,
+      filter: 'cars',
+      color: "text-teal-500",
+      bg: "bg-teal-500/10",
+      border: "border-teal-500/20",
+    },
+    {
       label: "Total Drivers",
       value: stats.total_drivers,
       icon: User,
@@ -57,7 +68,7 @@ export function TransportStats({ stats, className, onFilterClick, activeFilter }
   ];
 
   return (
-    <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-3", className)}>
+    <div className={cn("grid grid-cols-2 lg:grid-cols-5 gap-3", className)}>
       {items.map((item) => {
         const isActive = activeFilter === item.filter;
         

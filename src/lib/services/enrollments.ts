@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Enrollment, Role, Person, TransportNeed, FlightType } from '@/types/database'
+import type { Database } from '@/types/supabase'
 
 function getClient() {
   return createClient();
@@ -35,7 +36,7 @@ export async function getEnrollmentsByEvent(eventId: string): Promise<Enrollment
     .order('event_code_seq', { ascending: true })
 
   if (error) throw error
-  return data || []
+  return (data || []) as unknown as EnrollmentWithDetails[]
 }
 
 export async function getEnrollmentById(id: string): Promise<EnrollmentWithDetails | null> {
@@ -51,7 +52,7 @@ export async function getEnrollmentById(id: string): Promise<EnrollmentWithDetai
     .single()
 
   if (error) throw error
-  return data
+  return data as unknown as EnrollmentWithDetails
 }
 
 export async function createEnrollment(formData: EnrollmentFormData): Promise<Enrollment> {
@@ -62,7 +63,7 @@ export async function createEnrollment(formData: EnrollmentFormData): Promise<En
     'needs_hotel', 'needs_transport', 'corner'
   ];
 
-  const insertData: any = {
+  const insertData: Record<string, unknown> = {
     status: 'active',
     cancelled_at: null,
     cancellation_reason: null,
@@ -74,13 +75,13 @@ export async function createEnrollment(formData: EnrollmentFormData): Promise<En
 
   allowedFields.forEach(field => {
     if (field in formData) {
-      insertData[field] = (formData as any)[field];
+      insertData[field] = formData[field as keyof EnrollmentFormData];
     }
   });
 
   const { data, error } = await supabase
     .from('mma_enrollments')
-    .upsert(insertData, {
+    .upsert(insertData as Database['public']['Tables']['mma_enrollments']['Insert'], {
       onConflict: 'event_id, person_id',
       ignoreDuplicates: false
     })
@@ -98,10 +99,10 @@ export async function createEnrollment(formData: EnrollmentFormData): Promise<En
 
   // Sincronizar módulos relacionados e aguardar para garantir consistência antes do reload da UI
   if (data) {
-     await syncRelatedModules(data)
+     await syncRelatedModules(data as unknown as Enrollment)
   }
 
-  return data
+  return data as unknown as Enrollment
 }
 
 export async function updateEnrollment(id: string, formData: Partial<EnrollmentFormData>): Promise<Enrollment> {
@@ -113,16 +114,16 @@ export async function updateEnrollment(id: string, formData: Partial<EnrollmentF
     'cancelled_at', 'cancellation_reason'
   ];
 
-  const updatePayload: any = {};
+  const updatePayload: Record<string, unknown> = {};
   allowedFields.forEach(field => {
     if (field in formData) {
-      updatePayload[field] = (formData as any)[field];
+      updatePayload[field] = formData[field as keyof EnrollmentFormData];
     }
   });
 
   const { data, error } = await supabase
     .from('mma_enrollments')
-    .update(updatePayload)
+    .update(updatePayload as Database['public']['Tables']['mma_enrollments']['Update'])
     .eq('id', id)
     .select(`
       *,
@@ -137,9 +138,9 @@ export async function updateEnrollment(id: string, formData: Partial<EnrollmentF
   }
 
   // Sincronizar módulos relacionados e aguardar para garantir consistência
-  await syncRelatedModules(data)
+  await syncRelatedModules(data as unknown as Enrollment)
 
-  return data
+  return data as unknown as Enrollment
 }
 
 /**
@@ -150,7 +151,7 @@ export async function updateEnrollment(id: string, formData: Partial<EnrollmentF
 async function syncRelatedModules(enrollment: Enrollment) {
   const supabase = getClient();
   const { event_id, id: enrolled_id, needs_visa, needs_hotel, needs_flight } = enrollment
-  const person = (enrollment as any).person as Person | undefined
+  const person = (enrollment as { person?: Person }).person
 
   console.log('Syncing related modules for enrollment:', { enrolled_id, needs_visa, needs_hotel, needs_flight })
 
@@ -160,10 +161,10 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .from('mma_visas')
       .select('id')
       .eq('enrollment_id', enrolled_id)
-      .single()
+      .maybeSingle()
 
     if (!existingVisa) {
-      const visaInsert: any = {
+      const visaInsert: Partial<Database['public']['Tables']['mma_visas']['Insert']> = {
         enrollment_id: enrolled_id,
         status: 2, // Required/Pendente
         is_done: false
@@ -182,7 +183,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
         }
       }
 
-      const { error: visaError } = await supabase.from('mma_visas').insert(visaInsert)
+      const { error: visaError } = await supabase.from('mma_visas').insert(visaInsert as Database['public']['Tables']['mma_visas']['Insert'])
       if (visaError) console.error('Error auto-creating visa:', visaError)
       else console.log('Auto-created visa for enrollment', enrolled_id, 'with person data:', !!person)
     }
@@ -194,7 +195,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .from('mma_flights')
       .select('id')
       .eq('enrollment_id', enrolled_id)
-      .single()
+      .maybeSingle()
 
     if (!existingFlight) {
         const { error: flightError } = await supabase.from('mma_flights').insert({
@@ -213,7 +214,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .from('mma_hotels')
       .select('id')
       .eq('enrollment_id', enrolled_id)
-      .single()
+      .maybeSingle()
 
     if (!existingHotel) {
       // Buscar dados do evento para datas padrão
@@ -284,7 +285,7 @@ export async function getRoles(): Promise<Role[]> {
     .order('name')
 
   if (error) throw error
-  return data || []
+  return (data || []) as unknown as Role[]
 }
 
 export async function getAvailablePeopleForEvent(eventId: string): Promise<Person[]> {
@@ -295,7 +296,7 @@ export async function getAvailablePeopleForEvent(eventId: string): Promise<Perso
     .eq('event_id', eventId)
     .eq('status', 'active')
 
-  const enrolledIds = enrolled?.map((e: any) => e.person_id) || []
+  const enrolledIds = enrolled?.map((e) => e.person_id) || []
 
   let query = supabase
     .from('mma_people')
@@ -309,7 +310,7 @@ export async function getAvailablePeopleForEvent(eventId: string): Promise<Perso
   const { data, error } = await query
 
   if (error) throw error
-  return data || []
+  return (data || []) as unknown as Person[]
 }
 
 export async function linkCornerToFighter(fighterEnrollmentId: string, cornerEnrollmentId: string): Promise<void> {
@@ -349,7 +350,7 @@ export async function getCornersByFighter(fighterEnrollmentId: string): Promise<
     .eq('fighter_enrollment_id', fighterEnrollmentId)
 
   if (error) throw error
-  return data?.map((d: any) => d.corner) || []
+  return (data?.map((d) => d.corner) || []) as unknown as EnrollmentWithDetails[]
 }
 
 export async function getFightersByCorner(cornerEnrollmentId: string): Promise<EnrollmentWithDetails[]> {
@@ -366,7 +367,7 @@ export async function getFightersByCorner(cornerEnrollmentId: string): Promise<E
     .eq('corner_enrollment_id', cornerEnrollmentId)
 
   if (error) throw error
-  return data?.map((d: any) => d.fighter) || []
+  return (data?.map((d) => d.fighter) || []) as unknown as EnrollmentWithDetails[]
 }
 
 export async function getEnrollmentStats(eventId: string) {
@@ -388,14 +389,14 @@ export async function getEnrollmentStats(eventId: string) {
 
   const stats = {
     total: data?.length || 0,
-    fighters: data?.filter((e: any) => e.role?.code === 'F').length || 0,
-    corners: data?.filter((e: any) => e.role?.code === 'C').length || 0,
-    staff: data?.filter((e: any) => e.role?.code === 'ST').length || 0,
-    guests: data?.filter((e: any) => e.role?.code === 'G').length || 0,
-    needsFlight: data?.filter((e: any) => e.needs_flight !== 'none').length || 0,
-    needsVisa: data?.filter((e: any) => e.needs_visa).length || 0,
-    needsHotel: data?.filter((e: any) => e.needs_hotel).length || 0,
-    needsTransport: data?.filter((e: any) => e.needs_transport !== 'none').length || 0,
+    fighters: data?.filter((e) => (e.role as { code: string } | null)?.code === 'F').length || 0,
+    corners: data?.filter((e) => (e.role as { code: string } | null)?.code === 'C').length || 0,
+    staff: data?.filter((e) => (e.role as { code: string } | null)?.code === 'ST').length || 0,
+    guests: data?.filter((e) => (e.role as { code: string } | null)?.code === 'G').length || 0,
+    needsFlight: data?.filter((e) => e.needs_flight !== 'none').length || 0,
+    needsVisa: data?.filter((e) => e.needs_visa).length || 0,
+    needsHotel: data?.filter((e) => e.needs_hotel).length || 0,
+    needsTransport: data?.filter((e) => e.needs_transport !== 'none').length || 0,
   }
 
   return stats
@@ -439,10 +440,10 @@ export async function bulkCreateEnrollments(
 
       if (error) throw error;
       if (data) {
-        await syncRelatedModules(data);
+        await syncRelatedModules(data as unknown as Enrollment);
         successCount++;
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(`Error enrolling person ${personId}:`, err);
       errors.push(personId);
     }

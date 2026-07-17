@@ -46,11 +46,11 @@ export function CSVImportDropdown({
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem onClick={onTemplateDownload} className="gap-2 cursor-pointer">
           <Download className="h-4 w-4" />
-          Baixar Template
+          Download Template
         </DropdownMenuItem>
         <DropdownMenuItem onClick={onImportClick} className="gap-2 cursor-pointer">
           <FileUp className="h-4 w-4" />
-          Importar CSV
+          Import CSV
         </DropdownMenuItem>
         {extraItems && extraItems.length > 0 && <DropdownMenuSeparator />}
         {extraItems?.map((item, i) => (

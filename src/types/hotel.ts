@@ -4,6 +4,17 @@ export type HotelStatus = 'pending' | 'confirmed' | 'cancelled';
 // Divergence types
 export type DivergenceType = 'pre_booking' | 'early_checkin' | 'late_checkout';
 
+// Room types (UAE-20 Mod 6). Twin = 2 beds, Double = 1 bed for 2 people,
+// Single = 1 bed for 1 person; extra beds can be requested on top.
+export type RoomType = 'single' | 'twin' | 'double' | 'suite';
+
+export const ROOM_TYPES: { value: RoomType; label: string }[] = [
+  { value: 'single', label: 'Single (1 bed / 1 person)' },
+  { value: 'twin', label: 'Twin (2 beds)' },
+  { value: 'double', label: 'Double (1 bed / 2 people)' },
+  { value: 'suite', label: 'Suite' },
+];
+
 export interface Hotel {
   id: string;
   enrollment_id: string;
@@ -31,6 +42,12 @@ export interface Hotel {
   reservation_number: string | null;
   status: HotelStatus | 'reserved';
   notes: string | null;
+
+  // Room assignment (UAE-20 Mod 6). Roommates share the same room_number —
+  // that is the who-is-with-whom link.
+  room_type: RoomType | string | null;
+  room_number: string | null;
+  extra_bed: boolean;
   
   created_at: string;
   updated_at: string;
@@ -65,6 +82,9 @@ export interface HotelFormData {
   status: HotelStatus | 'reserved';
   notes?: string;
   divergence_type?: string[];
+  room_type?: RoomType | '';
+  room_number?: string;
+  extra_bed?: boolean;
 }
 
 export interface HotelDivergence {

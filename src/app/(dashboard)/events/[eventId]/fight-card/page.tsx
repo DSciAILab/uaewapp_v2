@@ -2,10 +2,11 @@
 
 import { use, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Header } from '@/components/layout/header';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ArrowLeft, Swords, Download, FileText, RefreshCw, Database } from 'lucide-react';
 import { getEventById } from '@/lib/services/events';
@@ -212,14 +213,14 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
   const handleSyncToDatabase = async () => {
       try {
-          if (!confirm('Deseja salvar o estado atual do Fight Card no Banco de Dados? Isso fará a tela não ler mais o Google Sheets.')) return;
+          if (!confirm('Save the current Fight Card state to the database? The screen will stop reading from Google Sheets.')) return;
           
           setSyncing(true);
           const count = await syncFightCardToDatabase(eventId);
-          toast.success(`Sincronizado histórico de ${count} lutas com sucesso.`);
+          toast.success(`Successfully synced history of ${count} fights.`);
           setRefreshKey(prev => prev + 1);
       } catch (err: any) {
-          toast.error(err.message || 'Falha ao sincronizar');
+          toast.error(err.message || 'Sync failed');
           console.error(err);
       } finally {
           setSyncing(false);
@@ -402,7 +403,7 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-        <Header 
+        <DashboardHeader 
             title="Fight Card" 
             description={event?.name || 'Event Fight Card'}
         >
@@ -430,10 +431,10 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                     size="sm" 
                     onClick={handleSyncToDatabase} 
                     disabled={syncing || loading}
-                    className="bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 border-blue-200"
+                    className="bg-status-pending/10 text-status-pending hover:bg-status-pending/20 border-status-pending/40"
                  >
                     <Database className={`mr-2 h-4 w-4 ${syncing ? 'animate-pulse' : ''}`} />
-                    {syncing ? 'Sincronizando...' : 'Gravar no Banco'}
+                    {syncing ? 'Syncing...' : 'Save to Database'}
                  </Button>
              )}
               <Button variant="outline" size="sm" onClick={handleDownloadCollectionTemplate} className="bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-slate-900/50">
@@ -444,20 +445,16 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
                  <Download className="mr-2 h-4 w-4" />
                  Export PDF
               </Button>
-        </Header>
+        </DashboardHeader>
 
         <main className="flex-1 p-6 max-w-[1200px] mx-auto w-full space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold tracking-tight">Official Fight Card</h2>
                     {isFromDB ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100 border-green-200">
-                            Banco de Dados
-                        </Badge>
+                        <StatusBadge status="confirmed" label="Banco de Dados" />
                     ) : (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100 border-blue-200">
-                            Google Sheets
-                        </Badge>
+                        <StatusBadge status="neutral" label="Google Sheets" />
                     )}
                 </div>
                 <Badge variant="outline" className="px-3 py-1 text-sm bg-background">

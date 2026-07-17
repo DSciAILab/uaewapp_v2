@@ -1,5 +1,9 @@
 export type MusicStatus = 'pending' | 'confirmed' | 'not_provided' | 'uploaded';
 
+// Per-song approval (UAE-20): each of the 3 walkout slots has its own status;
+// the row counts as Done once any one song is approved.
+export type SongStatus = 'pending' | 'approved' | 'rejected';
+
 export type MusicSource = 'url' | 'upload' | 'spotify' | 'youtube';
 
 export interface EntranceMusic {
@@ -20,6 +24,9 @@ export interface EntranceMusic {
   
   // Status
   status: MusicStatus;
+  status_1: SongStatus;
+  status_2: SongStatus;
+  status_3: SongStatus;
   
   notes: string | null;
   
@@ -51,6 +58,9 @@ export interface EntranceMusicFormData {
   source_url_3?: string;
   start_time_3?: number;
   status: MusicStatus;
+  status_1?: SongStatus;
+  status_2?: SongStatus;
+  status_3?: SongStatus;
   notes?: string;
 }
 

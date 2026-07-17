@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
 export const eventSchema = z.object({
-  name: z.string().min(1, 'Nome é obrigatório').max(200),
+  name: z.string().min(1, 'Name is required').max(200),
   code: z.string().max(20).optional().nullable(),
-  event_date: z.string().min(1, 'Data é obrigatória'),
+  event_date: z.string().min(1, 'Date is required'),
   event_end_date: z.string().optional().nullable(),
   city: z.string().max(100).optional().nullable(),
   country: z.string().max(100).optional().nullable(),
@@ -12,7 +12,7 @@ export const eventSchema = z.object({
   checkin_margin_hours: z.coerce.number().min(0).max(24).optional(),
   checkout_margin_hours: z.coerce.number().min(0).max(24).optional(),
   status: z.enum(['planning', 'active', 'completed', 'cancelled']).optional(),
-  fight_card_csv_url: z.string().url('URL inválida').optional().nullable(),
+  fight_card_csv_url: z.string().url('Invalid URL').optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 

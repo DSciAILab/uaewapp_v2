@@ -58,7 +58,7 @@ export function DriverTable({ drivers, onEdit, onRefresh }: DriverTableProps) {
                 onClick={() => onEdit(driver)}
               >
                 <TableCell>
-                  <span className="font-medium">{driver.name}</span>
+                  <span className="font-medium">{driver.full_name}</span>
                 </TableCell>
                 <TableCell>
                    {driver.phone || <span className="text-muted-foreground">-</span>}

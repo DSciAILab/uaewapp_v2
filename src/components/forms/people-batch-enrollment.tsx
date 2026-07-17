@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -13,7 +12,7 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { 
   XCircle, Plane, PlaneLanding, PlaneTakeoff, Car, Bus, 
   ShieldCheck, Hotel, UserCircle, Briefcase, 
-  Loader2, Trash2, CheckCircle2
+  Loader2, Trash2, CheckCircle2, Check
 } from 'lucide-react';
 import { Person, Role, Event } from '@/types/database';
 import { getRoles, bulkCreateEnrollments } from '@/lib/services/enrollments';
@@ -29,17 +28,17 @@ interface PeopleBatchEnrollmentProps {
 }
 
 const FLIGHT_OPTIONS = [
-  { value: 'none', label: 'Não', icon: XCircle },
-  { value: 'arrival_only', label: 'Chegada', icon: PlaneLanding },
-  { value: 'departure_only', label: 'Partida', icon: PlaneTakeoff },
-  { value: 'full', label: 'Ambos', icon: Plane },
+  { value: 'none', label: 'No', icon: XCircle },
+  { value: 'arrival_only', label: 'Arrival', icon: PlaneLanding },
+  { value: 'departure_only', label: 'Departure', icon: PlaneTakeoff },
+  { value: 'full', label: 'Both', icon: Plane },
 ];
 
 const TRANSPORT_OPTIONS = [
-  { value: 'none', label: 'Não', icon: XCircle },
-  { value: 'arrival', label: 'Chegada', icon: Car },
-  { value: 'departure', label: 'Partida', icon: Car },
-  { value: 'both', label: 'Ambos', icon: Bus },
+  { value: 'none', label: 'No', icon: XCircle },
+  { value: 'arrival', label: 'Arrival', icon: Car },
+  { value: 'departure', label: 'Departure', icon: Car },
+  { value: 'both', label: 'Both', icon: Bus },
 ];
 
 export function PeopleBatchEnrollment({ 
@@ -261,7 +260,15 @@ export function PeopleBatchEnrollment({
                         <p className="text-[10px] opacity-70">Auto-create reservation</p>
                       </div>
                     </div>
-                    <Checkbox checked={globalHotel} className="border-current" />
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'flex h-4 w-4 items-center justify-center rounded-[4px] border border-current',
+                        globalHotel && 'bg-primary-foreground text-primary'
+                      )}
+                    >
+                      {globalHotel && <Check className="h-3 w-3" />}
+                    </span>
                   </Button>
 
                   <Button
@@ -279,7 +286,15 @@ export function PeopleBatchEnrollment({
                         <p className="text-[10px] opacity-70">Mark for tracking</p>
                       </div>
                     </div>
-                    <Checkbox checked={globalVisa} className="border-current" />
+                    <span
+                      aria-hidden
+                      className={cn(
+                        'flex h-4 w-4 items-center justify-center rounded-[4px] border border-current',
+                        globalVisa && 'bg-primary-foreground text-primary'
+                      )}
+                    >
+                      {globalVisa && <Check className="h-3 w-3" />}
+                    </span>
                   </Button>
                </div>
             </div>

@@ -30,6 +30,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
     search,
     nationality,
     hasPassport,
+    personIds,
     page = 1,
     pageSize = 20,
   } = filters
@@ -68,6 +69,11 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
     }
   }
 
+  // Filtro por ids (ex.: enrolled no evento ativo)
+  if (personIds) {
+    query = query.in('id', personIds)
+  }
+
   // Ordenação
   query = query.order('compiled_name', { ascending: true })
 
@@ -81,7 +87,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
   if (error) throw error
 
   return {
-    data: data || [],
+    data: (data || []) as Person[],
     count: count || 0,
     page,
     pageSize,
@@ -98,7 +104,7 @@ export async function getPersonById(id: string): Promise<Person | null> {
     .single()
 
   if (error) throw error
-  return data
+  return data as Person | null
 }
 
 export async function createPerson(formData: PersonFormData): Promise<Person> {
@@ -117,7 +123,7 @@ export async function createPerson(formData: PersonFormData): Promise<Person> {
     .single()
 
   if (error) throw error
-  return data
+  return data as Person
 }
 
 export async function updatePerson(id: string, formData: Partial<PersonFormData>): Promise<Person> {
@@ -148,7 +154,7 @@ export async function updatePerson(id: string, formData: Partial<PersonFormData>
     .single()
 
   if (error) throw error
-  return data
+  return data as Person
 }
 
 export async function deletePerson(id: string): Promise<void> {
@@ -189,7 +195,7 @@ export async function getNationalities(): Promise<string[]> {
 
   if (error) throw error
 
-  const unique = [...new Set(data?.map((d: any) => d.nationality).filter(Boolean))]
+  const unique = [...new Set(data?.map((d) => d.nationality).filter(Boolean))]
   return unique as string[]
 }
 
@@ -232,7 +238,7 @@ export async function importPeopleFromCSV(
 
     // 1. Fetch existing records (paginated — PostgREST caps each response at 1000 rows)
     if (checkDuplicates || upsertMode) {
-      if (onProgress) onProgress(0, total, upsertMode ? 'Buscando registros existentes para comparação...' : 'Verificando duplicados no banco...')
+      if (onProgress) onProgress(0, total, upsertMode ? 'Fetching existing records for comparison...' : 'Checking for duplicates in the database...')
 
       const PAGE_SIZE = 1000
       let from = 0
@@ -246,7 +252,7 @@ export async function importPeopleFromCSV(
         if (fetchError) throw fetchError
         if (!page || page.length === 0) break
 
-        page.forEach((p: any) => {
+        page.forEach((p) => {
           const namePart = normalizeName(p.name)
           const surnamePart = p.surname ? normalizeName(p.surname) : ''
           const dobPart = p.dob || ''
@@ -270,11 +276,11 @@ export async function importPeopleFromCSV(
       const row = rows[i]
       if (!row.name) {
         errors.push({
-          fullName: 'Desconhecido',
+          fullName: 'Unknown',
           column: 'name',
           csvColumnTitle: getCsvTitle('name'),
-          errorType: 'Validação',
-          message: `Nome é obrigatório (Linha ${i + 1})`
+          errorType: 'Validation',
+          message: `Name is required (Row ${i + 1})`
         });
         continue;
       }
@@ -286,7 +292,7 @@ export async function importPeopleFromCSV(
       const fullName = `${row.name}${row.surname ? ' ' + row.surname : ''}${row.dob ? ' (' + row.dob + ')' : ''}`;
 
       if (localSeen.has(key)) {
-        duplicates.push(`${fullName} (Linha ${i + 1}) — duplicado no próprio CSV`)
+        duplicates.push(`${fullName} (Row ${i + 1}) — duplicated within the CSV`)
         continue
       }
 
@@ -320,12 +326,12 @@ export async function importPeopleFromCSV(
           }
 
           if (Object.keys(changes).length > 0) {
-            toUpdate.push({ id: existingRecord.id, changes, fullName: `${fullName} (Linha ${i + 1})` })
+            toUpdate.push({ id: existingRecord.id, changes, fullName: `${fullName} (Row ${i + 1})` })
           } else {
-            duplicates.push(`${fullName} (Linha ${i + 1}) — sem alterações`)
+            duplicates.push(`${fullName} (Row ${i + 1}) — no changes`)
           }
         } else {
-          duplicates.push(`${fullName} (Linha ${i + 1})`)
+          duplicates.push(`${fullName} (Row ${i + 1})`)
         }
         localSeen.add(key)
         continue
@@ -385,7 +391,7 @@ export async function importPeopleFromCSV(
             fullName,
             column: 'Database',
             csvColumnTitle: 'N/A',
-            errorType: 'Erro de Atualização',
+            errorType: 'Update Error',
             message: updateError.message
           })
         } else {
@@ -422,7 +428,7 @@ export async function importPeopleFromCSV(
             fullName: `${item.name} ${item.surname || ''}`.trim(),
             column: 'Database',
             csvColumnTitle: 'N/A',
-            errorType: 'Erro de Inserção',
+            errorType: 'Insert Error',
             message: insertError.message
           });
         });
@@ -437,11 +443,11 @@ export async function importPeopleFromCSV(
   } catch (err: any) {
     console.error('CSV Import: Erro crítico:', err);
     errors.push({
-      fullName: 'Geral',
-      column: 'Sistema',
+      fullName: 'General',
+      column: 'System',
       csvColumnTitle: 'N/A',
-      errorType: 'Crítico',
-      message: err.message || 'Falha desconhecida'
+      errorType: 'Critical',
+      message: err.message || 'Unknown failure'
     });
   }
 
@@ -536,14 +542,14 @@ export async function syncPeopleFromGoogleSheet(): Promise<{
 }> {
   const url = process.env.NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL
   if (!url) {
-    throw new Error('NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL não configurada no .env.local')
+    throw new Error('NEXT_PUBLIC_PEOPLE_SHEET_CSV_URL is not set in .env.local')
   }
 
   // Cache busting (same pattern used in fight-card)
   const fetchUrl = `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}`
   const response = await fetch(fetchUrl)
   if (!response.ok) {
-    throw new Error(`Não foi possível buscar a planilha (HTTP ${response.status}). Verifique se está pública e a URL está correta.`)
+    throw new Error(`Could not fetch the spreadsheet (HTTP ${response.status}). Make sure it is public and the URL is correct.`)
   }
   const csvText = await response.text()
 
@@ -555,13 +561,13 @@ export async function syncPeopleFromGoogleSheet(): Promise<{
 
   if (parsed.errors && parsed.errors.length > 0) {
     const first = parsed.errors[0]
-    throw new Error(`Erro ao processar CSV: ${first.message} (linha ${first.row ?? '?'})`)
+    throw new Error(`Failed to parse CSV: ${first.message} (row ${first.row ?? '?'})`)
   }
 
   const headers = parsed.meta.fields ?? []
   const missing = SHEET_HEADERS.filter((h) => !headers.includes(h))
   if (missing.length > 0) {
-    throw new Error(`Coluna(s) ausente(s) na planilha: ${missing.join(', ')}. Headers esperados: ${SHEET_HEADERS.join(', ')}`)
+    throw new Error(`Missing column(s) in the spreadsheet: ${missing.join(', ')}. Expected headers: ${SHEET_HEADERS.join(', ')}`)
   }
 
   const rows: PersonFormData[] = (parsed.data || [])

@@ -19,21 +19,21 @@ import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-
 import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
 
 const STATS_FIELDS: FieldDef[] = [
-  { value: 'passport_name', label: 'Nome Passaporte' },
-  { value: 'weight_class', label: 'Categoria' },
-  { value: 'weight_kg', label: 'Peso (kg)' },
-  { value: 'residency', label: 'Residência' },
-  { value: 'height_cm', label: 'Altura (cm)' },
-  { value: 'reach_cm', label: 'Alcance (cm)' },
-  { value: 'fighting_style', label: 'Estilo' },
-  { value: 'team_gym', label: 'Equipe/Gym' },
-  { value: 'wins', label: 'Vitórias' },
-  { value: 'losses', label: 'Derrotas' },
-  { value: 'draws', label: 'Empates' },
+  { value: 'passport_name', label: 'Passport Name' },
+  { value: 'weight_class', label: 'Weight Class' },
+  { value: 'weight_kg', label: 'Weight (kg)' },
+  { value: 'residency', label: 'Residency' },
+  { value: 'height_cm', label: 'Height (cm)' },
+  { value: 'reach_cm', label: 'Reach (cm)' },
+  { value: 'fighting_style', label: 'Fighting Style' },
+  { value: 'team_gym', label: 'Team/Gym' },
+  { value: 'wins', label: 'Wins' },
+  { value: 'losses', label: 'Losses' },
+  { value: 'draws', label: 'Draws' },
   { value: 'corner', label: 'Corner' },
-  { value: 'uniform_size', label: 'Uniforme' },
-  { value: 'shoe_size', label: 'Calçado' },
-  { value: 'tshirt_size', label: 'Camiseta' },
+  { value: 'uniform_size', label: 'Uniform' },
+  { value: 'shoe_size', label: 'Shoe Size' },
+  { value: 'tshirt_size', label: 'T-shirt' },
   { value: 'shorts_size', label: 'Shorts' },
 ];
 
@@ -298,8 +298,8 @@ export default function StatsPage() {
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport
-                title="Importar Stats via CSV"
-                subtitle="Estatísticas de Lutadores"
+                title="Import Stats via CSV"
+                subtitle="Fighter Statistics"
                 fields={STATS_FIELDS}
                 requiredField="passport_name"
                 showUpsert={false}

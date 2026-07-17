@@ -32,17 +32,17 @@ interface EnrollmentFormProps {
 }
 
 const FLIGHT_OPTIONS = [
-  { value: 'none', label: 'Não precisa', icon: XCircle },
-  { value: 'arrival_only', label: 'Chegada', icon: PlaneLanding },
-  { value: 'departure_only', label: 'Partida', icon: PlaneTakeoff },
-  { value: 'full', label: 'Ida e Volta', icon: Plane },
+  { value: 'none', label: 'Not needed', icon: XCircle },
+  { value: 'arrival_only', label: 'Arrival', icon: PlaneLanding },
+  { value: 'departure_only', label: 'Departure', icon: PlaneTakeoff },
+  { value: 'full', label: 'Round Trip', icon: Plane },
 ]
 
 const TRANSPORT_OPTIONS = [
-  { value: 'none', label: 'Não precisa', icon: XCircle },
-  { value: 'arrival', label: 'Chegada', icon: Car },
-  { value: 'departure', label: 'Partida', icon: Car },
-  { value: 'both', label: 'Ambos', icon: Bus },
+  { value: 'none', label: 'Not needed', icon: XCircle },
+  { value: 'arrival', label: 'Arrival', icon: Car },
+  { value: 'departure', label: 'Departure', icon: Car },
+  { value: 'both', label: 'Both', icon: Bus },
 ]
 
 export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loading }: EnrollmentFormProps) {
@@ -102,7 +102,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
   const needsHotel = watch('needs_hotel')
 
   if (loadingData) {
-    return <div className="py-8 text-center text-muted-foreground">Carregando...</div>
+    return <div className="py-8 text-center text-muted-foreground">Loading...</div>
   }
 
   const personOptions = people.map((person) => ({
@@ -125,16 +125,16 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Pessoa</h3>
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Person</h3>
         <div className="space-y-2">
-          <Label>Selecionar Pessoa *</Label>
+          <Label>Select Person *</Label>
           <Combobox
             options={personOptions}
             value={personId}
             onValueChange={handlePersonChange}
-            placeholder="Selecione uma pessoa"
-            searchPlaceholder="Pesquisar pessoa..."
-            emptyText="Nenhuma pessoa encontrada."
+            placeholder="Select a person"
+            searchPlaceholder="Search person..."
+            emptyText="No person found."
             disabled={!!enrollment}
           />
         </div>
@@ -153,7 +153,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       </div>
 
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Função</h3>
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Role</h3>
         <div className="space-y-2">
           <ToggleGroup 
             type="single" 
@@ -177,7 +177,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
 
       {roles.find(r => r.id === watch('role_id'))?.code === 'F' && (
         <div className="space-y-4">
-          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Luta</h3>
+          <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Fight</h3>
           <div className="space-y-2">
             <Label className="text-xs">Corner</Label>
             <ToggleGroup 
@@ -186,7 +186,7 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
               value={watch('corner') || 'none'} 
               onValueChange={(v) => setValue('corner', v === 'none' ? null : v)}
             >
-              <ToggleGroupItem value="none" className="text-xs">Nenhum</ToggleGroupItem>
+              <ToggleGroupItem value="none" className="text-xs">None</ToggleGroupItem>
               <ToggleGroupItem value="Red" className="text-xs text-red-600 font-bold border-red-100 data-[state=on]:bg-red-50">RED</ToggleGroupItem>
               <ToggleGroupItem value="Blue" className="text-xs text-blue-600 font-bold border-blue-100 data-[state=on]:bg-blue-50">BLUE</ToggleGroupItem>
             </ToggleGroup>
@@ -195,10 +195,10 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       )}
 
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Necessidades</h3>
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Requirements</h3>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label className="text-xs">Logística Aérea</Label>
+            <Label className="text-xs">Flight Logistics</Label>
             <ToggleGroup 
               type="single" 
               variant="segmented" 
@@ -218,15 +218,15 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
           <div className="flex items-center gap-4">
             <div className="flex items-center space-x-2">
               <Checkbox id="needs_visa" checked={needsVisa} onCheckedChange={(v) => setValue('needs_visa', v as boolean)} />
-              <Label htmlFor="needs_visa">Precisa de Visto</Label>
+              <Label htmlFor="needs_visa">Needs Visa</Label>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="needs_hotel" checked={needsHotel} onCheckedChange={(v) => setValue('needs_hotel', v as boolean)} />
-              <Label htmlFor="needs_hotel">Precisa de Hotel</Label>
+              <Label htmlFor="needs_hotel">Needs Hotel</Label>
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-xs">Transporte Terrestre</Label>
+            <Label className="text-xs">Ground Transport</Label>
             <ToggleGroup 
               type="single" 
               variant="segmented" 
@@ -247,9 +247,9 @@ export function EnrollmentForm({ eventId, enrollment, onSubmit, onCancel, loadin
       </div>
 
       <div className="flex justify-end gap-4 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={loading || !personId}>
-          {loading ? 'Salvando...' : enrollment ? 'Atualizar' : 'Adicionar'}
+          {loading ? 'Saving...' : enrollment ? 'Update' : 'Add'}
         </Button>
       </div>
     </form>

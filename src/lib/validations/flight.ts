@@ -29,7 +29,7 @@ export const flightSchema = z.object({
   }
   return true
 }, {
-  message: 'Dados de chegada são obrigatórios para este tipo de voo',
+  message: 'Arrival details are required for this flight type',
   path: ['arrival_date'],
 }).refine((data) => {
   // Validar que departure está preenchido se type inclui departure
@@ -38,7 +38,7 @@ export const flightSchema = z.object({
   }
   return true
 }, {
-  message: 'Dados de partida são obrigatórios para este tipo de voo',
+  message: 'Departure details are required for this flight type',
   path: ['departure_date'],
 })
 

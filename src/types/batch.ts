@@ -21,8 +21,7 @@ export interface Batch {
   batch_type: BatchType;
   batch_number: number; // Auto-incremented per event+type
   name: string;
-  description: string | null;
-  
+
   // Scheduling
   scheduled_date: string;
   start_time: string;
@@ -52,7 +51,6 @@ export interface Batch {
 export interface BatchFormData {
   batch_type: BatchType;
   name: string;
-  description?: string;
   scheduled_date: string;
   start_time: string;
   end_time?: string;

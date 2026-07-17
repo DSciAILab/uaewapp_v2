@@ -16,14 +16,14 @@ import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-
 import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
 
 const HOTEL_FIELDS: FieldDef[] = [
-  { value: 'passport_name', label: 'Nome Passaporte' },
-  { value: 'checkin_date', label: 'Data Check-in' },
-  { value: 'checkin_time', label: 'Hora Check-in' },
-  { value: 'checkout_date', label: 'Data Checkout' },
-  { value: 'checkout_time', label: 'Hora Checkout' },
-  { value: 'reservation_number', label: 'Nº Reserva' },
+  { value: 'passport_name', label: 'Passport Name' },
+  { value: 'checkin_date', label: 'Check-in Date' },
+  { value: 'checkin_time', label: 'Check-in Time' },
+  { value: 'checkout_date', label: 'Checkout Date' },
+  { value: 'checkout_time', label: 'Checkout Time' },
+  { value: 'reservation_number', label: 'Reservation Number' },
   { value: 'status', label: 'Status' },
-  { value: 'notes', label: 'Observações' },
+  { value: 'notes', label: 'Notes' },
 ];
 
 export default function HotelsPage() {
@@ -195,8 +195,8 @@ export default function HotelsPage() {
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport
-                title="Importar Hotéis via CSV"
-                subtitle="Evento selecionado"
+                title="Import Hotels via CSV"
+                subtitle="Selected event"
                 fields={HOTEL_FIELDS}
                 requiredField="passport_name"
                 onImport={(rows, upsert, progress) => importHotelsFromCSV(eventId, rows as any, upsert, progress)}

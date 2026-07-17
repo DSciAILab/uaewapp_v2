@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, Clock, Hospital, History as HistoryIcon } from 'lucide-react'
+import { CheckCircle2, Clock, Hospital, History as HistoryIcon, MessageSquareText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { MedicalLogEntry, MedicalStatus } from '@/types/medical'
 
@@ -80,6 +80,30 @@ export function MedicalHistoryDrawer({ open, onOpenChange, athleteName, fetchHis
           {!loading && entries.length > 0 && (
             <ol className="relative border-l-2 border-border ml-2 space-y-5">
               {entries.map((entry) => {
+                // Notes rows (field='notes') have no status; render old -> new.
+                if (entry.field === 'notes' || !entry.new_status) {
+                  const shorten = (v: string | null) =>
+                    !v ? '—' : v.length > 60 ? v.slice(0, 57) + '…' : v
+                  return (
+                    <li key={entry.id} className="ml-6 relative">
+                      <span className="absolute -left-[34px] top-0 flex h-7 w-7 items-center justify-center rounded-full border-2 border-muted-foreground/40 bg-background">
+                        <MessageSquareText className="h-3.5 w-3.5 text-muted-foreground" />
+                      </span>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-sm text-muted-foreground">Notes</span>
+                          <Badge variant="outline" className="text-[10px] font-normal text-muted-foreground max-w-[220px] truncate">
+                            {shorten(entry.old_value)} → {shorten(entry.new_value)}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {formatDateTime(entry.changed_at)}
+                        </span>
+                      </div>
+                    </li>
+                  )
+                }
+
                 const meta = STATUS_META[entry.new_status]
                 const Icon = meta.icon
                 return (

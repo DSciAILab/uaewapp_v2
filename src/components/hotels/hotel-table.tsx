@@ -78,6 +78,17 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
     return 0;
   });
   
+  // Roommates: reservations sharing the same room_number are in the same room.
+  const roommatesByRoom = new Map<string, string[]>();
+  for (const h of hotels) {
+    if (!h.room_number) continue;
+    const name = h.enrolled?.person?.compiled_name;
+    if (!name) continue;
+    const list = roommatesByRoom.get(h.room_number) || [];
+    list.push(name);
+    roommatesByRoom.set(h.room_number, list);
+  }
+
   // Batch selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -169,6 +180,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                     </div>
                 </TableHead>
                 <TableHead>Nights</TableHead>
+                <TableHead>Room</TableHead>
                 <TableHead>Booking Ref</TableHead>
                 <TableHead className="cursor-pointer hover:bg-muted/50" onClick={() => handleSort('status')}>
                     <div className="flex items-center gap-2">
@@ -182,7 +194,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
             <TableBody>
                 {sortedHotels.length === 0 ? (
                 <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={13} className="text-center py-8 text-muted-foreground">
                     No hotel reservations found
                     </TableCell>
                 </TableRow>
@@ -253,6 +265,29 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                           <Badge variant="secondary" className="font-bold text-xs">
                              {nights}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {hotel.room_type || hotel.room_number || hotel.extra_bed ? (
+                            <div className="flex flex-col gap-0.5 min-w-[110px]">
+                              <span className="text-xs font-medium capitalize">
+                                {hotel.room_type || '-'}
+                                {hotel.room_number && <span className="font-mono ml-1">· {hotel.room_number}</span>}
+                                {hotel.extra_bed && <span className="ml-1 text-amber-500">+bed</span>}
+                              </span>
+                              {hotel.room_number && (roommatesByRoom.get(hotel.room_number)?.length || 0) > 1 && (
+                                <span
+                                  className="text-[10px] text-muted-foreground truncate max-w-[160px]"
+                                  title={roommatesByRoom.get(hotel.room_number)!.join(', ')}
+                                >
+                                  with {roommatesByRoom.get(hotel.room_number)!
+                                    .filter(n => n !== hotel.enrolled?.person?.compiled_name)
+                                    .join(', ') || '—'}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                            <span className="text-xs font-mono bg-muted/30 px-2 py-1 rounded border">

@@ -1,10 +1,124 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/client';
 import Papa from 'papaparse';
-import { FighterStats, FighterStatsFormData, EventWeighIn, EventWeighInFormData, WEIGHT_CLASS_LIMITS, CoachData, CoachDataFormData } from '@/types/stats';
+import { FighterStats, FighterStatsFormData, EventWeighIn, EventWeighInFormData, WEIGHT_CLASS_LIMITS, CoachData, CoachDataFormData, WeightClass } from '@/types/stats';
+import type { Database } from '@/types/supabase';
 
 function getClient() {
   return createClient();
+}
+
+// ==================== ROW -> DOMAIN NARROWING ====================
+// The generated DB types are wider than our domain types (nullable columns,
+// `weight_class` as a free-form string). These mappers narrow rows at the
+// service boundary so the rest of the app can rely on the domain contract.
+
+type Tables = Database['public']['Tables'];
+type FighterStatsRow = Tables['mma_fighter_stats']['Row'];
+type CoachDataRow = Tables['mma_coach_data']['Row'];
+type WeighInRow = Tables['mma_event_weigh_ins']['Row'];
+
+type PersonJoin = {
+  id: string;
+  compiled_name: string | null;
+  nationality?: string | null;
+  role?: string | null;
+  appadmin_fighter_id?: string | number | null;
+  event_name?: string | null;
+  passport_photo?: string | null;
+} | null | undefined;
+
+const WEIGHT_CLASSES = new Set(Object.keys(WEIGHT_CLASS_LIMITS));
+
+/** Accepts a raw DB string only if it is a known weight class; otherwise null. */
+function toWeightClass(value: string | null): WeightClass | null {
+  return value !== null && WEIGHT_CLASSES.has(value) ? (value as WeightClass) : null;
+}
+
+function toPerson(person: PersonJoin): FighterStats['person'] | undefined {
+  if (!person) return undefined;
+  return {
+    id: person.id,
+    compiled_name: person.compiled_name ?? '',
+    role: person.role ?? undefined,
+    nationality: person.nationality ?? null,
+    appadmin_fighter_id: person.appadmin_fighter_id != null ? String(person.appadmin_fighter_id) : null,
+    event_name: person.event_name ?? undefined,
+    passport_photo: person.passport_photo ?? null,
+  };
+}
+
+function toFighterStats(
+  row: FighterStatsRow & { person?: PersonJoin },
+  overrides: Partial<FighterStats> = {}
+): FighterStats {
+  return {
+    id: row.id,
+    person_id: row.person_id,
+    height_cm: row.height_cm,
+    reach_cm: row.reach_cm,
+    weight_class: toWeightClass(row.weight_class),
+    corner: row.corner,
+    uniform_size: row.uniform_size,
+    shoe_size: row.shoe_size,
+    tshirt_size: row.tshirt_size,
+    shorts_size: row.shorts_size,
+    jacket_size: row.jacket_size,
+    gloves_size: row.gloves_size,
+    coach1_size: row.coach1_size,
+    coach2_size: row.coach2_size,
+    coach3_size: row.coach3_size,
+    wins: row.wins ?? 0,
+    losses: row.losses ?? 0,
+    draws: row.draws ?? 0,
+    no_contests: row.no_contests ?? 0,
+    wins_ko: row.wins_ko ?? 0,
+    wins_submission: row.wins_submission ?? 0,
+    wins_decision: row.wins_decision ?? 0,
+    losses_ko: row.losses_ko ?? 0,
+    losses_submission: row.losses_submission ?? 0,
+    losses_decision: row.losses_decision ?? 0,
+    fighting_style: row.fighting_style,
+    team_gym: row.team_gym,
+    nickname: row.nickname,
+    residency: row.residency,
+    weight_kg: row.weight_kg,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+    person: toPerson(row.person),
+    ...overrides,
+  };
+}
+
+function toCoachData(row: CoachDataRow & { person?: PersonJoin }): CoachData {
+  return {
+    id: row.id,
+    person_id: row.person_id,
+    uniform_size: row.uniform_size,
+    shoe_size: row.shoe_size,
+    height_cm: row.height_cm,
+    weight_kg: row.weight_kg,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+    person: toPerson(row.person) as CoachData['person'],
+  };
+}
+
+function toEventWeighIn(row: WeighInRow, enrolled?: EventWeighIn['enrolled']): EventWeighIn {
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    enrolled_id: row.enrolled_id,
+    official_weight_kg: row.official_weight_kg,
+    weigh_in_time: row.weigh_in_time,
+    // A null `made_weight` has always rendered as "missed" (falsy) downstream;
+    // preserve that behaviour rather than inventing a value.
+    made_weight: row.made_weight ?? false,
+    weight_miss_kg: row.weight_miss_kg,
+    notes: row.notes,
+    created_at: row.created_at ?? '',
+    updated_at: row.updated_at ?? '',
+    ...(enrolled ? { enrolled } : {}),
+  };
 }
 
 // ==================== FIGHTER STATS ====================
@@ -25,7 +139,7 @@ export async function getFighterStats(personId: string): Promise<FighterStats | 
     throw new Error('Failed to fetch fighter stats');
   }
 
-  return data;
+  return toFighterStats(data);
 }
 
 export async function getEventFighterStats(eventId: string): Promise<FighterStats[]> {
@@ -70,32 +184,34 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
   // 3. Merge results - ensure everyone enrolled shows up
   const statsMap = new Map(stats?.map(s => [s.person_id, s]));
   
-  const merged = enrolled.map(e => {
+  const merged: FighterStats[] = enrolled.map(e => {
     const existing = statsMap.get(e.person_id);
-    const corner = e.corner || existing?.corner; // Enrollment corner takes precedence
-    
-    if (existing) return { ...existing, corner };
-    
+    const corner = e.corner || existing?.corner || null; // Enrollment corner takes precedence
+
+    if (existing) return toFighterStats(existing, { corner });
+
     // Return placeholder for UI
-    return {
+    const now = new Date().toISOString();
+    const placeholder: FighterStats = {
       id: `temp_${e.person_id}`, // Temporary ID for React keys
       person_id: e.person_id,
-      person: e.person as any,
-      
+      person: toPerson(e.person),
+
       // Defaults
       wins: 0, losses: 0, draws: 0, no_contests: 0,
       wins_ko: 0, wins_submission: 0, wins_decision: 0,
       losses_ko: 0, losses_submission: 0, losses_decision: 0,
       height_cm: null, reach_cm: null, weight_class: null,
       fighting_style: null, team_gym: null, nickname: null,
-      corner: corner,
+      corner,
       uniform_size: null, shoe_size: null,
       tshirt_size: null, shorts_size: null, jacket_size: null, gloves_size: null,
       coach1_size: null, coach2_size: null, coach3_size: null,
-      
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as FighterStats;
+
+      created_at: now,
+      updated_at: now,
+    };
+    return placeholder;
   });
 
   // 4. Enrich with CSV data (Fight Card) in background replacement logic style
@@ -104,7 +220,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
      const fightCard = await getFightCardData(eventId);
      if (fightCard && fightCard.length > 0) {
         return merged.map(f => {
-           const match = fightCard.find((c: any) => {
+           const match = fightCard.find((c) => {
               const pName = (f.person?.compiled_name || '').trim().toLowerCase();
               const cName = (c.name || '').trim().toLowerCase();
               return pName === cName || pName.includes(cName) || cName.includes(pName);
@@ -169,7 +285,7 @@ export async function createFighterStats(personId: string, formData: FighterStat
 
   if (error) throw new Error('Failed to create fighter stats');
 
-  return data;
+  return toFighterStats(data);
 }
 
 export async function updateFighterStats(statsId: string, formData: Partial<FighterStatsFormData>): Promise<FighterStats> {
@@ -186,19 +302,19 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     'fighting_style', 'team_gym', 'nickname', 'residency', 'weight_kg'
   ];
 
-  const updatePayload: any = {
+  const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString()
   };
 
   allowedFields.forEach(field => {
     if (field in formData) {
-      updatePayload[field] = (formData as any)[field];
+      updatePayload[field] = (formData as Record<string, unknown>)[field];
     }
   });
 
   const { data, error } = await supabase
     .from('mma_fighter_stats')
-    .update(updatePayload)
+    .update(updatePayload as Database['public']['Tables']['mma_fighter_stats']['Update'])
     .eq('id', statsId)
     .select(`
       *,
@@ -211,7 +327,7 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
      throw new Error('Failed to update fighter stats');
   }
 
-  return data;
+  return toFighterStats(data);
 }
 
 export async function upsertFighterStats(personId: string, formData: FighterStatsFormData): Promise<FighterStats> {
@@ -244,7 +360,7 @@ export async function getCoachData(personId: string): Promise<CoachData | null> 
     throw new Error('Failed to fetch coach data');
   }
 
-  return data;
+  return toCoachData(data);
 }
 
 export async function getEventCoachData(eventId: string): Promise<CoachData[]> {
@@ -289,22 +405,24 @@ export async function getEventCoachData(eventId: string): Promise<CoachData[]> {
   
   return enrolled.map(e => {
     const existing = dataMap.get(e.person_id);
-    if (existing) return existing;
-    
+    if (existing) return toCoachData(existing);
+
     // Placeholder
-    return {
+    const now = new Date().toISOString();
+    const placeholder: CoachData = {
       id: `temp_${e.person_id}`,
       person_id: e.person_id,
-      person: e.person as any,
-      
+      person: toPerson(e.person) as CoachData['person'],
+
       uniform_size: null,
       shoe_size: null,
       height_cm: null,
       weight_kg: null,
-      
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    } as CoachData;
+
+      created_at: now,
+      updated_at: now,
+    };
+    return placeholder;
   });
 }
 
@@ -324,26 +442,26 @@ export async function createCoachData(personId: string, formData: CoachDataFormD
 
   if (error) throw new Error('Failed to create coach data');
 
-  return data;
+  return toCoachData(data);
 }
 
 export async function updateCoachData(dataId: string, formData: Partial<CoachDataFormData>): Promise<CoachData> {
   const supabase = getClient();
   
   const allowedFields = ['uniform_size', 'shoe_size', 'height_cm', 'weight_kg'];
-  const updatePayload: any = {
+  const updatePayload: Record<string, unknown> = {
     updated_at: new Date().toISOString()
   };
 
   allowedFields.forEach(field => {
     if (field in formData) {
-      updatePayload[field] = (formData as any)[field];
+      updatePayload[field] = (formData as Record<string, unknown>)[field];
     }
   });
 
   const { data, error } = await supabase
     .from('mma_coach_data')
-    .update(updatePayload)
+    .update(updatePayload as Database['public']['Tables']['mma_coach_data']['Update'])
     .eq('id', dataId)
     .select(`
       *,
@@ -356,7 +474,7 @@ export async function updateCoachData(dataId: string, formData: Partial<CoachDat
      throw new Error('Failed to update coach data');
   }
 
-  return data;
+  return toCoachData(data);
 }
 
 export async function upsertCoachData(personId: string, formData: CoachDataFormData): Promise<CoachData> {
@@ -393,13 +511,18 @@ export async function getEventWeighIns(eventId: string): Promise<EventWeighIn[]>
   const results = await Promise.all(
     (data || []).map(async (weighIn) => {
       const stats = await getFighterStats(weighIn.enrolled.person_id);
-      return {
-        ...weighIn,
-        enrolled: {
-          ...weighIn.enrolled,
-          stats,
+      const person = toPerson(weighIn.enrolled.person);
+      return toEventWeighIn(weighIn, {
+        // `corner` lives on mma_enrollments, surfaced through this join.
+        corner: weighIn.enrolled.corner,
+        person: {
+          id: weighIn.enrolled.person.id,
+          compiled_name: person?.compiled_name ?? '',
+          event_name: person?.event_name,
+          appadmin_fighter_id: person?.appadmin_fighter_id ?? null,
         },
-      };
+        ...(stats ? { stats } : {}),
+      });
     })
   );
 
@@ -449,7 +572,7 @@ export async function createWeighIn(eventId: string, formData: EventWeighInFormD
 
   if (error) throw new Error('Failed to create weigh-in');
 
-  return data;
+  return toEventWeighIn(data);
 }
 
 export async function updateWeighIn(weighInId: string, formData: Partial<EventWeighInFormData>): Promise<EventWeighIn> {
@@ -465,7 +588,7 @@ export async function updateWeighIn(weighInId: string, formData: Partial<EventWe
       .single();
 
     if (current) {
-      const enrolledData: any = current.enrolled;
+      const enrolledData = current.enrolled as { person_id: string } | { person_id: string }[];
       const personId = Array.isArray(enrolledData) ? enrolledData[0].person_id : enrolledData.person_id;
       const stats = await getFighterStats(personId);
       
@@ -490,7 +613,7 @@ export async function updateWeighIn(weighInId: string, formData: Partial<EventWe
 
   if (error) throw new Error('Failed to update weigh-in');
 
-  return data;
+  return toEventWeighIn(data);
 }
 
 export async function deleteWeighIn(weighInId: string): Promise<void> {
@@ -728,10 +851,10 @@ export async function importStatsFromCSV(
     .eq('role.code', 'F')
     .eq('status', 'active')
 
-  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+  if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   const nameMap = new Map<string, string>()
-  for (const e of (enrollments || []) as any[]) {
+  for (const e of (enrollments || [])) {
     const person = e.person
     if (!person) continue
     const compiledName = (person.compiled_name || '').trim().toLowerCase()
@@ -765,17 +888,17 @@ export async function importStatsFromCSV(
 
     const passportName = (row.passport_name || '').trim()
     if (!passportName) {
-      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome é obrigatório' })
+      errors.push({ row: rowNum, name: '(empty)', message: 'Name is required' })
       continue
     }
 
     const personId = nameMap.get(passportName.toLowerCase())
     if (!personId) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Lutador não encontrado no evento' })
+      skipped.push({ row: rowNum, name: passportName, message: 'Fighter not found in the event' })
       continue
     }
 
-    const statsData: any = {
+    const statsData: Database['public']['Tables']['mma_fighter_stats']['Insert'] = {
       person_id: personId,
       nickname: row.nickname || null,
       residency: row.residency || null,
@@ -818,6 +941,6 @@ export async function importStatsFromCSV(
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

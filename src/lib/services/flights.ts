@@ -1,27 +1,48 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/client'
+import { isFlightType } from '@/types/database'
 import type { Flight, FlightType, Enrollment } from '@/types/database'
+import type { Database, Tables } from '@/types/supabase'
 
 function getClient() {
   return createClient();
 }
 
+/** Exactly the person columns this service selects, straight from the DB types. */
+type FlightPerson = Pick<
+  Tables<'mma_people'>,
+  'id' | 'compiled_name' | 'event_name' | 'appadmin_fighter_id' | 'nationality'
+>
+
+type FlightRole = Pick<Tables<'mma_roles'>, 'id' | 'name' | 'code'>
+
+/**
+ * Only the enrollment columns this service actually selects — the previous
+ * `Enrollment &` claim was never true of the query (it selects 3 columns, not
+ * the full row) and was only held up by the `as` cast this replaces.
+ */
 export interface FlightWithEnrollment extends Flight {
-  enrollment: Enrollment & {
-    person: {
-      id: string
-      compiled_name: string
-      event_name: string | null
-      appadmin_fighter_id: number | null
-      nationality: string | null
-    }
-    role: {
-      id: string
-      name: string
-      code: string
-    }
-    event_code: string
+  enrollment: Pick<Enrollment, 'id' | 'event_id'> & {
+    event_code: string | null
+    person: FlightPerson
+    role: FlightRole
   }
+}
+
+type FlightRow = Tables<'mma_flights'>
+
+/**
+ * mma_flights.type is an open `string` column — narrow it before it enters the
+ * domain type. Throwing (rather than defaulting) keeps a corrupt row loud:
+ * silently coercing to 'full' would invent a departure leg for an
+ * arrival-only passenger, which is exactly the ops failure to avoid.
+ */
+function toFlight<T extends FlightRow>(row: T): Omit<T, 'type'> & { type: FlightType } {
+  if (!isFlightType(row.type)) {
+    throw new Error(
+      `mma_flights.id=${row.id} has unsupported type "${row.type}" (expected arrival_only | departure_only | full)`
+    )
+  }
+  return { ...row, type: row.type }
 }
 
 export interface FlightFilters {
@@ -82,7 +103,7 @@ export async function getFlightsByEvent(eventId: string, filters: FlightFilters 
   if (error) throw error
   
   // Client-side search filtering since nested filters don't work well
-  let results = (data || []) as FlightWithEnrollment[]
+  let results: FlightWithEnrollment[] = (data || []).map(toFlight)
   
   if (filters.search) {
     const searchLower = filters.search.toLowerCase()
@@ -114,7 +135,7 @@ export async function getFlightByEventCode(eventId: string, code: string): Promi
     .maybeSingle()
 
   if (error) throw error
-  return data
+  return data ? toFlight(data) : null
 }
 
 export async function getFlightByEnrollment(enrollmentId: string): Promise<Flight | null> {
@@ -126,7 +147,7 @@ export async function getFlightByEnrollment(enrollmentId: string): Promise<Fligh
     .maybeSingle()
 
   if (error) throw error
-  return data
+  return data ? toFlight(data) : null
 }
 
 export async function getFlightById(id: string): Promise<FlightWithEnrollment | null> {
@@ -157,7 +178,7 @@ export async function getFlightById(id: string): Promise<FlightWithEnrollment | 
     .single()
 
   if (error) throw error
-  return data as FlightWithEnrollment
+  return toFlight(data)
 }
 
 export interface FlightFormData {
@@ -191,20 +212,29 @@ export async function createFlight(formData: FlightFormData): Promise<Flight> {
     .single()
 
   if (error) throw error
-  return data
+  return toFlight(data)
 }
 
 export async function updateFlight(id: string, formData: Partial<FlightFormData>): Promise<Flight> {
+  // `type` and `status` are NOT NULL columns, so Update types them as
+  // `string | undefined` while FlightFormData allows null. Lift them out and
+  // re-add only when actually provided, so an explicit null becomes
+  // "not provided" instead of a DB-rejected null write.
+  const { type, status, ...rest } = formData
+  const patch: Database['public']['Tables']['mma_flights']['Update'] = { ...rest }
+  if (type != null) patch.type = type
+  if (status != null) patch.status = status
+
   const supabase = getClient();
   const { data, error } = await supabase
     .from('mma_flights')
-    .update(formData)
+    .update(patch)
     .eq('id', id)
     .select()
     .single()
 
   if (error) throw error
-  return data
+  return toFlight(data)
 }
 
 export async function deleteFlight(id: string): Promise<void> {
@@ -217,7 +247,7 @@ export async function deleteFlight(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function getEnrollmentsNeedingFlight(eventId: string): Promise<any[]> {
+export async function getEnrollmentsNeedingFlight(eventId: string) {
   const supabase = getClient();
   // Get enrollments that need flight but don't have one yet
   const { data: enrollments, error: enrollError } = await supabase
@@ -339,11 +369,11 @@ export async function importFlightsFromCSV(
     .eq('event_id', eventId)
     .eq('status', 'active')
 
-  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+  if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   // Build a name→enrollment map (case insensitive)
   const nameMap = new Map<string, { enrollmentId: string; needsFlight: string }>()
-  for (const e of (enrollments || []) as any[]) {
+  for (const e of (enrollments || [])) {
     const person = e.person
     if (!person) continue
     const compiledName = (person.compiled_name || '').trim().toLowerCase()
@@ -354,9 +384,9 @@ export async function importFlightsFromCSV(
   }
 
   // 2. Fetch existing flights for this event
-  if (onProgress) onProgress(0, total, 'Verificando voos existentes...')
+  if (onProgress) onProgress(0, total, 'Checking existing flights...')
 
-  const enrollmentIds = (enrollments || []).map((e: any) => e.id)
+  const enrollmentIds = (enrollments || []).map((e) => e.id)
   const { data: existingFlights } = await supabase
     .from('mma_flights')
     .select('id, enrollment_id')
@@ -379,13 +409,13 @@ export async function importFlightsFromCSV(
 
     const passportName = (row.passport_name || '').trim()
     if (!passportName) {
-      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome do passaporte é obrigatório' })
+      errors.push({ row: rowNum, name: '(empty)', message: 'Passport name is required' })
       continue
     }
 
     const match = nameMap.get(passportName.toLowerCase())
     if (!match) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Pessoa não encontrada no evento' })
+      skipped.push({ row: rowNum, name: passportName, message: 'Person not found in the event' })
       continue
     }
 
@@ -396,7 +426,7 @@ export async function importFlightsFromCSV(
       return 'full'
     })()
 
-    const flightData: any = {
+    const flightData: Database['public']['Tables']['mma_flights']['Insert'] = {
       enrollment_id: match.enrollmentId,
       type: flightType,
       arrival_reservation: row.arrival_reservation || null,
@@ -431,7 +461,7 @@ export async function importFlightsFromCSV(
           updated++
         }
       } else {
-        skipped.push({ row: rowNum, name: passportName, message: 'Voo já existe (upsert desativado)' })
+        skipped.push({ row: rowNum, name: passportName, message: 'Flight already exists (upsert disabled)' })
       }
     } else {
       const { error: insertError } = await supabase
@@ -447,6 +477,6 @@ export async function importFlightsFromCSV(
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

@@ -7,6 +7,12 @@ function getClient() {
   return createClient();
 }
 
+interface FightCardEntry {
+  name: string;
+  matchNumber?: number | null;
+  corner?: 'RED' | 'BLUE' | null;
+}
+
 export async function getStagingData(eventId: string): Promise<StagingRow[]> {
   const supabase = getClient();
   
@@ -42,7 +48,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
   if (checkinError) throw checkinError;
 
   // 3. Get Fight Card Data for Corner/Order info
-  let fightCard: any[] = [];
+  let fightCard: FightCardEntry[] = [];
   try {
     fightCard = await getFightCardData();
   } catch (err) {
@@ -50,7 +56,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
   }
 
   const checkinMap = new Map<string, StagingCheckin>();
-  checkins?.forEach((c: StagingCheckin) => checkinMap.set(c.enrolled_id, c));
+  checkins?.forEach((c) => checkinMap.set(c.enrolled_id, c as unknown as StagingCheckin));
 
   // 4. Merge and fill gaps
   const result: StagingRow[] = [];
@@ -68,7 +74,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
 
     // Match with Fight Card to get Corner / Match #
     // Also serves as a filter: "Only fighters must be shown"
-    const match = fightCard.find((c: any) => {
+    const match = fightCard.find((c) => {
         const pName = normalizeName(fullName);
         const eName = normalizeName(eventName);
         const cName = normalizeName(c.name);
@@ -146,7 +152,7 @@ export async function updateStagingItem(
   };
 
   // Remove fake ID if present
-  delete (payload as any).id;
+  delete payload.id;
 
   const { data, error } = await supabase
     .from('mma_staging_checkins')
@@ -155,5 +161,5 @@ export async function updateStagingItem(
     .single();
 
   if (error) throw error;
-  return data;
+  return data as unknown as StagingCheckin;
 }

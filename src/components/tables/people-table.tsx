@@ -80,13 +80,13 @@ export function PeopleTable({
               />
             </TableHead>
           )}
-          <TableHead className="w-12">Foto</TableHead>
+          <TableHead className="w-12">Photo</TableHead>
           <TableHead>Fighter ID</TableHead>
-          <TableHead>Nome</TableHead>
-          <TableHead>Nome de Guerra</TableHead>
-          <TableHead>Nacionalidade</TableHead>
-          <TableHead>Passaporte</TableHead>
-          <TableHead>Validade</TableHead>
+          <TableHead>Name</TableHead>
+          <TableHead>Ring Name</TableHead>
+          <TableHead>Nationality</TableHead>
+          <TableHead>Passport</TableHead>
+          <TableHead>Expiry</TableHead>
           <TableHead className="w-12"></TableHead>
         </TableRow>
       </TableHeader>
@@ -94,7 +94,7 @@ export function PeopleTable({
         {people.length === 0 ? (
           <TableRow>
             <TableCell colSpan={onToggleRow ? 9 : 8} className="text-center py-8 text-muted-foreground">
-              Nenhuma pessoa encontrada
+              No people found
             </TableCell>
           </TableRow>
         ) : (
@@ -216,7 +216,7 @@ export function PeopleTable({
                         onClick={() => onDelete(person)}
                       >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Excluir Registro
+                        Delete Record
                       </DropdownMenuItem>
                     )}
                   </DropdownMenuContent>

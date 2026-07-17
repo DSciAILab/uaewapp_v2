@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { getActiveEventId } from '@/lib/services/active-event';
 import { redirect } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3 } from 'lucide-react';
@@ -6,17 +6,11 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default async function StatsIndexPage() {
-  const supabase = await createClient();
-  
   // Try to find an active event to redirect to
-  const { data: activeEvent } = await supabase
-    .from('mma_events')
-    .select('id')
-    .eq('status', 'active')
-    .single();
-    
-  if (activeEvent) {
-    redirect(`/events/${activeEvent.id}/stats`);
+  const activeEventId = await getActiveEventId();
+
+  if (activeEventId) {
+    redirect(`/events/${activeEventId}/stats`);
   }
 
   return (

@@ -1,6 +1,9 @@
 import { createClient } from '@/lib/supabase/client';
 import { Hotel, HotelFormData, HotelFilters, HotelStatus } from '@/types/hotel';
 import { calculateHotelDates, detectDivergences, getPrimaryDivergence } from '@/lib/utils/hotel-calculations';
+import type { Database } from '@/types/supabase';
+
+type FlightRow = Database['public']['Tables']['mma_flights']['Row'];
 
 const getClient = () => createClient();
 
@@ -36,12 +39,12 @@ export async function getEventHotels(
   const { data: enrollments, error } = await query;
   if (error) throw new Error('Failed to fetch hotel data: ' + error.message);
 
-  let results: Hotel[] = (enrollments || []).map((e: any) => {
+  let results: Hotel[] = (enrollments || []).map((e) => {
     // Supabase can return an object (1:1 with unique) or an array (1:N)
     // We check for both to ensure robust mapping
     const rawHotel = e.hotel;
     const hotelRecord = Array.isArray(rawHotel) ? rawHotel[0] : rawHotel;
-    const flight = e.flights?.[0];
+    const flight = (e.flights as FlightRow[] | null)?.[0];
     const event = e.event;
 
     const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
@@ -60,7 +63,7 @@ export async function getEventHotels(
           id: e.person?.id || 'unknown',
           compiled_name: e.person?.compiled_name || 'Unnamed Person',
           appadmin_fighter_id: e.person?.appadmin_fighter_id,
-          role: (Array.isArray(e.role) ? e.role[0]?.name : (e.person?.role as any)?.name || e.person?.role) || 'N/A',
+          role: (Array.isArray(e.role) ? e.role[0]?.name : ((e.person as { role?: { name?: string } | string } | null)?.role as { name?: string } | undefined)?.name || (e.person as { role?: string } | null)?.role) || 'N/A',
           event_name: e.event?.name
         },
         arrival_flight: { arrival_datetime },
@@ -100,7 +103,7 @@ export async function getEventHotels(
       updated_at: new Date().toISOString(),
       ...commonData
     } as unknown as Hotel;
-  }).filter((h: any): h is Hotel => h !== null);
+  }).filter((h): h is Hotel => h !== null);
   
   // Client-side filtering for complex fields or virtual records
   if (filters?.search) {
@@ -153,13 +156,13 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
     throw new Error('Failed to fetch hotel reservation: ' + error.message);
   }
 
-  const flights = data.enrolled.flights || [];
+  const flights = (data.enrolled.flights || []) as FlightRow[];
   const flight = flights[0];
 
-  const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
-    ? `${flight.arrival_date}T${flight.arrival_time}` 
+  const arrival_datetime = flight?.arrival_date && flight?.arrival_time
+    ? `${flight.arrival_date}T${flight.arrival_time}`
     : null;
-    
+
   const departure_datetime = flight?.departure_date && flight?.departure_time
     ? `${flight.departure_date}T${flight.departure_time}`
     : null;
@@ -178,7 +181,7 @@ export async function getHotelById(hotelId: string): Promise<Hotel | null> {
       arrival_flight: { arrival_datetime },
       departure_flight: { departure_datetime }
     }
-  } as Hotel;
+  } as unknown as Hotel;
 }
 
 
@@ -199,7 +202,7 @@ export async function createHotel(
 
   if (enrolledError) throw new Error('Failed to fetch enrollment data: ' + enrolledError.message);
 
-  const flights = (enrolled as any).flights || [];
+  const flights = (enrolled.flights || []) as FlightRow[];
   const flight = flights[0];
 
   const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
@@ -245,6 +248,9 @@ export async function createHotel(
     reservation_number: formData.reservation_number || null,
     status: formData.status,
     notes: formData.notes || null,
+    room_type: formData.room_type || null,
+    room_number: formData.room_number || null,
+    extra_bed: formData.extra_bed ?? false,
     updated_at: new Date().toISOString()
   };
 
@@ -288,12 +294,12 @@ export async function createHotel(
           .eq('enrollment_id', formData.enrollment_id)
           .select()
           .single();
-        if (!result.error) return result.data;
+        if (!result.error) return result.data as Hotel;
     }
     throw new Error('Failed to save hotel reservation: ' + error.message);
   }
 
-  return data;
+  return data as Hotel;
 }
 
 export async function updateHotel(
@@ -321,8 +327,8 @@ export async function updateHotel(
   if (fetchError || !current) throw new Error('Hotel not found or error fetching current data');
 
   const enrollment = current.enrolled;
-  const event = (enrollment as any).event;
-  const flights = (enrollment as any).flights || [];
+  const event = enrollment.event;
+  const flights = (enrollment.flights || []) as FlightRow[];
   const flight = flights[0];
 
   const arrival_datetime = flight?.arrival_date && flight?.arrival_time 
@@ -367,6 +373,9 @@ export async function updateHotel(
     reservation_number: formData.reservation_number !== undefined ? formData.reservation_number : current.reservation_number,
     status: formData.status || current.status,
     notes: formData.notes !== undefined ? formData.notes : current.notes,
+    room_type: formData.room_type !== undefined ? (formData.room_type || null) : current.room_type,
+    room_number: formData.room_number !== undefined ? (formData.room_number || null) : current.room_number,
+    extra_bed: formData.extra_bed !== undefined ? formData.extra_bed : current.extra_bed,
     // Reset approval if dates changed and are divergent
     divergence_approved: (finalCheckin !== current.checkin_date || finalCheckout !== current.checkout_date) && hasDivergence 
       ? false 
@@ -383,7 +392,7 @@ export async function updateHotel(
 
   if (error) throw new Error('Failed to update hotel reservation: ' + error.message);
 
-  return data;
+  return data as Hotel;
 }
 
 export async function approveDivergence(hotelId: string, approverId: string): Promise<Hotel> {
@@ -401,7 +410,7 @@ export async function approveDivergence(hotelId: string, approverId: string): Pr
 
   if (error) throw new Error('Failed to approve divergence');
 
-  return data;
+  return data as Hotel;
 }
 
 export async function rejectDivergence(hotelId: string): Promise<Hotel> {
@@ -419,7 +428,7 @@ export async function rejectDivergence(hotelId: string): Promise<Hotel> {
 
   if (error) throw new Error('Failed to reject divergence');
 
-  return data;
+  return data as Hotel;
 }
 
 export async function deleteHotel(hotelId: string): Promise<void> {
@@ -472,13 +481,13 @@ export async function updateHotelStatus(
 
   if (error) throw new Error('Failed to update hotel status: ' + error.message);
 
-  return data;
+  return data as Hotel;
 }
 
 export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
   id: string;
   person: { id: string; compiled_name: string; role: string };
-  flights?: any[];
+  flights?: FlightRow[];
 }>> {
   const supabase = getClient();
   const { data: enrolled, error: enrolledError } = await supabase
@@ -498,24 +507,24 @@ export async function getEnrolledWithoutHotel(eventId: string): Promise<Array<{
   const { data: hotels, error: hotelsError } = await supabase
     .from('mma_hotels')
     .select('enrollment_id')
-    .in('enrollment_id', enrolled?.map((e: any) => e.id) || []);
-    
+    .in('enrollment_id', enrolled?.map((e) => e.id) || []);
+
   // Add cache-buster
-  (hotelsError as any); // just for reference
+  void hotelsError; // just for reference
 
   if (hotelsError) throw hotelsError;
 
-  const hotelEnrolledIds = new Set(hotels?.map((h: any) => h.enrollment_id) || []);
+  const hotelEnrolledIds = new Set(hotels?.map((h) => h.enrollment_id) || []);
 
-  return (enrolled || []).map((e: any) => ({
+  return (enrolled || []).map((e) => ({
     id: e.id,
     person: {
       id: e.person.id,
-      compiled_name: e.person.compiled_name,
-      role: (e.person?.role as any)?.name || e.person?.role || 'N/A'
+      compiled_name: e.person.compiled_name as string,
+      role: ((e.person as { role?: { name?: string } | string } | null)?.role as { name?: string } | undefined)?.name || (e.person as { role?: string } | null)?.role || 'N/A'
     },
-    flights: e.flights
-  })).filter((e: any) => !hotelEnrolledIds.has(e.id));
+    flights: e.flights as unknown as FlightRow[] | undefined
+  })).filter((e) => !hotelEnrolledIds.has(e.id));
 }
 
 export async function getHotelStats(eventId: string): Promise<{
@@ -531,10 +540,10 @@ export async function getHotelStats(eventId: string): Promise<{
 
   return {
     total: hotels.length,
-    confirmed: hotels.filter((h: any) => h.status === 'confirmed').length,
-    pending: hotels.filter((h: any) => h.status === 'pending').length,
-    with_divergence: hotels.filter((h: any) => h.has_divergence).length,
-    pending_approval: hotels.filter((h: any) => h.has_divergence && !h.divergence_approved).length
+    confirmed: hotels.filter((h) => h.status === 'confirmed').length,
+    pending: hotels.filter((h) => h.status === 'pending').length,
+    with_divergence: hotels.filter((h) => h.has_divergence).length,
+    pending_approval: hotels.filter((h) => h.has_divergence && !h.divergence_approved).length
   };
 }
 
@@ -544,7 +553,7 @@ export async function updateHotelBatch(
 ): Promise<void> {
   if (!hotelIds.length) return;
 
-  const updateData: any = {
+  const updateData: Database['public']['Tables']['mma_hotels']['Update'] = {
     updated_at: new Date().toISOString()
   };
 
@@ -603,10 +612,10 @@ export async function importHotelsFromCSV(
     .eq('status', 'active')
     .eq('needs_hotel', true)
 
-  if (enrollError) throw new Error('Falha ao buscar enrollments: ' + enrollError.message)
+  if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   const nameMap = new Map<string, string>()
-  for (const e of (enrollments || []) as any[]) {
+  for (const e of (enrollments || [])) {
     const person = e.person
     if (!person) continue
     const compiledName = (person.compiled_name || '').trim().toLowerCase()
@@ -615,8 +624,8 @@ export async function importHotelsFromCSV(
     if (eventName && eventName !== compiledName) nameMap.set(eventName, e.id)
   }
 
-  if (onProgress) onProgress(0, total, 'Verificando hotéis existentes...')
-  const enrollmentIds = (enrollments || []).map((e: any) => e.id)
+  if (onProgress) onProgress(0, total, 'Checking existing hotels...')
+  const enrollmentIds = (enrollments || []).map((e) => e.id)
   const { data: existingHotels } = await supabase
     .from('mma_hotels')
     .select('id, enrollment_id')
@@ -637,17 +646,17 @@ export async function importHotelsFromCSV(
 
     const passportName = (row.passport_name || '').trim()
     if (!passportName) {
-      errors.push({ row: rowNum, name: '(vazio)', message: 'Nome do passaporte é obrigatório' })
+      errors.push({ row: rowNum, name: '(empty)', message: 'Passport name is required' })
       continue
     }
 
     const enrollmentId = nameMap.get(passportName.toLowerCase())
     if (!enrollmentId) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Pessoa não encontrada no evento ou não precisa de hotel' })
+      skipped.push({ row: rowNum, name: passportName, message: 'Person not found in the event or does not need a hotel' })
       continue
     }
 
-    const hotelData: any = {
+    const hotelData: Database['public']['Tables']['mma_hotels']['Insert'] = {
       enrollment_id: enrollmentId,
       checkin_date: row.checkin_date || null,
       checkin_time: row.checkin_time || null,
@@ -666,15 +675,15 @@ export async function importHotelsFromCSV(
         if (updateError) errors.push({ row: rowNum, name: passportName, message: updateError.message })
         else updated++
       } else {
-        skipped.push({ row: rowNum, name: passportName, message: 'Hotel já existe (upsert desativado)' })
+        skipped.push({ row: rowNum, name: passportName, message: 'Hotel already exists (upsert disabled)' })
       }
     } else {
-      const { error: insertError } = await supabase.from('mma_hotels').insert(hotelData)
+      const { error: insertError } = await supabase.from('mma_hotels').insert(hotelData as Database['public']['Tables']['mma_hotels']['Insert'])
       if (insertError) errors.push({ row: rowNum, name: passportName, message: insertError.message })
       else { created++; existingMap.set(enrollmentId, 'new') }
     }
   }
 
-  if (onProgress) onProgress(total, total, 'Concluído!')
+  if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }

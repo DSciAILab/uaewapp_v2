@@ -77,13 +77,16 @@ export interface EventTask {
   template?: TaskTemplate;
 }
 
-export interface TaskChecklistItem {
+// Declared as a type alias, not an interface, on purpose: a type alias gets an
+// implicit index signature, which makes it assignable to the generated `Json`
+// type used by the checklist_items column. An interface does not.
+export type TaskChecklistItem = {
   id: string;
   text: string;
   completed: boolean;
   completed_at: string | null;
   completed_by: string | null;
-}
+};
 
 export interface EventTaskFormData {
   template_id?: string;

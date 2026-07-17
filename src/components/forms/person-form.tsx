@@ -78,31 +78,31 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
       )}
 
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Identificação</h3>
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Identification</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nome *</Label>
-            <Input id="name" {...register('name')} placeholder="João" />
+            <Label htmlFor="name">First Name *</Label>
+            <Input id="name" {...register('name')} placeholder="John" />
             {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="surname">Sobrenome</Label>
-            <Input id="surname" {...register('surname')} placeholder="Silva" />
+            <Label htmlFor="surname">Last Name</Label>
+            <Input id="surname" {...register('surname')} placeholder="Smith" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="event_name">Nome de Guerra</Label>
-            <Input id="event_name" {...register('event_name')} placeholder="João 'Pitbull' Silva" />
+            <Label htmlFor="event_name">Ring Name</Label>
+            <Input id="event_name" {...register('event_name')} placeholder="John 'Pitbull' Smith" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="appadmin_fighter_id">Fighter ID</Label>
-            <Input id="appadmin_fighter_id" {...register('appadmin_fighter_id')} placeholder="595 ou PS1234" />
+            <Input id="appadmin_fighter_id" {...register('appadmin_fighter_id')} placeholder="595 or PS1234" />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="gender">Gênero</Label>
+            <Label htmlFor="gender">Gender</Label>
             <ToggleGroup 
               type="single" 
               variant="segmented" 
@@ -110,34 +110,34 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
               onValueChange={(value) => value && setValue('gender', value)}
             >
               <ToggleGroupItem value="Male" className="text-xs gap-2">
-                <User className="h-3.5 w-3.5" /> Masculino
+                <User className="h-3.5 w-3.5" /> Male
               </ToggleGroupItem>
               <ToggleGroupItem value="Female" className="text-xs gap-2">
-                <UserRound className="h-3.5 w-3.5" /> Feminino
+                <UserRound className="h-3.5 w-3.5" /> Female
               </ToggleGroupItem>
               <ToggleGroupItem value="Other" className="text-xs gap-2">
-                <HelpCircle className="h-3.5 w-3.5" /> Outro
+                <HelpCircle className="h-3.5 w-3.5" /> Other
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone">Telefone</Label>
-            <Input id="phone" {...register('phone')} placeholder="+55 11 99999-9999" />
+            <Label htmlFor="phone">Phone</Label>
+            <Input id="phone" {...register('phone')} placeholder="+971 50 999 9999" />
           </div>
         </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Documentos</h3>
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Documents</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="dob">Data de Nascimento</Label>
+            <Label htmlFor="dob">Date of Birth</Label>
             <Input id="dob" type="date" {...register('dob')} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="nationality">Nacionalidade</Label>
+            <Label htmlFor="nationality">Nationality</Label>
             <Select value={watch('nationality') || ''} onValueChange={(value) => setValue('nationality', value)}>
-              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
               <SelectContent>
                 {NATIONALITIES.sort().map((n) => (<SelectItem key={n} value={n}>{n}</SelectItem>))}
               </SelectContent>
@@ -146,42 +146,42 @@ export function PersonForm({ person, onSubmit, onCancel, loading }: PersonFormPr
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="passport_number">Nº Passaporte</Label>
+            <Label htmlFor="passport_number">Passport Number</Label>
             <Input id="passport_number" {...register('passport_number')} placeholder="AB123456" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="passport_expiry">Validade Passaporte</Label>
+            <Label htmlFor="passport_expiry">Passport Expiry</Label>
             <Input id="passport_expiry" type="date" {...register('passport_expiry')} />
           </div>
         </div>
         <div className="space-y-2">
-          <Label htmlFor="passport_photo">Link Foto Passaporte</Label>
+          <Label htmlFor="passport_photo">Passport Photo Link</Label>
           <Input id="passport_photo" {...register('passport_photo')} placeholder="https://drive.google.com/..." />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="document_folder">Pasta de Documentos</Label>
+          <Label htmlFor="document_folder">Document Folder</Label>
           <Input id="document_folder" {...register('document_folder')} placeholder="https://drive.google.com/..." />
         </div>
       </div>
 
       <div className="space-y-4">
-        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Stats Permanentes</h3>
+        <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Permanent Stats</h3>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="height">Altura (m)</Label>
+            <Label htmlFor="height">Height (m)</Label>
             <Input id="height" type="number" step="0.01" {...register('height')} placeholder="1.85" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="reach">Envergadura (cm)</Label>
+            <Label htmlFor="reach">Reach (cm)</Label>
             <Input id="reach" type="number" {...register('reach')} placeholder="190" />
           </div>
         </div>
       </div>
 
       <div className="flex justify-end gap-4 pt-4 border-t">
-        <Button type="button" variant="outline" onClick={onCancel}>Cancelar</Button>
+        <Button type="button" variant="outline" onClick={onCancel}>Cancel</Button>
         <Button type="submit" disabled={loading}>
-          {loading ? 'Salvando...' : person ? 'Atualizar' : 'Criar'}
+          {loading ? 'Saving...' : person ? 'Update' : 'Create'}
         </Button>
       </div>
     </form>

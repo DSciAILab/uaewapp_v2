@@ -5,8 +5,9 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Car, Users, PlaneLanding, PlaneTakeoff, UserCheck, Loader2, ArrowLeft } from 'lucide-react';
+import { Plus, Car, Users, PlaneLanding, PlaneTakeoff, UserCheck, Loader2, ArrowLeft, AlertTriangle, RotateCw } from 'lucide-react';
 import Link from 'next/link';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { CarTable } from '@/components/transport/car-table';
 import { CarForm } from '@/components/transport/car-form';
 import { DriverTable } from '@/components/transport/driver-table';
@@ -22,10 +23,10 @@ import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-
 import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
 
 const DRIVER_FIELDS: FieldDef[] = [
-  { value: 'name', label: 'Nome' },
-  { value: 'phone', label: 'Telefone' },
-  { value: 'is_active', label: 'Ativo (true/false)' },
-  { value: 'notes', label: 'Observações' },
+  { value: 'name', label: 'Name' },
+  { value: 'phone', label: 'Phone' },
+  { value: 'is_active', label: 'Active (true/false)' },
+  { value: 'notes', label: 'Notes' },
 ];
 
 export default function TransportPage() {
@@ -50,9 +51,11 @@ export default function TransportPage() {
     total_capacity: 0
   });
   const [csvOpen, setCsvOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
     try {
       const [carsData, driversData, statsData, groupsData] = await Promise.all([
         getEventCars(eventId),
@@ -64,8 +67,12 @@ export default function TransportPage() {
       setDrivers(driversData);
       setStats(statsData);
       setFlightGroups(groupsData);
-    } catch (error) {
-      console.error('Failed to load transport data:', error);
+    } catch (err) {
+      // A swallowed rejection left cars/drivers/stats at their empty/zero
+      // initial values, making a hard failure look exactly like "no cars
+      // assigned". Surface it instead of falling through to a zero-state.
+      console.error('Failed to load transport data:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
     }
@@ -96,34 +103,66 @@ export default function TransportPage() {
   };
 
   return (
-    <div className="space-y-6 container py-10">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
-            <Button variant="ghost" size="sm" asChild className="h-8 px-2 -ml-2">
-              <Link href={`/events/${eventId}`}>
-                <ArrowLeft className="h-4 w-4 mr-1" />Back to Event
-              </Link>
+    <div className="flex flex-col h-full space-y-6">
+      <DashboardHeader
+        title="Transport Management"
+        description="Manage cars, drivers, and passenger assignments for this event"
+        actions={
+          <>
+            <CSVImportDropdown
+              label="CSV Motoristas"
+              onImportClick={() => setCsvOpen(true)}
+              onTemplateDownload={() => downloadCSVTemplate('drivers_import_template.csv', 'Name,Phone,Is Active,Notes\nMohamed Ali,+971501234567,true,Local driver\nAhmed Hassan,+971502345678,true,\n')}
+            />
+            <Button variant="outline" size="sm" onClick={() => setIsDriverFormOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />Global Drivers
             </Button>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Transport Management</h1>
-          <p className="text-muted-foreground mt-1">Manage cars, drivers, and passenger assignments for this event</p>
-        </div>
-        <div className="flex gap-2">
-          <CSVImportDropdown
-            label="CSV Motoristas"
-            onImportClick={() => setCsvOpen(true)}
-            onTemplateDownload={() => downloadCSVTemplate('drivers_import_template.csv', 'Name,Phone,Is Active,Notes\nMohamed Ali,+971501234567,true,Local driver\nAhmed Hassan,+971502345678,true,\n')}
-          />
-          <Button variant="outline" onClick={() => setIsDriverFormOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />Global Drivers
-          </Button>
-          <Button onClick={() => setIsCarFormOpen(true)} className="bg-blue-600 hover:bg-blue-700">
-            <Plus className="h-4 w-4 mr-2" />Add Car to Event
-          </Button>
-        </div>
-      </div>
+            <Button size="sm" onClick={() => setIsCarFormOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />Add Car to Event
+            </Button>
+          </>
+        }
+      >
+        <Button variant="ghost" size="sm" asChild className="h-8 px-2">
+          <Link href={`/events/${eventId}`}>
+            <ArrowLeft className="h-4 w-4 mr-1" />Back to Event
+          </Link>
+        </Button>
+      </DashboardHeader>
 
+      <div className="flex-1 px-6 pb-6 space-y-6">
+      {error ? (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-status-critical/40 bg-status-critical/10 px-4 py-3"
+        >
+          <AlertTriangle
+            className="h-4 w-4 shrink-0 text-status-critical mt-0.5"
+            aria-hidden="true"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-foreground">
+              Transport data failed to load
+            </p>
+            <p className="mt-1 font-mono text-xs text-muted-foreground break-words">
+              {error}
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Vehicle and driver counts are unavailable — this is not an empty event.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={loadData}
+            className="h-7 shrink-0"
+          >
+            <RotateCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+            Retry
+          </Button>
+        </div>
+      ) : (
+        <>
       {/* Stats Cards */}
       <TransportStats stats={stats} />
 
@@ -178,6 +217,8 @@ export default function TransportPage() {
           </TabsContent>
         </div>
       </Tabs>
+        </>
+      )}
 
       {/* Form Dialogs */}
       <CarForm
@@ -211,8 +252,8 @@ export default function TransportPage() {
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
               <GenericCSVImport
-                title="Importar Motoristas via CSV"
-                subtitle="Motoristas globais"
+                title="Import Drivers via CSV"
+                subtitle="Global drivers"
                 fields={DRIVER_FIELDS}
                 requiredField="name"
                 onImport={(rows, upsert, progress) => importDriversFromCSV(rows as any, upsert, progress)}
@@ -222,6 +263,7 @@ export default function TransportPage() {
           </div>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

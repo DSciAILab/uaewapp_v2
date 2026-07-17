@@ -29,6 +29,7 @@ import {
 import type { VisaWithEnrollment } from '@/lib/services/visas'
 import { getFighterPhotoUrl, cn } from '@/lib/utils'
 import { VISA_STATUS_LABELS, VISA_STATUS_COLORS } from '@/lib/constants'
+import { StatusBadge } from '@/components/ui/status-badge'
 
 interface VisasTableProps {
   visas: VisaWithEnrollment[]
@@ -53,10 +54,10 @@ export function VisasTable({
         <TableRow>
           <TableHead className="w-12">Done</TableHead>
           <TableHead className="w-20">ID</TableHead>
-          <TableHead>Pessoa</TableHead>
-          <TableHead>Nacionalidade</TableHead>
-          <TableHead>Aeroporto</TableHead>
-          <TableHead>Documentos</TableHead>
+          <TableHead>Person</TableHead>
+          <TableHead>Nationality</TableHead>
+          <TableHead>Airport</TableHead>
+          <TableHead>Documents</TableHead>
           <TableHead>Status</TableHead>
           <TableHead className="w-12"></TableHead>
         </TableRow>
@@ -65,7 +66,7 @@ export function VisasTable({
         {visas.length === 0 ? (
           <TableRow>
             <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-              Nenhum visto cadastrado
+              No visas registered
             </TableCell>
           </TableRow>
         ) : (
@@ -146,9 +147,10 @@ export function VisasTable({
                   )}
                 </TableCell>
                 <TableCell>
-                  <Badge className={VISA_STATUS_COLORS[visa.status]}>
-                    {VISA_STATUS_LABELS[visa.status]}
-                  </Badge>
+                  <StatusBadge
+                    status={VISA_STATUS_COLORS[visa.status] ?? 'neutral'}
+                    label={VISA_STATUS_LABELS[visa.status]}
+                  />
                 </TableCell>
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
@@ -162,11 +164,11 @@ export function VisasTable({
                         <>
                           <DropdownMenuItem onClick={() => onEdit(visa)}>
                             <Pencil className="mr-2 h-4 w-4" />
-                            Editar
+                            Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => onToggleDone(visa)}>
                             <CheckCircle2 className="mr-2 h-4 w-4" />
-                            {visa.is_done ? 'Marcar pendente' : 'Marcar concluído'}
+                            {visa.is_done ? 'Mark as pending' : 'Mark as completed'}
                           </DropdownMenuItem>
                         </>
                       )}
@@ -178,7 +180,7 @@ export function VisasTable({
                             onClick={() => onDelete(visa)}
                           >
                             <Trash2 className="mr-2 h-4 w-4" />
-                            Excluir
+                            Delete
                           </DropdownMenuItem>
                         </>
                       )}

@@ -1,10 +1,22 @@
 'use client';
 
-import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { CheckCircle, Clock, Calendar } from 'lucide-react';
 import { DivergenceType } from '@/types/hotel';
 import { formatDivergenceLabel } from '@/lib/utils/hotel-calculations';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
+type DSStatus = 'pending' | 'confirmed' | 'warning' | 'critical' | 'neutral';
+type IconType = React.ComponentType<{ className?: string }>;
+
+// Domain -> DS semantics. An approved divergence is always `confirmed`;
+// otherwise the severity of the divergence itself drives the token. Colours
+// come from the locked status tokens rather than the old light-only palette.
+const divergenceConfig: Record<DivergenceType, { icon: IconType; status: DSStatus }> = {
+  pre_booking: { icon: Calendar, status: 'warning' },
+  early_checkin: { icon: Clock, status: 'warning' },
+  late_checkout: { icon: Clock, status: 'critical' },
+};
 
 interface HotelDivergenceBadgeProps {
   divergenceType: DivergenceType;
@@ -12,35 +24,19 @@ interface HotelDivergenceBadgeProps {
   reason?: string | null;
 }
 
-const divergenceConfig: Record<DivergenceType, { icon: any; color: string; approvedColor: string }> = {
-  pre_booking: {
-    icon: Calendar,
-    color: 'bg-orange-100 text-orange-800 border-orange-200',
-    approvedColor: 'bg-green-100 text-green-800 border-green-200'
-  },
-  early_checkin: {
-    icon: Clock,
-    color: 'bg-yellow-100 text-yellow-800 border-yellow-200',
-    approvedColor: 'bg-green-100 text-green-800 border-green-200'
-  },
-  late_checkout: {
-    icon: Clock,
-    color: 'bg-red-100 text-red-800 border-red-200',
-    approvedColor: 'bg-green-100 text-green-800 border-green-200'
-  }
-};
-
 export function HotelDivergenceBadge({ divergenceType, isApproved, reason }: HotelDivergenceBadgeProps) {
   const config = divergenceConfig[divergenceType] || divergenceConfig.pre_booking;
-  const Icon = isApproved ? CheckCircle : config.icon;
-  const colorClass = isApproved ? config.approvedColor : config.color;
 
   const badge = (
-    <Badge variant="outline" className={`${colorClass} flex items-center gap-1`}>
-      <Icon className="h-3 w-3" />
-      <span>{formatDivergenceLabel(divergenceType)}</span>
-      {isApproved && <span className="text-xs ml-1">(Approved)</span>}
-    </Badge>
+    <StatusBadge
+      status={isApproved ? 'confirmed' : config.status}
+      icon={isApproved ? CheckCircle : config.icon}
+      label={
+        isApproved
+          ? `${formatDivergenceLabel(divergenceType)} (Approved)`
+          : formatDivergenceLabel(divergenceType)
+      }
+    />
   );
 
   if (reason) {

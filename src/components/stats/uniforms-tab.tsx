@@ -490,7 +490,7 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
           <TableHeader>
              <TableRow>
                <TableHead className="w-12 px-4"></TableHead>
-               <TableHead className="w-[80px]">Foto</TableHead>
+               <TableHead className="w-[80px]">Photo</TableHead>
                <SortableHeader label="Luta #" sortKey="matchNumber" currentSort={sortConfig} onSort={handleSort} className="w-[80px]" />
                <SortableHeader label="Fighter ID" sortKey="appadmin_fighter_id" currentSort={sortConfig} onSort={handleSort} />
                <SortableHeader label="Nome" sortKey="name" currentSort={sortConfig} onSort={handleSort} />

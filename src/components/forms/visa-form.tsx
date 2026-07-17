@@ -127,10 +127,10 @@ export function VisaForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Pessoa */}
+      {/* Person */}
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          Pessoa
+          Person
         </h3>
 
         {visa ? (
@@ -156,10 +156,10 @@ export function VisaForm({
           // Modo criação
           <>
             {loadingEnrollments ? (
-              <p className="text-muted-foreground">Carregando...</p>
+              <p className="text-muted-foreground">Loading...</p>
             ) : enrollments.length === 0 ? (
               <p className="text-muted-foreground">
-                Todas as pessoas que precisam de visto já têm registro.
+                Everyone who needs a visa already has a record.
               </p>
             ) : (
               <Select
@@ -167,7 +167,7 @@ export function VisaForm({
                 onValueChange={handleEnrollmentChange}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma pessoa" />
+                  <SelectValue placeholder="Select a person" />
                 </SelectTrigger>
                 <SelectContent>
                   {enrollments.map((enrollment) => (
@@ -211,23 +211,23 @@ export function VisaForm({
             {/* Passport Info */}
             <div className="text-sm space-y-1 pt-2 border-t">
               <p>
-                <span className="text-muted-foreground">Passaporte:</span>{' '}
-                {selectedEnrollment.person?.passport_number || 'Não informado'}
+                <span className="text-muted-foreground">Passport:</span>{' '}
+                {selectedEnrollment.person?.passport_number || 'Not provided'}
               </p>
               <p className="flex items-center gap-2">
-                <span className="text-muted-foreground">Validade:</span>{' '}
+                <span className="text-muted-foreground">Expiry:</span>{' '}
                 {selectedEnrollment.person?.passport_expiry ? (
                   <>
                     {formatDate(selectedEnrollment.person.passport_expiry)}
                     {isPassportExpired && (
-                      <Badge variant="destructive" className="text-xs">Expirado</Badge>
+                      <Badge variant="destructive" className="text-xs">Expired</Badge>
                     )}
                     {isPassportExpiringSoon && (
-                      <Badge className="text-xs bg-yellow-500">Expira em breve</Badge>
+                      <Badge className="text-xs bg-yellow-500">Expiring soon</Badge>
                     )}
                   </>
                 ) : (
-                  'Não informado'
+                  'Not provided'
                 )}
               </p>
             </div>
@@ -238,8 +238,8 @@ export function VisaForm({
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">
                   {isPassportExpired 
-                    ? 'Passaporte expirado! Verifique antes de solicitar visto.'
-                    : 'Passaporte expira em menos de 6 meses.'}
+                    ? 'Passport expired! Check before applying for a visa.'
+                    : 'Passport expires in less than 6 months.'}
                 </span>
               </div>
             )}
@@ -247,28 +247,28 @@ export function VisaForm({
         )}
 
         {errors.enrollment_id && (
-          <p className="text-sm text-red-500">Selecione uma pessoa</p>
+          <p className="text-sm text-red-500">Select a person</p>
         )}
       </div>
 
-      {/* Dados do Visto */}
+      {/* Visa Details */}
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          Dados do Visto
+          Visa Details
         </h3>
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="passport_name">Nome no Passaporte</Label>
+            <Label htmlFor="passport_name">Passport Name</Label>
             <Input
               id="passport_name"
               {...register('passport_name')}
-              placeholder="Nome completo"
+              placeholder="Full name"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="nationality">Nacionalidade</Label>
+            <Label htmlFor="nationality">Nationality</Label>
             <Input
               id="nationality"
               {...register('nationality')}
@@ -278,7 +278,7 @@ export function VisaForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="departure_airport">Aeroporto de Partida</Label>
+          <Label htmlFor="departure_airport">Departure Airport</Label>
           <Input
             id="departure_airport"
             {...register('departure_airport')}
@@ -288,7 +288,7 @@ export function VisaForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="document_link">Link do Documento (Google Drive)</Label>
+          <Label htmlFor="document_link">Document Link (Google Drive)</Label>
           <Input
             id="document_link"
             {...register('document_link')}
@@ -304,7 +304,7 @@ export function VisaForm({
         </h3>
 
         <div className="space-y-2">
-          <Label>Status do Visto</Label>
+          <Label>Visa Status</Label>
           <Select
             value={String(status)}
             onValueChange={(value) => setValue('status', Number(value) as VisaStatus)}
@@ -332,16 +332,16 @@ export function VisaForm({
             onCheckedChange={(checked) => setValue('is_done', !!checked)}
           />
           <Label htmlFor="is_done" className="cursor-pointer">
-            Marcar como concluído
+            Mark as completed
           </Label>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Observações</Label>
+          <Label htmlFor="notes">Notes</Label>
           <Textarea
             id="notes"
             {...register('notes')}
-            placeholder="Informações adicionais..."
+            placeholder="Additional information..."
             rows={3}
           />
         </div>
@@ -350,10 +350,10 @@ export function VisaForm({
       {/* Actions */}
       <div className="flex justify-end gap-4 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
+          Cancel
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? 'Salvando...' : visa ? 'Atualizar' : 'Criar'}
+          {loading ? 'Saving...' : visa ? 'Update' : 'Create'}
         </Button>
       </div>
     </form>

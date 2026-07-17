@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Header } from '@/components/layout/header';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -152,7 +152,7 @@ function EventDashboardContent({ eventId }: { eventId: string }) {
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-50/50 dark:bg-slate-950">
-      <Header
+      <DashboardHeader
         title={event.name}
         description={`${formatDate(event.event_date)}${event.city ? ` • ${event.city}` : ''}`}
       >
@@ -176,7 +176,7 @@ function EventDashboardContent({ eventId }: { eventId: string }) {
             War Room
           </Button>
         </div>
-      </Header>
+      </DashboardHeader>
 
       <main className="flex-1 p-6 space-y-8 max-w-[1600px] mx-auto w-full">
         <section>

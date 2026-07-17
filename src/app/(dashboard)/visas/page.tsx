@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Header } from '@/components/layout/header'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -89,7 +89,7 @@ function VisasContent() {
           setSelectedEventId(data[0].id)
         }
       } catch (error) {
-        toast.error('Erro ao carregar eventos')
+        toast.error('Failed to load events')
       }
     }
     loadEvents()
@@ -113,7 +113,7 @@ function VisasContent() {
       setStats(statsData)
       setNationalities(nationalitiesData)
     } catch (error) {
-      toast.error('Erro ao carregar vistos')
+      toast.error('Failed to load visas')
     } finally {
       setLoading(false)
     }
@@ -150,10 +150,10 @@ function VisasContent() {
 
     try {
       await deleteVisa(visaToDelete.id)
-      toast.success('Visto excluído com sucesso')
+      toast.success('Visa deleted successfully')
       fetchVisas()
     } catch (error) {
-      toast.error('Erro ao excluir visto')
+      toast.error('Failed to delete visa')
     } finally {
       setDeleteDialogOpen(false)
       setVisaToDelete(null)
@@ -163,10 +163,10 @@ function VisasContent() {
   const handleToggleDone = async (visa: VisaWithEnrollment) => {
     try {
       await updateVisa(visa.id, { is_done: !visa.is_done })
-      toast.success(visa.is_done ? 'Marcado como pendente' : 'Marcado como concluído')
+      toast.success(visa.is_done ? 'Marked as pending' : 'Marked as completed')
       fetchVisas()
     } catch (error) {
-      toast.error('Erro ao atualizar visto')
+      toast.error('Failed to update visa')
     }
   }
 
@@ -175,15 +175,15 @@ function VisasContent() {
     try {
       if (editingVisa) {
         await updateVisa(editingVisa.id, data)
-        toast.success('Visto atualizado com sucesso')
+        toast.success('Visa updated successfully')
       } else {
         await createVisa(data)
-        toast.success('Visto criado com sucesso')
+        toast.success('Visa created successfully')
       }
       setIsDrawerOpen(false)
       fetchVisas()
     } catch (error: any) {
-      toast.error(error.message || 'Erro ao salvar visto')
+      toast.error(error.message || 'Failed to save visa')
     } finally {
       setSaving(false)
     }
@@ -193,9 +193,9 @@ function VisasContent() {
 
   return (
     <div className="flex flex-col h-full">
-      <Header
-        title="Vistos"
-        description={selectedEvent ? `Vistos para ${selectedEvent.name}` : 'Selecione um evento'}
+      <DashboardHeader
+        title="Visas"
+        description={selectedEvent ? `Visas for ${selectedEvent.name}` : 'Select an event'}
       />
 
       <div className="flex-1 p-6 space-y-4">
@@ -222,7 +222,7 @@ function VisasContent() {
                 onValueChange={setSelectedEventId}
               >
                 <SelectTrigger className="w-[250px]">
-                  <SelectValue placeholder="Selecione um evento" />
+                  <SelectValue placeholder="Select an event" />
                 </SelectTrigger>
                 <SelectContent>
                   {events.map((event) => (
@@ -237,7 +237,7 @@ function VisasContent() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar por nome..."
+                    placeholder="Search by name..."
                     className="pl-9"
                     value={filters.search || ''}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
@@ -258,7 +258,7 @@ function VisasContent() {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
                   {Object.entries(VISA_STATUS_LABELS).map(([value, label]) => (
                     <SelectItem key={value} value={value}>
                       {label}
@@ -278,10 +278,10 @@ function VisasContent() {
                   }
                 >
                   <SelectTrigger className="w-[150px]">
-                    <SelectValue placeholder="Nacionalidade" />
+                    <SelectValue placeholder="Nationality" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="all">All</SelectItem>
                     {nationalities.map((nat) => (
                       <SelectItem key={nat} value={nat}>
                         {nat}
@@ -294,7 +294,7 @@ function VisasContent() {
               {canEdit('visas') && selectedEventId && (
                 <Button onClick={handleNewVisa}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Novo Visto
+                  New Visa
                 </Button>
               )}
             </div>
@@ -307,7 +307,7 @@ function VisasContent() {
             <CardContent className="p-0">
               {loading ? (
                 <div className="py-8 text-center text-muted-foreground">
-                  Carregando...
+                  Loading...
                 </div>
               ) : (
                 <VisasTable
@@ -324,7 +324,7 @@ function VisasContent() {
         ) : (
           <Card>
             <CardContent className="py-8 text-center text-muted-foreground">
-              Selecione um evento para ver os vistos
+              Select an event to see its visas
             </CardContent>
           </Card>
         )}
@@ -335,7 +335,7 @@ function VisasContent() {
         <SheetContent className="w-full sm:max-w-xl overflow-y-auto">
           <SheetHeader>
             <SheetTitle>
-              {editingVisa ? 'Editar Visto' : 'Novo Visto'}
+              {editingVisa ? 'Edit Visa' : 'New Visa'}
             </SheetTitle>
           </SheetHeader>
           <div className="mt-6">
@@ -356,18 +356,18 @@ function VisasContent() {
       <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirmar Exclusão</DialogTitle>
+            <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir o visto de{' '}
+              Are you sure you want to delete the visa for{' '}
               {visaToDelete?.enrollment?.person?.compiled_name}?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteDialogOpen(false)}>
-              Cancelar
+              Cancel
             </Button>
             <Button variant="destructive" onClick={handleDeleteConfirm}>
-              Excluir
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -8,14 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Music, CheckCircle, Clock, AlertTriangle, Search, ExternalLink,
-  Filter, Pencil, Plus, ArrowUpDown, ArrowUp, ArrowDown,
+  Music, Music2, CheckCircle2, XCircle, History,
+  Search, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
-import { MusicForm } from '@/components/music/music-form';
-import { MusicPlayer } from '@/components/music/music-player';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
-import { EntranceMusic } from '@/types/music';
-import { getAllActiveEventsMusic, getActiveEventsFighters, formatDuration } from '@/lib/services/music-service';
+import { EntranceMusic, MusicStatus, SongStatus } from '@/types/music';
+import {
+  getAllActiveEventsMusic,
+  getActiveEventsFighters,
+  createAthleteMusic,
+  updateAthleteMusic,
+  logMusicChange,
+  getMusicHistory,
+} from '@/lib/services/music-service';
+import { MusicHistoryDrawer } from '@/components/music/music-history-drawer';
+import { WalkoutSongCell, WalkoutNotesCell } from '@/components/music/walkout-song-cell';
+import { MedicalWhatsAppLink } from '@/components/medical/medical-whatsapp-link';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
 import { MusicBulkDownload } from '@/components/music/music-bulk-download';
@@ -27,11 +37,72 @@ interface FighterMusicRow {
   event_name: string;
   person_name: string;
   appadmin_fighter_id: string | null;
+  phone: string | null;
   corner: string | null;
+  fight_order: number | null;
   music: EntranceMusic | null;
 }
 
-type SortKey = 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
+// Mirrors the Medical Clearance table: avatar ring tinted by corner.
+const AVATAR_BORDER = (corner: string | null) => {
+  const c = (corner || '').toLowerCase();
+  return c === 'red' ? 'border-red-600' : c === 'blue' ? 'border-blue-600' : 'border-muted';
+};
+
+/* ---------- Corner summary panels (Medical Clearance pattern) ---------- */
+
+type PanelTotals = { pending: number; done: number; noMusic: number };
+
+function CornerPanel({ title, totals, variant }: {
+  title: string;
+  totals: PanelTotals;
+  variant: 'red' | 'blue' | 'total';
+}) {
+  const styles = {
+    red: {
+      container: 'bg-red-50/70 border-red-200 dark:bg-red-950/20 dark:border-red-900/40',
+      title: 'text-red-700 dark:text-red-400',
+    },
+    blue: {
+      container: 'bg-blue-50/70 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/40',
+      title: 'text-blue-700 dark:text-blue-400',
+    },
+    total: {
+      container: 'bg-card border-border',
+      title: 'text-foreground',
+    },
+  }[variant];
+
+  const buckets: { key: keyof PanelTotals; label: string; tone: string }[] = [
+    { key: 'noMusic', label: 'No Music', tone: 'text-red-700 dark:text-red-400' },
+    { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
+    { key: 'done', label: 'Done', tone: 'text-emerald-700 dark:text-emerald-400' },
+  ];
+
+  const total = totals.pending + totals.done + totals.noMusic;
+
+  return (
+    <div className={cn('rounded-lg border p-4 flex flex-col gap-3 transition-colors', styles.container)}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={cn('text-xs font-bold uppercase tracking-wider', styles.title)}>{title}</span>
+        <span className="text-xs font-medium text-muted-foreground">{total} total</span>
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {buckets.map((b) => (
+          <div
+            key={b.key}
+            className="flex flex-col items-center justify-center rounded-md bg-background/60 dark:bg-background/30 px-2 py-2 border border-border/50"
+          >
+            <span className={cn('text-2xl font-bold leading-none tabular-nums', b.tone)}>{totals[b.key]}</span>
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-medium">{b.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+type SortKey = 'order' | 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
 type SortDir = 'asc' | 'desc';
 
 function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: SortKey | null; sortDir: SortDir }) {
@@ -55,16 +126,13 @@ function getStatusOrder(row: FighterMusicRow): number {
 export default function GlobalMusicPage() {
   const [rows, setRows] = useState<FighterMusicRow[]>([]);
   const [allMusic, setAllMusic] = useState<EntranceMusic[]>([]);
-  const [editingMusic, setEditingMusic] = useState<EntranceMusic | null>(null);
-  const [previewMusic, setPreviewMusic] = useState<EntranceMusic | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formEventId, setFormEventId] = useState('');
-  const [formEnrolledId, setFormEnrolledId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [eventFilter, setEventFilter] = useState('all');
+  const [cornerFilter, setCornerFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey | null>('order');
+  const [historyOpenFor, setHistoryOpenFor] = useState<FighterMusicRow | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>('asc');
 
   const toggleSort = (key: SortKey) => {
@@ -95,7 +163,9 @@ export default function GlobalMusicPage() {
         event_name: f.event_name,
         person_name: f.person_name,
         appadmin_fighter_id: f.appadmin_fighter_id,
+        phone: f.phone,
         corner: f.corner,
+        fight_order: f.fight_order,
         music: musicMap.get(f.enrollment_id) || null,
       }));
 
@@ -123,6 +193,7 @@ export default function GlobalMusicPage() {
   const filtered = useMemo(() => {
     let result = rows.filter(r => {
       if (eventFilter !== 'all' && r.event_id !== eventFilter) return false;
+      if (cornerFilter !== 'all' && (r.corner || '').toLowerCase() !== cornerFilter) return false;
       if (statusFilter !== 'all') {
         if (statusFilter === 'no_music' && r.music !== null) return false;
         if (statusFilter !== 'no_music' && r.music?.status !== statusFilter) return false;
@@ -140,6 +211,9 @@ export default function GlobalMusicPage() {
       result = [...result].sort((a, b) => {
         let cmp = 0;
         switch (sortKey) {
+          case 'order':
+            cmp = (a.fight_order ?? 999) - (b.fight_order ?? 999);
+            break;
           case 'appadmin_fighter_id':
             cmp = (a.appadmin_fighter_id || '').localeCompare(b.appadmin_fighter_id || '');
             break;
@@ -161,38 +235,104 @@ export default function GlobalMusicPage() {
     }
 
     return result;
-  }, [rows, eventFilter, statusFilter, search, sortKey, sortDir]);
+  }, [rows, eventFilter, cornerFilter, statusFilter, search, sortKey, sortDir]);
 
-  const stats = useMemo(() => ({
-    total: filtered.length,
-    confirmed: filtered.filter(r => r.music?.status === 'confirmed').length,
-    pending: filtered.filter(r => r.music?.status === 'pending' || r.music?.status === 'uploaded').length,
-    noMusic: filtered.filter(r => !r.music).length,
-  }), [filtered]);
+  // Corner summary (Medical Clearance pattern): a row with no songs counts as
+  // No Music; Done means at least one song is approved; anything else Pending.
+  const summary = useMemo(() => {
+    const empty = (): PanelTotals => ({ pending: 0, done: 0, noMusic: 0 });
+    const out = { red: empty(), blue: empty(), total: empty() };
+    for (const r of rows) {
+      const hasSongs = !!r.music && !!(r.music.source_url || r.music.source_url_2 || r.music.source_url_3);
+      const bucket: keyof PanelTotals = !hasSongs ? 'noMusic' : r.music!.status === 'confirmed' ? 'done' : 'pending';
+      out.total[bucket]++;
+      const c = (r.corner || '').toLowerCase();
+      if (c === 'red') out.red[bucket]++;
+      else if (c === 'blue') out.blue[bucket]++;
+    }
+    return out;
+  }, [rows]);
 
-  const handleAddMusic = (row: FighterMusicRow) => {
-    setEditingMusic(null);
-    setFormEventId(row.event_id);
-    setFormEnrolledId(row.enrollment_id);
-    setIsFormOpen(true);
-  };
+  type SongSlot = 1 | 2 | 3 | 'notes';
+  const SLOT_FIELDS = { 1: 'source_url', 2: 'source_url_2', 3: 'source_url_3' } as const;
+  const SLOT_STATUS = { 1: 'status_1', 2: 'status_2', 3: 'status_3' } as const;
 
-  const handleEditMusic = (row: FighterMusicRow) => {
-    if (row.music) {
-      setEditingMusic(row.music);
-      setFormEventId(row.event_id);
-      setFormEnrolledId('');
-      setIsFormOpen(true);
-    } else {
-      handleAddMusic(row);
+  /** Row status is derived: any approved song makes the row Done. */
+  const deriveRowStatus = (statuses: SongStatus[]): MusicStatus =>
+    statuses.includes('approved') ? 'confirmed' : 'pending';
+
+  /**
+   * Inline cell save (UAE-20 Mod 5). Creates the music row on first fill.
+   * Changing a song link resets that slot's approval to pending; every change
+   * is written to the walkout change log.
+   */
+  const handleCellSave = async (row: FighterMusicRow, slot: SongSlot, value: string) => {
+    try {
+      const m = row.music;
+      const patch: Partial<Record<string, string | null>> = {};
+      let oldValue: string | null = null;
+      let field = 'notes';
+
+      if (slot === 'notes') {
+        patch.notes = value || null;
+        oldValue = m?.notes ?? null;
+      } else {
+        patch[SLOT_FIELDS[slot]] = value || null;
+        oldValue = (m?.[SLOT_FIELDS[slot]] as string | null) ?? null;
+        // New/changed link restarts that song's approval.
+        patch[SLOT_STATUS[slot]] = 'pending';
+        field = `song_${slot}`;
+      }
+
+      if (!m) {
+        if (!value) return;
+        await createAthleteMusic(row.event_id, {
+          enrolled_id: row.enrollment_id,
+          source_type: 'url',
+          start_time_seconds: 0,
+          status: 'pending',
+          ...patch,
+        });
+      } else {
+        const statuses: SongStatus[] = [
+          slot === 1 ? 'pending' : m.status_1 || 'pending',
+          slot === 2 ? 'pending' : m.status_2 || 'pending',
+          slot === 3 ? 'pending' : m.status_3 || 'pending',
+        ];
+        await updateAthleteMusic(m.id, { ...patch, status: deriveRowStatus(statuses) });
+      }
+      await logMusicChange(row.event_id, row.enrollment_id, field, oldValue, value || null);
+      await loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save song');
     }
   };
 
-  const handleFormClose = () => {
-    setIsFormOpen(false);
-    setEditingMusic(null);
-    setFormEventId('');
-    setFormEnrolledId('');
+  /** Per-song approval (UAE-20): one approved song = row Done. */
+  const handleSongStatus = async (row: FighterMusicRow, slot: 1 | 2 | 3, status: SongStatus) => {
+    const m = row.music;
+    if (!m) return;
+    try {
+      const statuses: SongStatus[] = [
+        slot === 1 ? status : m.status_1 || 'pending',
+        slot === 2 ? status : m.status_2 || 'pending',
+        slot === 3 ? status : m.status_3 || 'pending',
+      ];
+      await updateAthleteMusic(m.id, {
+        [SLOT_STATUS[slot]]: status,
+        status: deriveRowStatus(statuses),
+      });
+      await logMusicChange(
+        row.event_id,
+        row.enrollment_id,
+        `status_${slot}`,
+        m[SLOT_STATUS[slot]] || 'pending',
+        status
+      );
+      await loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save status');
+    }
   };
 
   return (
@@ -200,7 +340,7 @@ export default function GlobalMusicPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Entrance Music</h1>
+          <h1 className="text-3xl font-bold">Walk-out Songs</h1>
           <p className="text-muted-foreground">
             All fighters from active events — manage walkout songs
           </p>
@@ -219,52 +359,11 @@ export default function GlobalMusicPage() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Fighters</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Music className="h-5 w-5 text-blue-600" />
-              <span className="text-2xl font-bold">{stats.total}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Confirmed</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-600" />
-              <span className="text-2xl font-bold">{stats.confirmed}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending / Uploaded</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <Clock className="h-5 w-5 text-gray-400" />
-              <span className="text-2xl font-bold">{stats.pending}</span>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">No Music</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <span className="text-2xl font-bold">{stats.noMusic}</span>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Corner summary (Medical Clearance pattern) */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <CornerPanel title="Red Corner" totals={summary.red} variant="red" />
+        <CornerPanel title="Blue Corner" totals={summary.blue} variant="blue" />
+        <CornerPanel title="Total" totals={summary.total} variant="total" />
       </div>
 
       {/* Filters */}
@@ -290,6 +389,16 @@ export default function GlobalMusicPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select value={cornerFilter} onValueChange={setCornerFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Corner" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Corners</SelectItem>
+            <SelectItem value="red">Red</SelectItem>
+            <SelectItem value="blue">Blue</SelectItem>
+          </SelectContent>
+        </Select>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Status" />
@@ -299,7 +408,12 @@ export default function GlobalMusicPage() {
             <SelectItem value="confirmed">Confirmed</SelectItem>
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="uploaded">Uploaded</SelectItem>
-            <SelectItem value="no_music">❌ No Music</SelectItem>
+            <SelectItem value="no_music">
+              <span className="flex items-center gap-1.5">
+                <XCircle className="h-3.5 w-3.5 text-status-critical" aria-hidden="true" />
+                No Music
+              </span>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -326,17 +440,17 @@ export default function GlobalMusicPage() {
                   <Table>
                     <TableHeader>
                       <TableRow className="bg-muted/50">
-                        <TableHead className="w-[50px]">Foto</TableHead>
-                        <TableHead className="w-[80px]">
+                        <TableHead className="w-[60px] text-center bg-yellow-50/50 dark:bg-yellow-500/5">
                           <button
-                            className="flex items-center text-xs font-medium hover:text-primary transition-colors"
-                            onClick={() => toggleSort('appadmin_fighter_id')}
+                            className="flex items-center justify-center w-full text-xs font-medium hover:text-primary transition-colors"
+                            onClick={() => toggleSort('order')}
                           >
-                            ID
-                            <SortIcon column="appadmin_fighter_id" sortKey={sortKey} sortDir={sortDir} />
+                            #
+                            <SortIcon column="order" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead>
+                        <TableHead className="w-[80px] text-center">Photo</TableHead>
+                        <TableHead className="w-[280px]">
                           <button
                             className="flex items-center text-xs font-medium hover:text-primary transition-colors"
                             onClick={() => toggleSort('person_name')}
@@ -345,25 +459,11 @@ export default function GlobalMusicPage() {
                             <SortIcon column="person_name" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead>
-                          <button
-                            className="flex items-center text-xs font-medium hover:text-primary transition-colors"
-                            onClick={() => toggleSort('event_name')}
-                          >
-                            Evento
-                            <SortIcon column="event_name" sortKey={sortKey} sortDir={sortDir} />
-                          </button>
-                        </TableHead>
-                        <TableHead className="text-center">
-                          <button
-                            className="flex items-center text-xs font-medium hover:text-primary transition-colors mx-auto"
-                            onClick={() => toggleSort('corner')}
-                          >
-                            Corner
-                            <SortIcon column="corner" sortKey={sortKey} sortDir={sortDir} />
-                          </button>
-                        </TableHead>
-                        <TableHead>Music</TableHead>
+                        <TableHead className="w-[60px] text-center">WA</TableHead>
+                        <TableHead>Song 1</TableHead>
+                        <TableHead>Song 2</TableHead>
+                        <TableHead>Song 3</TableHead>
+                        <TableHead>Notes</TableHead>
                         <TableHead className="text-center">
                           <button
                             className="flex items-center text-xs font-medium hover:text-primary transition-colors mx-auto"
@@ -373,93 +473,84 @@ export default function GlobalMusicPage() {
                             <SortIcon column="status" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead className="w-[80px] text-center">Ação</TableHead>
+                        <TableHead className="w-[60px] text-center">Log</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filtered.map(row => {
                         const m = row.music;
                         return (
-                          <TableRow
-                            key={row.enrollment_id}
-                            className="hover:bg-muted/50 transition-colors cursor-pointer"
-                            onClick={() => handleEditMusic(row)}
-                          >
+                          <TableRow key={row.enrollment_id} className="hover:bg-muted/50 transition-colors">
+                            <TableCell className="p-2 text-center font-bold text-lg bg-yellow-50/30 text-yellow-700/80 dark:bg-yellow-500/5 dark:text-yellow-400/80">
+                              {row.fight_order ?? '-'}
+                            </TableCell>
+
+                            <TableCell className="text-center p-2">
+                              <div className="flex justify-center">
+                                <Avatar className={cn('h-12 w-12 border-4 shadow-sm', AVATAR_BORDER(row.corner))}>
+                                  <AvatarImage src={getFighterPhotoUrl(row.appadmin_fighter_id)} className="object-cover" />
+                                  <AvatarFallback className="font-bold bg-muted text-muted-foreground">
+                                    {row.person_name.substring(0, 2).toUpperCase()}
+                                  </AvatarFallback>
+                                </Avatar>
+                              </div>
+                            </TableCell>
+
                             <TableCell>
-                              <Avatar className="h-9 w-9 border border-muted shadow-sm">
-                                <AvatarImage src={getFighterPhotoUrl(row.appadmin_fighter_id)} />
-                                <AvatarFallback className="text-xs font-bold bg-muted/50">
-                                  {row.person_name.substring(0, 2).toUpperCase()}
-                                </AvatarFallback>
-                              </Avatar>
+                              <div className="flex flex-col gap-1">
+                                <span className="font-bold text-base truncate">{row.person_name}</span>
+                                <div className="flex items-center gap-2">
+                                  <Badge
+                                    variant="outline"
+                                    className="font-mono text-[10px] bg-background/80 text-muted-foreground border-muted-foreground/30 px-1 py-0 h-4"
+                                  >
+                                    ID: {row.appadmin_fighter_id || 'N/A'}
+                                  </Badge>
+                                  <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">
+                                    {row.event_name}
+                                  </span>
+                                </div>
+                              </div>
                             </TableCell>
 
                             <TableCell className="text-center">
-                              <Badge variant="outline" className="font-mono text-[10px] bg-background">
-                                {row.appadmin_fighter_id || '-'}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell>
-                              <span className="font-bold text-sm">{row.person_name}</span>
-                            </TableCell>
-
-                            <TableCell>
-                              <Badge variant="secondary" className="text-[10px]">
-                                {row.event_name}
-                              </Badge>
-                            </TableCell>
-
-                            <TableCell className="text-center">
-                              {row.corner ? (
-                                <Badge
-                                  className={`text-[10px] px-2 py-0 h-5 border-none shadow-sm uppercase min-w-[50px] justify-center ${
-                                    row.corner.toLowerCase() === 'red'
-                                      ? 'bg-red-500 hover:bg-red-600 text-white'
-                                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                  }`}
-                                >
-                                  {row.corner}
-                                </Badge>
-                              ) : (
-                                <span className="text-muted-foreground text-xs">-</span>
-                              )}
+                              <div className="flex justify-center">
+                                <MedicalWhatsAppLink phone={row.phone} />
+                              </div>
                             </TableCell>
 
                             <TableCell onClick={e => e.stopPropagation()}>
-                              {m ? (
-                                <div className="flex flex-col gap-0.5 min-w-[120px]">
-                                  {m.source_url && (
-                                    <a href={m.source_url} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                      <ExternalLink className="h-3 w-3" /> Link 1
-                                      <Badge variant="secondary" className="text-[9px] py-0 h-3.5 ml-auto">
-                                        {formatDuration(m.start_time_seconds)}
-                                      </Badge>
-                                    </a>
-                                  )}
-                                  {m.source_url_2 && (
-                                    <a href={m.source_url_2} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                      <ExternalLink className="h-3 w-3" /> Link 2
-                                    </a>
-                                  )}
-                                  {m.source_url_3 && (
-                                    <a href={m.source_url_3} target="_blank" rel="noopener noreferrer"
-                                      className="flex items-center gap-1 text-xs text-blue-600 hover:underline">
-                                      <ExternalLink className="h-3 w-3" /> Link 3
-                                    </a>
-                                  )}
-                                  {!m.source_url && !m.source_url_2 && !m.source_url_3 && (
-                                    <span className="text-xs text-muted-foreground italic">No links</span>
-                                  )}
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground/60 italic flex items-center gap-1">
-                                  <AlertTriangle className="h-3 w-3 text-amber-400" />
-                                  Not added
-                                </span>
-                              )}
+                              <WalkoutSongCell
+                                value={m?.source_url ?? null}
+                                label="Song 1"
+                                status={m?.status_1 || 'pending'}
+                                onSave={(v) => handleCellSave(row, 1, v)}
+                                onStatusChange={(st) => handleSongStatus(row, 1, st)}
+                              />
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <WalkoutSongCell
+                                value={m?.source_url_2 ?? null}
+                                label="Song 2"
+                                status={m?.status_2 || 'pending'}
+                                onSave={(v) => handleCellSave(row, 2, v)}
+                                onStatusChange={(st) => handleSongStatus(row, 2, st)}
+                              />
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <WalkoutSongCell
+                                value={m?.source_url_3 ?? null}
+                                label="Song 3"
+                                status={m?.status_3 || 'pending'}
+                                onSave={(v) => handleCellSave(row, 3, v)}
+                                onStatusChange={(st) => handleSongStatus(row, 3, st)}
+                              />
+                            </TableCell>
+                            <TableCell onClick={e => e.stopPropagation()}>
+                              <WalkoutNotesCell
+                                value={m?.notes ?? null}
+                                onSave={(v) => handleCellSave(row, 'notes', v)}
+                              />
                             </TableCell>
 
                             <TableCell className="text-center">
@@ -472,18 +563,16 @@ export default function GlobalMusicPage() {
                               )}
                             </TableCell>
 
-                            <TableCell className="text-center" onClick={e => e.stopPropagation()}>
-                              {m ? (
-                                <Button variant="ghost" size="sm" className="h-7 text-xs"
-                                  onClick={() => handleEditMusic(row)}>
-                                  <Pencil className="h-3 w-3 mr-1" /> Edit
-                                </Button>
-                              ) : (
-                                <Button variant="default" size="sm" className="h-7 text-xs"
-                                  onClick={() => handleAddMusic(row)}>
-                                  <Plus className="h-3 w-3 mr-1" /> Add
-                                </Button>
-                              )}
+                            <TableCell className="text-center">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="View change history"
+                                onClick={() => setHistoryOpenFor(row)}
+                              >
+                                <History className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         );
@@ -498,10 +587,6 @@ export default function GlobalMusicPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {previewMusic && (
-            <MusicPlayer music={previewMusic} onClose={() => setPreviewMusic(null)} />
-          )}
-
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Walkout Rules</CardTitle>
@@ -535,8 +620,14 @@ export default function GlobalMusicPage() {
                           </Badge>
                         </div>
                         <div className="flex gap-2 text-[10px] text-muted-foreground">
-                          <span>🎵 {withMusic}/{evRows.length} with music</span>
-                          <span>✅ {confirmed} confirmed</span>
+                          <span className="flex items-center gap-1">
+                            <Music2 className="h-3 w-3 text-status-neutral" aria-hidden="true" />
+                            {withMusic}/{evRows.length} with music
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <CheckCircle2 className="h-3 w-3 text-status-confirmed" aria-hidden="true" />
+                            {confirmed} confirmed
+                          </span>
                         </div>
                       </div>
                     );
@@ -548,17 +639,6 @@ export default function GlobalMusicPage() {
         </div>
       </div>
 
-      {/* Music Form */}
-      {formEventId && (
-        <MusicForm
-          eventId={formEventId}
-          music={editingMusic}
-          open={isFormOpen}
-          onOpenChange={handleFormClose}
-          onSuccess={loadData}
-          defaultEnrolledId={formEnrolledId}
-        />
-      )}
     </div>
   );
 }

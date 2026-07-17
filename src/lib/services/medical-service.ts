@@ -54,7 +54,13 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
   const wasAtHospital = new Set<string>()
   ;(hospitalLogs || []).forEach((l: { enrolled_id: string }) => wasAtHospital.add(l.enrolled_id))
 
-  let fightCard: any[] = []
+  interface FightCardRow {
+    name: string | null
+    matchNumber: number | null
+    corner: 'RED' | 'BLUE' | null
+  }
+
+  let fightCard: FightCardRow[] = []
   try {
     fightCard = await getFightCardData()
   } catch (err) {
@@ -62,19 +68,28 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
   }
 
   const clearanceMap = new Map<string, MedicalClearance>()
-  ;(clearances || []).forEach((c: MedicalClearance) => clearanceMap.set(c.enrolled_id, c))
+  ;(clearances || []).forEach((c) => clearanceMap.set(c.enrolled_id, c as unknown as MedicalClearance))
 
   const rows: MedicalRow[] = []
 
-  for (const enr of enrollments as any[]) {
-    const person = Array.isArray(enr.person) ? enr.person[0] : enr.person
+  for (const enr of enrollments) {
+    const person = (Array.isArray(enr.person) ? enr.person[0] : enr.person) as {
+      id: string
+      name: string | null
+      surname: string | null
+      nationality: string | null
+      appadmin_fighter_id: string | null
+      passport_photo: string | null
+      phone: string | null
+      event_name: string | null
+    } | null
     if (!person) continue
 
     const fullName = `${person.name || ''} ${person.surname || ''}`.trim()
     const eventName = person.event_name || ''
 
     const match =
-      fightCard.find((c: any) => {
+      fightCard.find((c) => {
         const pName = normalizeName(fullName)
         const eName = normalizeName(eventName)
         const cName = normalizeName(c.name || '')

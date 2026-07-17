@@ -13,26 +13,26 @@ interface AlertsPanelProps {
 export function AlertsPanel({ alerts }: AlertsPanelProps) {
   const getSeverityIcon = (severity: string) => {
     switch (severity) {
-      case 'critical': return <ShieldAlert className="h-4 w-4 text-red-500" />;
-      case 'error': return <ShieldAlert className="h-4 w-4 text-red-400" />;
-      case 'warning': return <AlertTriangle className="h-4 w-4 text-orange-400" />;
-      default: return <Info className="h-4 w-4 text-blue-400" />;
+      case 'critical': return <ShieldAlert className="h-4 w-4 text-status-critical" />;
+      case 'error': return <ShieldAlert className="h-4 w-4 text-status-critical" />;
+      case 'warning': return <AlertTriangle className="h-4 w-4 text-status-warning" />;
+      default: return <Info className="h-4 w-4 text-status-neutral" />;
     }
   };
 
   const getSeverityStyles = (severity: string) => {
     switch (severity) {
-      case 'critical': return 'bg-red-500/10 border-red-500/20 text-red-200';
-      case 'error': return 'bg-red-500/10 border-red-500/20 text-red-200';
-      case 'warning': return 'bg-orange-500/10 border-orange-500/20 text-orange-200';
-      default: return 'bg-blue-500/10 border-blue-500/20 text-blue-200';
+      case 'critical': return 'bg-status-critical/10 border-status-critical/20 text-foreground';
+      case 'error': return 'bg-status-critical/10 border-status-critical/20 text-foreground';
+      case 'warning': return 'bg-status-warning/10 border-status-warning/20 text-foreground';
+      default: return 'bg-status-neutral/10 border-status-neutral/20 text-foreground';
     }
   };
 
   return (
-    <Card className="bg-slate-900 border-slate-800 shadow-xl overflow-hidden">
-      <CardHeader className="py-4 border-b border-slate-800 bg-slate-950/50">
-        <CardTitle className="text-sm font-bold text-white flex items-center justify-between">
+    <Card className="bg-surface-1 border-border shadow-xl overflow-hidden">
+      <CardHeader className="py-4 border-b border-border bg-surface-0/50">
+        <CardTitle className="text-sm font-bold text-foreground flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Bell className="h-4 w-4 text-primary" />
             Active Incident Alerts
@@ -45,9 +45,9 @@ export function AlertsPanel({ alerts }: AlertsPanelProps) {
         </CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="divide-y divide-slate-800">
+        <div className="divide-y divide-border">
           {alerts.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-10 text-slate-500">
+            <div className="flex flex-col items-center justify-center py-10 text-muted-foreground">
               <ShieldAlert className="h-8 w-8 mb-2 opacity-10" />
               <p className="text-[10px] font-bold uppercase tracking-widest">No Active Alerts</p>
             </div>
@@ -61,11 +61,11 @@ export function AlertsPanel({ alerts }: AlertsPanelProps) {
                       <span className="text-[10px] font-black uppercase tracking-tighter">
                         {alert.source}
                       </span>
-                      <span className="text-[9px] font-mono opacity-50">
+                      <span className="numeric text-[9px] opacity-50">
                         {format(new Date(alert.timestamp), 'HH:mm:ss')}
                       </span>
                     </div>
-                    <h5 className="text-xs font-bold leading-none mb-1 text-white">{alert.title}</h5>
+                    <h5 className="text-xs font-bold leading-none mb-1 text-foreground">{alert.title}</h5>
                     <p className="text-[11px] leading-tight opacity-80">{alert.message}</p>
                   </div>
                 </div>

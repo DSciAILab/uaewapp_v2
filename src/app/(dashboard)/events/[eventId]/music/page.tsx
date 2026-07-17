@@ -66,7 +66,7 @@ export default function MusicPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Entrance Music</h1>
+          <h1 className="text-3xl font-bold">Walk-out Songs</h1>
           <p className="text-muted-foreground">Manage fighter walkout songs and order</p>
         </div>
         <div className="flex gap-2">

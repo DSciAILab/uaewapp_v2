@@ -1,30 +1,54 @@
-// @ts-nocheck
 import { createClient } from '@/lib/supabase/client'
+import { isVisaStatus } from '@/types/database'
 import type { Visa, VisaStatus, Enrollment } from '@/types/database'
+import type { Database, Tables } from '@/types/supabase'
 
 function getClient() {
   return createClient();
 }
 
+/** Exactly the person columns this service selects, straight from the DB types. */
+type VisaPerson = Pick<
+  Tables<'mma_people'>,
+  | 'id'
+  | 'compiled_name'
+  | 'event_name'
+  | 'appadmin_fighter_id'
+  | 'nationality'
+  | 'passport_number'
+  | 'passport_expiry'
+  | 'document_folder'
+>
+
+type VisaRole = Pick<Tables<'mma_roles'>, 'id' | 'name' | 'code'>
+
+/**
+ * Only the enrollment columns this service actually selects — the previous
+ * `Enrollment &` claim was never true of the query (it selects 3 columns, not
+ * the full row) and was only held up by the `as` cast this replaces.
+ */
 export interface VisaWithEnrollment extends Visa {
-  enrollment: Enrollment & {
-    person: {
-      id: string
-      compiled_name: string
-      event_name: string | null
-      appadmin_fighter_id: number | null
-      nationality: string | null
-      passport_number: string | null
-      passport_expiry: string | null
-      document_folder: string | null
-    }
-    role: {
-      id: string
-      name: string
-      code: string
-    }
-    event_code: string
+  enrollment: Pick<Enrollment, 'id' | 'event_id'> & {
+    event_code: string | null
+    person: VisaPerson
+    role: VisaRole
   }
+}
+
+type VisaRow = Tables<'mma_visas'>
+
+/**
+ * mma_visas.status is an open `number` column — narrow it before it enters the
+ * domain type. Throwing keeps an out-of-range status loud rather than letting
+ * it masquerade as a valid one (a wrong visa state is an ops failure).
+ */
+function toVisa<T extends VisaRow>(row: T): Omit<T, 'status'> & { status: VisaStatus } {
+  if (!isVisaStatus(row.status)) {
+    throw new Error(
+      `mma_visas.id=${row.id} has unsupported status ${row.status} (expected 1-6)`
+    )
+  }
+  return { ...row, status: row.status }
 }
 
 export interface VisaFilters {
@@ -79,7 +103,7 @@ export async function getVisasByEvent(eventId: string, filters: VisaFilters = {}
   if (error) throw error
   
   // Client-side filtering for nested and nationality
-  let results = (data || []) as VisaWithEnrollment[]
+  let results: VisaWithEnrollment[] = (data || []).map(toVisa)
   
   if (filters.nationality) {
     results = results.filter(v => 
@@ -109,7 +133,7 @@ export async function getVisaByEnrollment(enrollmentId: string): Promise<Visa | 
     .maybeSingle()
 
   if (error) throw error
-  return data
+  return data ? toVisa(data) : null
 }
 
 export async function getVisaById(id: string): Promise<VisaWithEnrollment | null> {
@@ -143,7 +167,7 @@ export async function getVisaById(id: string): Promise<VisaWithEnrollment | null
     .single()
 
   if (error) throw error
-  return data as VisaWithEnrollment
+  return toVisa(data)
 }
 
 export interface VisaFormData {
@@ -170,13 +194,21 @@ export async function createVisa(formData: VisaFormData): Promise<Visa> {
     .single()
 
   if (error) throw error
-  return data
+  return toVisa(data)
 }
 
 export async function updateVisa(id: string, formData: Partial<VisaFormData>): Promise<Visa> {
+  // `status` and `is_done` are NOT NULL columns, so Update types them as
+  // non-null while VisaFormData allows null. Lift them out and re-add only
+  // when actually provided, so an explicit null becomes "not provided"
+  // instead of a DB-rejected null write.
+  const { status, is_done, ...rest } = formData
+  const updateData: Database['public']['Tables']['mma_visas']['Update'] = { ...rest }
+  if (status != null) updateData.status = status
+  if (is_done != null) updateData.is_done = is_done
+
   // Se status for Approved (4) ou Not Required (1), marcar como done
-  const updateData = { ...formData }
-  if (formData.status === 4 || formData.status === 1) {
+  if (status === 4 || status === 1) {
     updateData.is_done = true
   }
 
@@ -189,7 +221,7 @@ export async function updateVisa(id: string, formData: Partial<VisaFormData>): P
     .single()
 
   if (error) throw error
-  return data
+  return toVisa(data)
 }
 
 export async function deleteVisa(id: string): Promise<void> {

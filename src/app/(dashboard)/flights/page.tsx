@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Header } from '@/components/layout/header'
+import { DashboardHeader } from '@/components/layout/dashboard-header'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -36,7 +36,7 @@ import { FlightBatchGrid } from '@/components/flights/flight-batch-grid'
 import { FlightForm } from '@/components/forms/flight-form'
 import { FlightStats } from '@/components/flights/flight-stats'
 import { FlightToolbar } from '@/components/flights/flight-toolbar'
-import { FlightCSVImport } from '@/components/flights/flight-csv-import'
+import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import'
 import { Plus, Search, Plane, Clock, CheckCircle2, XCircle, LayoutList, Table2, Upload } from 'lucide-react'
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown'
 import {
@@ -45,13 +45,36 @@ import {
   updateFlight,
   deleteFlight,
   getFlightStats,
+  importFlightsFromCSV,
   type FlightWithEnrollment,
   type FlightFilters,
+  type FlightCSVRow,
 } from '@/lib/services/flights'
 import { getActiveEvents } from '@/lib/services/events'
 import { usePermissions } from '@/hooks/use-permissions'
 import type { Event } from '@/types/database'
 import type { FlightSchema } from '@/lib/validations/flight'
+
+const FLIGHT_FIELDS: FieldDef[] = [
+  { value: 'passport_name', label: 'Passport Name' },
+  { value: 'flight_type', label: 'Flight Type' },
+  { value: 'arrival_reservation', label: 'Arrival Reservation' },
+  { value: 'arrival_flight_number', label: 'Arrival Flight Number' },
+  { value: 'arrival_date', label: 'Arrival Date' },
+  { value: 'arrival_time', label: 'Arrival Time' },
+  { value: 'arrival_airport', label: 'Arrival Airport' },
+  { value: 'arrival_ticket_link', label: 'Arrival Ticket Link' },
+  { value: 'departure_reservation', label: 'Departure Reservation' },
+  { value: 'departure_flight_number', label: 'Departure Flight Number' },
+  { value: 'departure_date', label: 'Departure Date' },
+  { value: 'departure_time', label: 'Departure Time' },
+  { value: 'departure_airport', label: 'Departure Airport' },
+  { value: 'departure_ticket_link', label: 'Departure Ticket Link' },
+  { value: 'notes', label: 'Notes' },
+]
+
+const FLIGHT_CSV_TEMPLATE =
+  'Passport Name,Flight Type,Arrival Reservation,Arrival Flight Number,Arrival Date,Arrival Time,Arrival Airport,Arrival Ticket Link,Departure Reservation,Departure Flight Number,Departure Date,Departure Time,Departure Airport,Departure Ticket Link,Notes\nJohn Doe,full,ABC123,EK204,2026-04-15,14:30,DXB,,DEF456,EK205,2026-04-20,09:00,DXB,,\n'
 
 function FlightsContent() {
   const router = useRouter()
@@ -181,7 +204,7 @@ function FlightsContent() {
 
   return (
     <div className="flex flex-col h-full space-y-6">
-      <Header
+      <DashboardHeader
         title="Flights Manager"
         description={selectedEvent ? `Flights for ${selectedEvent.name}` : 'Select an event to view flights'}
       >
@@ -197,7 +220,7 @@ function FlightsContent() {
                  </TabsTrigger>
              </TabsList>
           </Tabs>
-      </Header>
+      </DashboardHeader>
 
       <div className="flex-1 px-6 pb-6 space-y-6">
          {selectedEventId ? (
@@ -315,9 +338,17 @@ function FlightsContent() {
         <DialogContent className="max-w-4xl max-h-[95vh] p-0 border-none bg-transparent gap-0">
           <div className="bg-background rounded-lg border shadow-2xl flex flex-col h-full w-full overflow-hidden">
             <div className="flex-1 overflow-y-auto p-4 sm:p-8 flex flex-col">
-              <FlightCSVImport
-                eventId={selectedEventId}
-                eventName={selectedEvent?.name || ''}
+              <GenericCSVImport<FlightCSVRow>
+                title="Import Flights via CSV"
+                subtitle={`Event: ${selectedEvent?.name || ''}`}
+                fields={FLIGHT_FIELDS}
+                requiredField="passport_name"
+                uploadHint="Matching is done by passport name"
+                onTemplateDownload={() => downloadCSVTemplate('flight_import_template.csv', FLIGHT_CSV_TEMPLATE)}
+                transformValue={(_field, value) => value || null}
+                onImport={(rows, upsertMode, onProgress) =>
+                  importFlightsFromCSV(selectedEventId, rows, upsertMode, onProgress)
+                }
                 onComplete={() => { setCsvOpen(false); fetchFlights(); }}
               />
             </div>

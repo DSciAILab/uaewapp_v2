@@ -21,7 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-import { updateTaskStatus } from '@/lib/services/tasks-service';
+import { updateTaskStatus } from '@/lib/services/task-service';
 import { EventTask, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TaskStatus } from '@/types/task';
 import { cn } from '@/lib/utils';
 

@@ -15,7 +15,7 @@ import { createDriver, updateDriver } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
 
 const driverSchema = z.object({
-  name: z.string().min(1, 'Full name is required'),
+  full_name: z.string().min(1, 'Full name is required'),
   phone: z.string().optional(),
   is_active: z.boolean().default(true),
   notes: z.string().optional(),
@@ -35,7 +35,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
   const form = useForm<DriverFormData>({
     resolver: zodResolver(driverSchema) as any,
     defaultValues: {
-      name: '',
+      full_name: '',
       phone: '',
       is_active: true,
       notes: '',
@@ -45,14 +45,15 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
   useEffect(() => {
     if (driver) {
       form.reset({
-        name: driver.name,
+        full_name: driver.full_name,
         phone: driver.phone || '',
-        is_active: driver.is_active,
+        // is_active is nullable in the DB; treat NULL as active (column default).
+        is_active: driver.is_active ?? true,
         notes: driver.notes || '',
       });
     } else {
       form.reset({
-        name: '',
+        full_name: '',
         phone: '',
         is_active: true,
         notes: '',
@@ -90,7 +91,7 @@ export function DriverForm({ driver, open, onOpenChange, onSuccess }: DriverForm
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
-              name="name"
+              name="full_name"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Full Name *</FormLabel>

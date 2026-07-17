@@ -1,15 +1,5 @@
 export const APP_NAME = 'MMA Event System'
 
-export const COLORS = {
-  primary: '#E63946',
-  primaryHover: '#C1121F',
-  primaryLight: '#FFCCD5',
-  critical: '#DC2626',
-  warning: '#F59E0B',
-  success: '#22C55E',
-  neutral: '#6B7280',
-} as const
-
 export const VISA_STATUS_LABELS: Record<number, string> = {
   1: 'Not Required',
   2: 'Required',
@@ -19,13 +9,24 @@ export const VISA_STATUS_LABELS: Record<number, string> = {
   6: 'Resident',
 }
 
-export const VISA_STATUS_COLORS: Record<number, string> = {
-  1: 'bg-gray-500',
-  2: 'bg-red-500',
-  3: 'bg-yellow-500',
-  4: 'bg-green-500',
-  5: 'bg-red-700',
-  6: 'bg-blue-500',
+export type DSStatus = 'pending' | 'confirmed' | 'warning' | 'critical' | 'neutral'
+
+/**
+ * Visa status -> DS semantics, rendered by StatusBadge.
+ *
+ * These used to be raw `bg-*-500` classes, which carried their own palette and
+ * ignored the design tokens (a visa "Required" was the same red as a hard
+ * failure). Mapping onto the five locked semantics instead: Required is an
+ * action still owed (pending), Applied is in flight (warning), Rejected is the
+ * only genuine failure (critical), and Resident is as good as Approved.
+ */
+export const VISA_STATUS_COLORS: Record<number, DSStatus> = {
+  1: 'neutral', // Not Required
+  2: 'pending', // Required
+  3: 'warning', // Applied
+  4: 'confirmed', // Approved
+  5: 'critical', // Rejected
+  6: 'confirmed', // Resident
 }
 
 export const ROLE_CODES = {
@@ -49,11 +50,11 @@ export const PERMISSION_AREAS = [
 
 export const NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
-  { label: 'Eventos', href: '/events', icon: 'Calendar', area: 'events' },
+  { label: 'Events', href: '/events', icon: 'Calendar', area: 'events' },
   { label: 'People', href: '/people', icon: 'Users', area: 'people' },
-  { label: 'Aéreo', href: '/flights', icon: 'Plane', area: 'flights' },
-  { label: 'Vistos', href: '/visas', icon: 'FileText', area: 'visas' },
+  { label: 'Flights', href: '/flights', icon: 'Plane', area: 'flights' },
+  { label: 'Visas', href: '/visas', icon: 'FileText', area: 'visas' },
   { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
-  { label: 'Transporte', href: '/transport', icon: 'Car', area: 'transport' },
-  { label: 'Configurações', href: '/settings', icon: 'Settings', area: 'admin' },
+  { label: 'Transport', href: '/transport', icon: 'Car', area: 'transport' },
+  { label: 'Settings', href: '/settings', icon: 'Settings', area: 'admin' },
 ] as const

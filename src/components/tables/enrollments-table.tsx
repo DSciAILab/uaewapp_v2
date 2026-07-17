@@ -47,10 +47,10 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
         <TableRow>
           <TableHead className="w-20">Event ID</TableHead>
           <TableHead className="w-12"></TableHead>
-          <TableHead>Nome</TableHead>
-          <TableHead>Função</TableHead>
+          <TableHead>Name</TableHead>
+          <TableHead>Role</TableHead>
           <TableHead>Corner</TableHead>
-          <TableHead>Necessidades</TableHead>
+          <TableHead>Requirements</TableHead>
           <TableHead className="w-12"></TableHead>
         </TableRow>
       </TableHeader>
@@ -58,7 +58,7 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
         {enrollments.length === 0 ? (
           <TableRow>
             <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-              Nenhuma pessoa inscrita
+              No one enrolled
             </TableCell>
           </TableRow>
         ) : (
@@ -138,12 +138,12 @@ export function EnrollmentsTable({ enrollments, onEdit, onCancel, canEdit = true
                   <DropdownMenuContent align="end">
                     {canEdit && (
                       <DropdownMenuItem onClick={() => onEdit(enrollment)}>
-                        <Pencil className="mr-2 h-4 w-4" />Editar
+                        <Pencil className="mr-2 h-4 w-4" />Edit
                       </DropdownMenuItem>
                     )}
                     {canEdit && (
                       <DropdownMenuItem className="text-red-500" onClick={() => onCancel(enrollment)}>
-                        <X className="mr-2 h-4 w-4" />Cancelar
+                        <X className="mr-2 h-4 w-4" />Cancel
                       </DropdownMenuItem>
                     )}
                     {enrollment.role?.code === 'F' && (

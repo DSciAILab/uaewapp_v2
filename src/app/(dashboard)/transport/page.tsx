@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Header } from '@/components/layout/header';
+import { DashboardHeader } from '@/components/layout/dashboard-header';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw, Car, User, Plane } from 'lucide-react';
@@ -21,7 +21,7 @@ import { DriverForm } from '@/components/transport/driver-form';
 import { CarForm } from '@/components/transport/car-form';
 import { TransportStats } from '@/components/transport/transport-stats';
 import { toast } from 'sonner';
-import { Driver, EventCar, FlightGroup } from '@/types/transport';
+import { Driver, EventCar, FlightGroup, TransportType } from '@/types/transport';
 import { usePermissions } from '@/hooks/use-permissions';
 
 function TransportContent() {
@@ -54,44 +54,51 @@ function TransportContent() {
             const unassigned = await getUnassignedPassengers(targetEventId);
             const flights = await getFlightsByEvent(targetEventId);
             
-            // Build a map of enrollment_id -> car for assigned passengers
+            // Build a map of `${enrolled_id}_${transport_type}` -> car. The key
+            // carries the leg because a passenger can now ride different cars for
+            // arrival and departure.
             const enrollmentCarMap = new Map<string, EventCar>();
             carsData.forEach((c: EventCar) => {
-                c.passengers?.forEach((p: any) => {
-                    enrollmentCarMap.set(p.enrollment_id, c);
+                c.passengers?.forEach((p) => {
+                    enrollmentCarMap.set(`${p.enrolled_id}_${p.transport_type}`, c);
                 });
             });
 
             const groups: FlightGroup[] = flights.map((f: any) => {
                 const flightEnrollmentId = f.enrollment_id;
-                
-                const assignedCar = enrollmentCarMap.get(flightEnrollmentId);
-                
-                const assignedPassengers: any[] = [];
+                const legType: TransportType = f.type === 'departure_only' ? 'departure' : 'arrival';
+
+                const assignedCar = enrollmentCarMap.get(`${flightEnrollmentId}_${legType}`);
+
+                const assignedPassengers: FlightGroup['passengers'] = [];
                 if (assignedCar) {
                     assignedPassengers.push({
                         enrolled_id: flightEnrollmentId,
+                        person_id: f.enrollment?.person?.id,
                         person_name: f.enrollment?.person?.compiled_name,
-                        role: f.enrollment?.role?.name,
+                        role: f.enrollment?.role,
                         assigned_car: assignedCar
                     });
                 }
 
-                const groupUnassigned = unassigned.filter((u: any) => {
-                    const uFlights = u.enrollment?.flights || [];
-                    return uFlights.some((fl: any) => fl.id === f.id) || u.flight?.id === f.id;
+                // Only the pending legs that belong to THIS flight and THIS direction.
+                const groupUnassigned = unassigned.filter((u) => {
+                    if (u.transport_type !== legType) return false;
+                    const uFlights = (u.enrollment as any)?.flights || [];
+                    return uFlights.some((fl: any) => fl.id === f.id) || (u.flight as any)?.id === f.id;
                 });
 
-                const unassignedFormatted = groupUnassigned.map((u: any) => ({
-                    enrolled_id: u.enrollment.id,
-                    person_name: u.enrollment.person.compiled_name,
-                    role: u.enrollment.role?.name || 'N/A',
+                const unassignedFormatted: FlightGroup['passengers'] = groupUnassigned.map((u) => ({
+                    enrolled_id: u.enrolled_id,
+                    person_id: ((u.enrollment as any)?.person?.id) || '',
+                    person_name: u.person_name,
+                    role: u.role || undefined,
                     assigned_car: undefined
                 }));
 
-                const assignedIds = new Set(assignedPassengers.map((p: any) => p.enrolled_id));
+                const assignedIds = new Set(assignedPassengers.map((p) => p.enrolled_id));
                 const filteredUnassigned = unassignedFormatted.filter(
-                    (u: any) => !assignedIds.has(u.enrolled_id)
+                    (u) => !assignedIds.has(u.enrolled_id)
                 );
 
                 const allPassengers = [...assignedPassengers, ...filteredUnassigned];
@@ -166,7 +173,7 @@ function TransportContent() {
 
     return (
         <div className="flex flex-col h-full space-y-6 p-6">
-            <Header title="Transport & Logistics" description="Manage drivers, vehicles, and passenger assignments." />
+            <DashboardHeader title="Transport & Logistics" description="Manage drivers, vehicles, and passenger assignments." />
 
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {stats && (

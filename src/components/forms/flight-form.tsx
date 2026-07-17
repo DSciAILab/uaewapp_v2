@@ -31,16 +31,16 @@ interface FlightFormProps {
 }
 
 const FLIGHT_TYPES = [
-  { value: 'arrival_only', label: 'Apenas Chegada', icon: PlaneLanding },
-  { value: 'departure_only', label: 'Apenas Partida', icon: PlaneTakeoff },
-  { value: 'full', label: 'Ida e Volta', icon: Plane },
+  { value: 'arrival_only', label: 'Arrival Only', icon: PlaneLanding },
+  { value: 'departure_only', label: 'Departure Only', icon: PlaneTakeoff },
+  { value: 'full', label: 'Round Trip', icon: Plane },
 ]
 
 const STATUS_OPTIONS = [
-  { value: 'pending', label: 'Pendente' },
-  { value: 'booked', label: 'Reservado' },
-  { value: 'confirmed', label: 'Confirmado' },
-  { value: 'cancelled', label: 'Cancelado' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'booked', label: 'Booked' },
+  { value: 'confirmed', label: 'Confirmed' },
+  { value: 'cancelled', label: 'Cancelled' },
 ]
 
 export function FlightForm({
@@ -127,10 +127,10 @@ export function FlightForm({
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-      {/* Pessoa */}
+      {/* Person */}
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          Pessoa
+          Person
         </h3>
 
         {flight ? (
@@ -156,10 +156,10 @@ export function FlightForm({
           // Modo criação: selecionar pessoa
           <>
             {loadingEnrollments ? (
-              <p className="text-muted-foreground">Carregando...</p>
+              <p className="text-muted-foreground">Loading...</p>
             ) : enrollments.length === 0 ? (
               <p className="text-muted-foreground">
-                Todas as pessoas que precisam de voo já têm registro.
+                Everyone who needs a flight already has a record.
               </p>
             ) : (
               <Select
@@ -167,7 +167,7 @@ export function FlightForm({
                 onValueChange={handleEnrollmentChange}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Selecione uma pessoa" />
+                  <SelectValue placeholder="Select a person" />
                 </SelectTrigger>
                 <SelectContent>
                   {enrollments.map((enrollment) => (
@@ -208,17 +208,17 @@ export function FlightForm({
           </>
         )}
         {errors.enrollment_id && (
-          <p className="text-sm text-red-500">Selecione uma pessoa</p>
+          <p className="text-sm text-red-500">Select a person</p>
         )}
       </div>
 
-      {/* Importar Detalhes */}
+      {/* Import Details */}
       {!flight && (
         <div className="p-4 border rounded-lg bg-muted/30 space-y-3">
-          <Label>Importar de outro membro</Label>
+          <Label>Import from another member</Label>
           <div className="flex gap-2">
             <Input 
-              placeholder="Código (ex: C.000)" 
+              placeholder="Code (e.g. C.000)" 
               className="max-w-[150px] font-mono uppercase"
               onChange={(e) => {
                 const val = e.target.value;
@@ -261,26 +261,26 @@ export function FlightForm({
                     // Unified fields logic (if we are using unified fields on UI, we set underlying specific ones above,
                     // but we should also update the UI inputs if we change them below)
                   } else {
-                    alert('Voo não encontrado para este código')
+                    alert('No flight found for this code')
                   }
                 } catch (err) {
                   console.error(err)
                 }
               }}
             >
-              Copiar Detalhes
+              Copy Details
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Digite o ID do evento (ex: F.001) para copiar os dados de voo daquela pessoa.
+            Enter the person's event ID (e.g. F.001) to copy their flight details.
           </p>
         </div>
       )}
 
-      {/* Tipo de Voo */}
+      {/* Flight Type */}
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
-          Tipo de Voo
+          Flight Type
         </h3>
 
         <div className="grid grid-cols-3 gap-2">
@@ -309,16 +309,16 @@ export function FlightForm({
         </div>
       </div>
 
-      {/* Dados Principais do Ticket (Compartilhado) */}
+      {/* Main Ticket Details (Shared) */}
       <div className="space-y-4 p-4 bg-slate-50 dark:bg-slate-900 border rounded-lg">
         <h3 className="font-semibold text-sm text-foreground flex items-center gap-2">
           <Plane className="h-4 w-4" />
-          Dados do Ticket (Único)
+          Ticket Details (Single)
         </h3>
         
         <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="shared_reservation">Nº Ticket / PNR</Label>
+              <Label htmlFor="shared_reservation">Ticket No. / PNR</Label>
               <Input
                 id="shared_reservation"
                 placeholder="ABC123456"
@@ -330,11 +330,11 @@ export function FlightForm({
                    setValue('departure_reservation', val)
                 }}
               />
-              <p className="text-[10px] text-muted-foreground">Será aplicado para Ida e Volta</p>
+              <p className="text-[10px] text-muted-foreground">Applied to both Arrival and Departure</p>
             </div>
             
             <div className="space-y-2">
-              <Label htmlFor="shared_ticket_link">Link do Ticket (Drive)</Label>
+              <Label htmlFor="shared_ticket_link">Ticket Link (Drive)</Label>
                <Input
                   id="shared_ticket_link"
                   placeholder="https://drive.google.com/..."
@@ -349,12 +349,12 @@ export function FlightForm({
         </div>
       </div>
 
-      {/* Chegada */}
+      {/* Arrival */}
       {showArrival && (
         <div className="space-y-4 border-l-2 border-green-500 pl-4">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
             <PlaneLanding className="h-4 w-4 text-green-600" />
-            Chegada
+            Arrival
           </h3>
 
           <div className="grid grid-cols-2 gap-4">
@@ -365,7 +365,7 @@ export function FlightForm({
              </div>
 
             <div className="space-y-2 col-span-2 md:col-span-1">
-              <Label htmlFor="arrival_flight_number">Nº Voo *</Label>
+              <Label htmlFor="arrival_flight_number">Flight No. *</Label>
               <Input
                 id="arrival_flight_number"
                 {...register('arrival_flight_number')}
@@ -377,7 +377,7 @@ export function FlightForm({
             </div>
             
             <div className="space-y-2 col-span-2 md:col-span-1">
-               <Label htmlFor="arrival_airport">Aeroporto</Label>
+               <Label htmlFor="arrival_airport">Airport</Label>
                 <Input
                   id="arrival_airport"
                   {...register('arrival_airport')}
@@ -389,7 +389,7 @@ export function FlightForm({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="arrival_date">Data *</Label>
+              <Label htmlFor="arrival_date">Date *</Label>
               <Input
                 id="arrival_date"
                 type="date"
@@ -401,7 +401,7 @@ export function FlightForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="arrival_time">Hora</Label>
+              <Label htmlFor="arrival_time">Time</Label>
               <Input
                 id="arrival_time"
                 type="time"
@@ -412,12 +412,12 @@ export function FlightForm({
         </div>
       )}
 
-      {/* Partida */}
+      {/* Departure */}
       {showDeparture && (
         <div className="space-y-4 border-l-2 border-orange-500 pl-4">
           <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-2">
             <PlaneTakeoff className="h-4 w-4 text-orange-600" />
-            Partida
+            Departure
           </h3>
 
           <div className="grid grid-cols-2 gap-4">
@@ -428,7 +428,7 @@ export function FlightForm({
              </div>
 
             <div className="space-y-2 col-span-2 md:col-span-1">
-              <Label htmlFor="departure_flight_number">Nº Voo *</Label>
+              <Label htmlFor="departure_flight_number">Flight No. *</Label>
               <Input
                 id="departure_flight_number"
                 {...register('departure_flight_number')}
@@ -440,7 +440,7 @@ export function FlightForm({
             </div>
 
             <div className="space-y-2 col-span-2 md:col-span-1">
-              <Label htmlFor="departure_airport">Aeroporto</Label>
+              <Label htmlFor="departure_airport">Airport</Label>
               <Input
                 id="departure_airport"
                 {...register('departure_airport')}
@@ -452,7 +452,7 @@ export function FlightForm({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="departure_date">Data *</Label>
+              <Label htmlFor="departure_date">Date *</Label>
               <Input
                 id="departure_date"
                 type="date"
@@ -464,7 +464,7 @@ export function FlightForm({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="departure_time">Hora</Label>
+              <Label htmlFor="departure_time">Time</Label>
               <Input
                 id="departure_time"
                 type="time"
@@ -475,14 +475,14 @@ export function FlightForm({
         </div>
       )}
 
-      {/* Status e Notas */}
+      {/* Status and Notes */}
       <div className="space-y-4">
         <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">
           Status
         </h3>
 
         <div className="space-y-2">
-          <Label>Status do Voo</Label>
+          <Label>Flight Status</Label>
           <Select
             value={watch('status') || 'pending'}
             onValueChange={(value) => setValue('status', value as any)}
@@ -501,11 +501,11 @@ export function FlightForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="notes">Observações</Label>
+          <Label htmlFor="notes">Notes</Label>
           <Textarea
             id="notes"
             {...register('notes')}
-            placeholder="Informações adicionais..."
+            placeholder="Additional information..."
             rows={3}
           />
         </div>
@@ -514,10 +514,10 @@ export function FlightForm({
       {/* Actions */}
       <div className="flex justify-end gap-4 pt-4 border-t">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
+          Cancel
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? 'Salvando...' : flight ? 'Atualizar' : 'Criar'}
+          {loading ? 'Saving...' : flight ? 'Update' : 'Create'}
         </Button>
       </div>
     </form>
