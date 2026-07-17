@@ -335,8 +335,18 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
 }
 
 export async function upsertFighterStats(personId: string, formData: FighterStatsFormData): Promise<FighterStats> {
+  // Nationality lives on the person (it's the flag they represent), not on the
+  // stats row — write it there when the form touched it, then carry on.
+  if (formData.nationality !== undefined) {
+    const supabase = getClient();
+    const { error } = await supabase
+      .from('mma_people')
+      .update({ nationality: formData.nationality || null, updated_at: new Date().toISOString() })
+      .eq('id', personId);
+    if (error) throw new Error('Failed to update nationality: ' + error.message);
+  }
+
   const existing = await getFighterStats(personId);
-  
   if (existing) {
     return updateFighterStats(existing.id, formData);
   } else {

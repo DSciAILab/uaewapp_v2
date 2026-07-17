@@ -73,6 +73,8 @@ export interface FighterStats {
 }
 
 export interface FighterStatsFormData {
+  /** Written to mma_people, not mma_fighter_stats — the nationality the athlete represents. */
+  nationality?: string | null;
   height_cm?: number;
   reach_cm?: number;
   weight_class?: WeightClass;

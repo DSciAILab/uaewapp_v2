@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Pencil } from 'lucide-react';
 import { FighterStats } from '@/types/stats';
 import { formatHeight, formatReach } from '@/lib/services/stats-service';
+import { flagFor } from '@/lib/countries';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import {
   FIGHT_ORDER_CELL_CLASS,
@@ -148,6 +149,7 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
                 <TableCell>
                   {s.person?.nationality ? (
                     <Badge variant="secondary" className="font-normal text-[10px]">
+                      <span className="mr-1">{flagFor(s.person.nationality)}</span>
                       {s.person.nationality}
                     </Badge>
                   ) : <span className="text-muted-foreground">-</span>}
