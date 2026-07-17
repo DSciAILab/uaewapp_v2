@@ -103,7 +103,16 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                     <TableCell>
                       {task.due_date ? (
                         <div className={isOverdue ? 'text-red-600' : ''}>
-                          <p>{format(new Date(task.due_date + 'T00:00:00'), 'MMM dd')}</p>
+                          {/* A start date only earns its own line when it differs —
+                              "Jul 19 → Jul 19" is noise, not a range. */}
+                          <p>
+                            {task.start_date && task.start_date !== task.due_date
+                              ? `${format(new Date(task.start_date + 'T00:00:00'), 'MMM dd')} → ${format(
+                                  new Date(task.due_date + 'T00:00:00'),
+                                  'MMM dd'
+                                )}`
+                              : format(new Date(task.due_date + 'T00:00:00'), 'MMM dd')}
+                          </p>
                           {task.due_time && <p className="text-sm">{task.due_time}</p>}
                         </div>
                       ) : '-'}

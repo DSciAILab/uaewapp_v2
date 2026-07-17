@@ -30,6 +30,7 @@ import {
   nextSort,
   type SortState,
 } from '@/components/fighters/fighter-identity';
+import { useFightCard, type CardPerson } from '@/hooks/use-fight-card'
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { getFighterPhotoUrl } from '@/lib/utils';
@@ -73,7 +74,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
-  const positions = useFightCard(
+  const { positions } = useFightCard(
     useMemo(
       () =>
         hotels.map((h) => ({
@@ -403,56 +404,3 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
 
 /* ---------- Fight card lookup ---------- */
 
-type CardPerson = EnrollmentIdentity & { eventId: string | null | undefined };
-
-/**
- * Corner and bout order for a set of enrollments (UAE-20).
- *
- * Resolved per distinct event rather than per table: /hotels is global and mixes
- * events, so the eventId only exists on the row. An enrollment with no entry is
- * simply not on the card (staff, guest, or an athlete not paired yet) and
- * renders grey with no order, never a guess.
- *
- * Event names are not fetched here — hotel rows already carry the event name.
- */
-function useFightCard(people: CardPerson[]) {
-  const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
-
-  // Read inside the effect only — the effect re-runs on `signature`, not identity.
-  const peopleRef = useRef(people);
-  peopleRef.current = people;
-
-  const signature = useMemo(
-    () => people.map((p) => `${p.eventId ?? ''}:${p.enrollmentId}`).sort().join('|'),
-    [people]
-  );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const byEvent = new Map<string, EnrollmentIdentity[]>();
-    for (const p of peopleRef.current) {
-      if (!p.eventId || !p.enrollmentId) continue;
-      const roster = byEvent.get(p.eventId) ?? [];
-      roster.push({ enrollmentId: p.enrollmentId, fullName: p.fullName, ringName: p.ringName });
-      byEvent.set(p.eventId, roster);
-    }
-
-    Promise.all(Array.from(byEvent, ([eventId, roster]) => getFightCardPositions(eventId, roster)))
-      .then((maps) => {
-        if (cancelled) return;
-        const merged = new Map<string, FightCardPosition>();
-        for (const map of maps) {
-          for (const [id, pos] of map) merged.set(id, pos);
-        }
-        setPositions(merged);
-      })
-      .catch((err) => console.warn('[hotel-table] fight card lookup failed:', err));
-
-    return () => {
-      cancelled = true;
-    };
-  }, [signature]);
-
-  return positions;
-}

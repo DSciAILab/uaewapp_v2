@@ -55,6 +55,8 @@ export interface EventTask {
   assigned_by: string | null; // user_id
   
   // Timing
+  /** Optional range start; a task with only due_date is a single-day task. */
+  start_date: string | null;
   due_date: string | null;
   due_time: string | null;
   started_at: string | null;
@@ -96,6 +98,7 @@ export interface EventTaskFormData {
   priority: TaskPriority;
   status: TaskStatus;
   assigned_to?: string;
+  start_date?: string;
   due_date?: string;
   due_time?: string;
   checklist_items: string[];

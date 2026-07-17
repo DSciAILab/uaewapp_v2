@@ -14,7 +14,6 @@ import { EventTask } from '@/types/task';
 import { TaskAssignment, getTaskAssignments, createAssignments, updateAssignmentStatus, deleteAssignment, getUnassignedEnrollments } from '@/lib/services/task-assignments';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import {
   FighterAvatar,
@@ -44,6 +43,9 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
   const [availableEnrollments, setAvailableEnrollments] = useState<any[]>([]);
   const [selectedEnrollments, setSelectedEnrollments] = useState<string[]>([]);
+  const [assignRoleFilter, setAssignRoleFilter] = useState<'all' | 'fighters' | 'staff'>('all');
+  const [assignCornerFilter, setAssignCornerFilter] = useState<'all' | 'RED' | 'BLUE'>('all');
+  const [assignSearch, setAssignSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
@@ -83,8 +85,22 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   // Load available people for dialog
   const loadAvailable = async () => {
     if (!task) return;
+    setAssignSearch('');
+    setAssignRoleFilter('all');
+    setAssignCornerFilter('all');
     try {
       const data = await getUnassignedEnrollments(eventId, task.id);
+      // Candidates carry no corner of their own; the card does. Resolve it for
+      // this list too, otherwise the corner filter has nothing to read.
+      const candidatePositions = await getFightCardPositions(
+        eventId,
+        data.map((e: { id: string; person?: { compiled_name?: string; event_name?: string } }) => ({
+          enrollmentId: e.id,
+          fullName: e.person?.compiled_name || '',
+          ringName: e.person?.event_name ?? null,
+        }))
+      );
+      setPositions((prev) => new Map([...prev, ...candidatePositions]));
       setAvailableEnrollments(data);
     } catch (error) {
       toast.error('Failed to load available people');
@@ -184,6 +200,31 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     completed: assignments.filter(a => a.status === 'completed').length,
     pending: assignments.filter(a => a.status === 'pending').length
   };
+
+  // Corner only exists for people on the card, so filtering by it implies
+  // fighters — a staffer has no corner to match.
+  const assignCandidates = useMemo(() => {
+    const term = assignSearch.trim().toLowerCase();
+    return availableEnrollments.filter((e) => {
+      const roleCode = e.role?.code;
+      if (assignRoleFilter === 'fighters' && roleCode !== 'F') return false;
+      if (assignRoleFilter === 'staff' && roleCode === 'F') return false;
+
+      if (assignCornerFilter !== 'all') {
+        if ((positions.get(e.id)?.corner ?? null) !== assignCornerFilter) return false;
+      }
+
+      if (term) {
+        const name = (e.person?.compiled_name || e.person?.name || '').toLowerCase();
+        const fid = (e.person?.appadmin_fighter_id || '').toLowerCase();
+        if (!name.includes(term) && !fid.includes(term)) return false;
+      }
+      return true;
+    });
+  }, [availableEnrollments, assignRoleFilter, assignCornerFilter, assignSearch, positions]);
+
+  const allCandidatesSelected =
+    assignCandidates.length > 0 && assignCandidates.every((e) => selectedEnrollments.includes(e.id));
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -333,12 +374,83 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                 <DialogHeader>
                     <DialogTitle>Assign People to Task</DialogTitle>
                 </DialogHeader>
+                {/* Filters */}
+                <div className="space-y-2 border-b pb-3">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search name or fighter ID..."
+                      value={assignSearch}
+                      onChange={(e) => setAssignSearch(e.target.value)}
+                      className="h-8 pl-9 text-xs"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={assignRoleFilter}
+                      onValueChange={(v) => {
+                        const role = v as 'all' | 'fighters' | 'staff';
+                        setAssignRoleFilter(role);
+                        // Staff have no corner; leaving a corner set would show an
+                        // empty list and look like a bug.
+                        if (role === 'staff') setAssignCornerFilter('all');
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-[140px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Everyone</SelectItem>
+                        <SelectItem value="fighters">Fighters only</SelectItem>
+                        <SelectItem value="staff">Staff only</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Select
+                      value={assignCornerFilter}
+                      onValueChange={(v) => {
+                        const corner = v as 'all' | 'RED' | 'BLUE';
+                        setAssignCornerFilter(corner);
+                        // Picking a corner is asking for fighters.
+                        if (corner !== 'all' && assignRoleFilter !== 'fighters') setAssignRoleFilter('fighters');
+                      }}
+                      disabled={assignRoleFilter === 'staff'}
+                    >
+                      <SelectTrigger className="h-8 w-[130px] text-xs"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All corners</SelectItem>
+                        <SelectItem value="RED">Red corner</SelectItem>
+                        <SelectItem value="BLUE">Blue corner</SelectItem>
+                      </SelectContent>
+                    </Select>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs ml-auto"
+                      disabled={assignCandidates.length === 0}
+                      onClick={() => {
+                        const ids = assignCandidates.map((e) => e.id);
+                        setSelectedEnrollments((prev) =>
+                          allCandidatesSelected
+                            ? prev.filter((id) => !ids.includes(id))
+                            : Array.from(new Set([...prev, ...ids]))
+                        );
+                      }}
+                    >
+                      {allCandidatesSelected ? 'Clear' : `Select all (${assignCandidates.length})`}
+                    </Button>
+                  </div>
+                </div>
+
                 <div className="flex-1 overflow-auto py-4">
-                     {availableEnrollments.length === 0 ? (
-                        <div className="text-center text-muted-foreground">No available people to assign.</div>
+                     {assignCandidates.length === 0 ? (
+                        <div className="text-center text-muted-foreground py-8 text-sm">
+                          {availableEnrollments.length === 0
+                            ? 'No available people to assign.'
+                            : 'Nobody matches these filters.'}
+                        </div>
                      ) : (
                         <div className="space-y-2">
-                            {availableEnrollments.map(enrollment => (
+                            {assignCandidates.map(enrollment => (
                                 <div key={enrollment.id} className="flex items-center space-x-2 p-2 hover:bg-muted rounded border">
                                     <Checkbox 
                                         id={enrollment.id} 
@@ -349,17 +461,21 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                                         }}
                                     />
                                     <label htmlFor={enrollment.id} className="flex-1 cursor-pointer flex items-center gap-3 text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        <Avatar className="h-6 w-6">
-                                          {enrollment.person?.appadmin_fighter_id && (
-                                            <AvatarImage src={getFighterPhotoUrl(enrollment.person.appadmin_fighter_id)} />
-                                          )}
-                                          <AvatarFallback className="text-[8px]">
-                                            {enrollment.person?.name?.[0]}{enrollment.person?.surname?.[0]}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <div className="flex flex-col">
-                                          <span>{enrollment.person.compiled_name || enrollment.person.name}</span>
-                                          <span className="text-[10px] text-muted-foreground">{enrollment.role.name}</span>
+                                        <FighterAvatar
+                                          name={enrollment.person?.compiled_name || enrollment.person?.name || ''}
+                                          photoUrl={getFighterPhotoUrl(enrollment.person?.appadmin_fighter_id)}
+                                          corner={positions.get(enrollment.id)?.corner}
+                                          className="h-8 w-8 border-2"
+                                        />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="truncate">
+                                            {enrollment.person.compiled_name || enrollment.person.name}
+                                          </span>
+                                          <span className="text-[10px] text-muted-foreground">
+                                            {enrollment.role.name}
+                                            {positions.get(enrollment.id)?.fightOrder != null &&
+                                              ` · Fight ${positions.get(enrollment.id)!.fightOrder}`}
+                                          </span>
                                         </div>
                                     </label>
                                 </div>
