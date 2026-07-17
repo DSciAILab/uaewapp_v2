@@ -3601,6 +3601,7 @@ export type Database = {
           notes: string | null
           primary_divergence_type: string | null
           reservation_number: string | null
+          extra_bed: boolean
           room_number: string | null
           room_type: string | null
           status: string
@@ -3639,6 +3640,7 @@ export type Database = {
           notes?: string | null
           primary_divergence_type?: string | null
           reservation_number?: string | null
+          extra_bed?: boolean
           room_number?: string | null
           room_type?: string | null
           status?: string
@@ -3677,6 +3679,7 @@ export type Database = {
           notes?: string | null
           primary_divergence_type?: string | null
           reservation_number?: string | null
+          extra_bed?: boolean
           room_number?: string | null
           room_type?: string | null
           status?: string

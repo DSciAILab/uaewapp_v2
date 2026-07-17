@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Hotel, HotelFormData, HotelStatus } from '@/types/hotel';
+import { Hotel, HotelFormData, HotelStatus, ROOM_TYPES } from '@/types/hotel';
+import { Checkbox } from '@/components/ui/checkbox';
 import { createHotel, updateHotel, getEnrolledWithoutHotel } from '@/lib/services/hotel-service';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
@@ -22,6 +23,9 @@ const hotelSchema = z.object({
   reservation_number: z.string().optional(),
   status: z.enum(['pending', 'reserved', 'confirmed', 'cancelled']),
   notes: z.string().optional(),
+  room_type: z.enum(['single', 'twin', 'double', 'suite']).optional().or(z.literal('')),
+  room_number: z.string().optional(),
+  extra_bed: z.boolean().optional(),
 });
 
 interface HotelFormProps {
@@ -53,6 +57,9 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
       reservation_number: '',
       status: 'pending',
       notes: '',
+      room_type: '',
+      room_number: '',
+      extra_bed: false,
     },
   });
 
@@ -73,6 +80,9 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
         reservation_number: hotel.reservation_number || '',
         status: hotel.status as HotelStatus,
         notes: hotel.notes || '',
+        room_type: (hotel.room_type as HotelFormData['room_type']) || '',
+        room_number: hotel.room_number || '',
+        extra_bed: hotel.extra_bed ?? false,
       });
     } else {
       form.reset({
@@ -82,6 +92,9 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
         reservation_number: '',
         status: 'pending',
         notes: '',
+        room_type: '',
+        room_number: '',
+        extra_bed: false,
       });
     }
   }, [hotel?.id]);
@@ -216,6 +229,58 @@ export function HotelForm({ eventId, eventDates, hotel, open, onOpenChange, onSu
               )}
             />
 
+
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="room_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room Type</FormLabel>
+                    <Select onValueChange={(v) => field.onChange(v === 'none' ? '' : v)} value={field.value || 'none'}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select room type" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">-- Not set --</SelectItem>
+                        {ROOM_TYPES.map((rt) => (
+                          <SelectItem key={rt.value} value={rt.value}>{rt.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="room_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Room</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. 1204 — roommates share the same room" {...field} value={field.value ?? ''} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="extra_bed"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                  <FormControl>
+                    <Checkbox checked={field.value ?? false} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <FormLabel className="font-normal cursor-pointer">Extra bed requested</FormLabel>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

@@ -248,6 +248,9 @@ export async function createHotel(
     reservation_number: formData.reservation_number || null,
     status: formData.status,
     notes: formData.notes || null,
+    room_type: formData.room_type || null,
+    room_number: formData.room_number || null,
+    extra_bed: formData.extra_bed ?? false,
     updated_at: new Date().toISOString()
   };
 
@@ -370,6 +373,9 @@ export async function updateHotel(
     reservation_number: formData.reservation_number !== undefined ? formData.reservation_number : current.reservation_number,
     status: formData.status || current.status,
     notes: formData.notes !== undefined ? formData.notes : current.notes,
+    room_type: formData.room_type !== undefined ? (formData.room_type || null) : current.room_type,
+    room_number: formData.room_number !== undefined ? (formData.room_number || null) : current.room_number,
+    extra_bed: formData.extra_bed !== undefined ? formData.extra_bed : current.extra_bed,
     // Reset approval if dates changed and are divergent
     divergence_approved: (finalCheckin !== current.checkin_date || finalCheckout !== current.checkout_date) && hasDivergence 
       ? false 
