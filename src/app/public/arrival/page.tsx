@@ -22,6 +22,14 @@ const AUTO_REFRESH_MS = 60_000;
 
 type SortKey = keyof ArrivalRow;
 
+/** Driver cells come from the sheet as "Name | +phone" (phone optional). */
+function parseDriver(raw: string): { name: string; phone: string | null } {
+  if (!raw) return { name: '', phone: null };
+  const [namePart, ...rest] = raw.split('|');
+  const phoneDigits = rest.join('|').replace(/[^\d]/g, '');
+  return { name: namePart.trim(), phone: phoneDigits.length >= 7 ? phoneDigits : null };
+}
+
 /** dd/mm/yyyy -> sortable yyyy-mm-dd; anything else returned as-is. */
 function sortableDate(v: string): string {
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -236,7 +244,28 @@ export default function PublicArrivalPage() {
                           <span className="text-muted-foreground text-xs italic">TBA</span>
                         )}
                       </TableCell>
-                      <TableCell>{r.driver || <span className="text-muted-foreground text-xs italic">TBA</span>}</TableCell>
+                      <TableCell>
+                        {(() => {
+                          const d = parseDriver(r.driver);
+                          if (!d.name) return <span className="text-muted-foreground text-xs italic">TBA</span>;
+                          return (
+                            <span className="flex items-center gap-1.5">
+                              {d.name}
+                              {d.phone && (
+                                <a
+                                  href={`https://wa.me/${d.phone}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`WhatsApp ${d.name}`}
+                                  className="shrink-0"
+                                >
+                                  <MessageCircle className="h-4 w-4 text-green-600 hover:text-green-700 transition-colors" />
+                                </a>
+                              )}
+                            </span>
+                          );
+                        })()}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -271,9 +300,25 @@ export default function PublicArrivalPage() {
                         ) : (
                           <Badge variant="outline" className="text-[10px] border-dashed text-muted-foreground">Car TBA</Badge>
                         )}
-                        {r.driver && (
-                          <span className="text-xs text-muted-foreground">driver {r.driver}</span>
-                        )}
+                        {(() => {
+                          const d = parseDriver(r.driver);
+                          if (!d.name) return null;
+                          return (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              driver {d.name}
+                              {d.phone && (
+                                <a
+                                  href={`https://wa.me/${d.phone}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title={`WhatsApp ${d.name}`}
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                                </a>
+                              )}
+                            </span>
+                          );
+                        })()}
                         {r.hotelBooking && (
                           <span className="text-[10px] font-mono text-muted-foreground">hotel {r.hotelBooking}</span>
                         )}
