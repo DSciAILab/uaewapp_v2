@@ -12,7 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { FighterStats, FighterStatsFormData, WeightClass, WEIGHT_CLASS_LABELS } from '@/types/stats';
-import { upsertFighterStats } from '@/lib/services/stats-service';
+import { upsertFighterStats, getStatsFacets } from '@/lib/services/stats-service';
+import { CreatableCombobox } from '@/components/ui/creatable-combobox';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -20,16 +21,16 @@ const statsSchema = z.object({
   height_cm: z.coerce.number().min(100).max(250).optional(),
   reach_cm: z.coerce.number().min(100).max(250).optional(),
   weight_class: z.string().optional(),
-  wins: z.coerce.number().min(0),
-  losses: z.coerce.number().min(0),
-  draws: z.coerce.number().min(0),
-  no_contests: z.coerce.number().min(0),
-  wins_ko: z.coerce.number().min(0),
-  wins_submission: z.coerce.number().min(0),
-  wins_decision: z.coerce.number().min(0),
-  losses_ko: z.coerce.number().min(0),
-  losses_submission: z.coerce.number().min(0),
-  losses_decision: z.coerce.number().min(0),
+  wins: z.coerce.number().min(0).default(0),
+  losses: z.coerce.number().min(0).default(0),
+  draws: z.coerce.number().min(0).default(0),
+  no_contests: z.coerce.number().min(0).default(0),
+  wins_ko: z.coerce.number().min(0).default(0),
+  wins_submission: z.coerce.number().min(0).default(0),
+  wins_decision: z.coerce.number().min(0).default(0),
+  losses_ko: z.coerce.number().min(0).default(0),
+  losses_submission: z.coerce.number().min(0).default(0),
+  losses_decision: z.coerce.number().min(0).default(0),
   fighting_style: z.string().optional(),
   team_gym: z.string().optional(),
   residency: z.string().optional(),
@@ -47,6 +48,17 @@ interface StatsFormProps {
 
 export function StatsForm({ personId, personName, stats, open, onOpenChange, onSuccess }: StatsFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [styleOptions, setStyleOptions] = useState<string[]>([]);
+  const [teamOptions, setTeamOptions] = useState<string[]>([]);
+
+  // Load the existing styles/teams when the dialog opens, so the dropdowns
+  // offer what's already on record instead of an empty list.
+  useEffect(() => {
+    if (!open) return;
+    getStatsFacets()
+      .then(({ styles, teams }) => { setStyleOptions(styles); setTeamOptions(teams); })
+      .catch(() => {});
+  }, [open]);
 
   const form = useForm<FighterStatsFormData>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -173,7 +185,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Current Weight (kg)</FormLabel>
-                      <FormControl><Input type="number" step="0.1" placeholder="77.5" {...field} /></FormControl>
+                      <FormControl><Input type="number" inputMode="decimal" step="0.1" placeholder="77.5" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -191,7 +203,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Height (cm)</FormLabel>
-                      <FormControl><Input type="number" placeholder="175" {...field} /></FormControl>
+                      <FormControl><Input type="number" inputMode="numeric" placeholder="175" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -202,7 +214,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Reach (cm)</FormLabel>
-                      <FormControl><Input type="number" placeholder="180" {...field} /></FormControl>
+                      <FormControl><Input type="number" inputMode="numeric" placeholder="180" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -221,137 +233,6 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
               </div>
             </div>
 
-            {/* Fight Record */}
-            <div className="space-y-4">
-              <h3 className="font-medium">Fight Record</h3>
-              <div className="grid grid-cols-4 gap-4">
-                <FormField
-                  control={form.control}
-                  name="wins"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Wins</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="losses"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Losses</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="draws"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Draws</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="no_contests"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>NC</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Win Methods */}
-            <div className="space-y-4">
-              <h3 className="font-medium">Win Methods</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="wins_ko"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>KO/TKO</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="wins_submission"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Submission</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="wins_decision"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Decision</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
-            {/* Loss Methods */}
-            <div className="space-y-4">
-              <h3 className="font-medium">Loss Methods</h3>
-              <div className="grid grid-cols-3 gap-4">
-                <FormField
-                  control={form.control}
-                  name="losses_ko"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>KO/TKO</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="losses_submission"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Submission</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="losses_decision"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Decision</FormLabel>
-                      <FormControl><Input type="number" min={0} {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </div>
-
             {/* Additional Info */}
             <div className="space-y-4">
               <h3 className="font-medium">Additional Info</h3>
@@ -362,7 +243,14 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Fighting Style</FormLabel>
-                      <FormControl><Input placeholder="e.g., Boxing, Wrestling, BJJ" {...field} /></FormControl>
+                      <FormControl>
+                        <CreatableCombobox
+                          options={styleOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select or type a style…"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -373,7 +261,14 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Team/Gym</FormLabel>
-                      <FormControl><Input placeholder="e.g., American Top Team" {...field} /></FormControl>
+                      <FormControl>
+                        <CreatableCombobox
+                          options={teamOptions}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select or type a team…"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
