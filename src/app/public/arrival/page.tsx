@@ -30,6 +30,25 @@ function parseDriver(raw: string): { name: string; phone: string | null } {
   return { name: namePart.trim(), phone: phoneDigits.length >= 7 ? phoneDigits : null };
 }
 
+/** One-line flight summary used in both the table and the WhatsApp messages. */
+function flightSummary(r: ArrivalRow): string {
+  return [r.flight, r.flightDate && `on ${r.flightDate}`, r.flightTime && `at ${r.flightTime}`, r.airport && `(${r.airport})`]
+    .filter(Boolean)
+    .join(' ');
+}
+
+/**
+ * Message the guest sends to their assigned driver. WhatsApp inline monospace
+ * is a SINGLE backtick; ``` is a block fence and does not render mid-sentence.
+ */
+function driverMessage(r: ArrivalRow, driverName: string, eventTitle: string): string {
+  return [
+    `Hello \`${driverName}\`, I am \`${r.name}\` from ${eventTitle}.`,
+    `Flight: ${flightSummary(r) || 'not listed'}`,
+    `Car: \`${r.carNumber || 'not assigned'}\``,
+  ].join('\n');
+}
+
 /** dd/mm/yyyy -> sortable yyyy-mm-dd; anything else returned as-is. */
 function sortableDate(v: string): string {
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -248,21 +267,18 @@ export default function PublicArrivalPage() {
                         {(() => {
                           const d = parseDriver(r.driver);
                           if (!d.name) return <span className="text-muted-foreground text-xs italic">TBA</span>;
+                          if (!d.phone) return <span className="text-sm">{d.name}</span>;
                           return (
-                            <span className="flex items-center gap-1.5">
+                            <a
+                              href={`https://wa.me/${d.phone}?text=${encodeURIComponent(driverMessage(r, d.name, title))}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Message ${d.name} on WhatsApp`}
+                              className="inline-flex items-center gap-1.5 rounded-full bg-green-600 hover:bg-green-700 px-2.5 py-1 text-xs font-medium text-white transition-colors"
+                            >
+                              <MessageCircle className="h-3.5 w-3.5" aria-hidden="true" />
                               {d.name}
-                              {d.phone && (
-                                <a
-                                  href={`https://wa.me/${d.phone}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={`WhatsApp ${d.name}`}
-                                  className="shrink-0"
-                                >
-                                  <MessageCircle className="h-4 w-4 text-green-600 hover:text-green-700 transition-colors" />
-                                </a>
-                              )}
-                            </span>
+                            </a>
                           );
                         })()}
                       </TableCell>
@@ -303,20 +319,17 @@ export default function PublicArrivalPage() {
                         {(() => {
                           const d = parseDriver(r.driver);
                           if (!d.name) return null;
+                          if (!d.phone) return <span className="text-xs text-muted-foreground">driver {d.name}</span>;
                           return (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              driver {d.name}
-                              {d.phone && (
-                                <a
-                                  href={`https://wa.me/${d.phone}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={`WhatsApp ${d.name}`}
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5 text-green-600" />
-                                </a>
-                              )}
-                            </span>
+                            <a
+                              href={`https://wa.me/${d.phone}?text=${encodeURIComponent(driverMessage(r, d.name, title))}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-full bg-green-600 px-2 py-0.5 text-[10px] font-medium text-white"
+                            >
+                              <MessageCircle className="h-3 w-3" aria-hidden="true" />
+                              {d.name}
+                            </a>
                           );
                         })()}
                         {r.hotelBooking && (
