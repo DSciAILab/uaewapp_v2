@@ -126,6 +126,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // ACTION: DOWNLOAD
     if (action === 'download') {
+        // Vercel's serverless runtime ships no yt-dlp/ffmpeg, so conversion can
+        // only run where they exist (the Mac mini). Say so with a clear signal
+        // the client can act on, instead of a generic 500 after a long wait.
+        const { spawnSync } = await import('child_process');
+        const hasYtdlp = spawnSync('yt-dlp', ['--version']).status === 0;
+        if (!hasYtdlp) {
+            return NextResponse.json(
+                { error: 'audio_backend_unavailable' },
+                { status: 501 }
+            );
+        }
+
         // yt-dlp CANNOT post-process to stdout: converting needs a real file on
         // disk, so `-x --audio-format mp3 -o -` silently streams the raw WebM
         // and the old code shipped it as audio/mpeg named .mp3. Players that
