@@ -11,7 +11,6 @@ import {
   FileText,
   Building2,
   Car,
-  Settings,
   Menu,
   Music,
   Activity,
@@ -46,7 +45,6 @@ const icons = {
   FileText,
   Building2,
   Car,
-  Settings,
   Music,
   Activity,
   BarChart3,
@@ -96,7 +94,7 @@ const navItems: NavEntry[] = [
   { label: 'Medical', href: '/medical', icon: 'Stethoscope', area: 'pre_event' },
   { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
   { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
-  { label: 'Settings', href: '/settings', icon: 'Settings', area: 'admin' },
+  // Settings/Users page not built yet — link removed so it stops 404ing on prefetch.
 ]
 
 interface SidebarProps {
