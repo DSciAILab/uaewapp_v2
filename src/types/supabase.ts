@@ -3887,6 +3887,9 @@ export type Database = {
           changed_by: string | null
           clearance_id: string
           enrolled_id: string
+          field: string
+          new_value: string | null
+          old_value: string | null
           event_id: string
           id: string
           new_status: string
@@ -3897,6 +3900,9 @@ export type Database = {
           changed_by?: string | null
           clearance_id: string
           enrolled_id: string
+          field?: string
+          new_value?: string | null
+          old_value?: string | null
           event_id: string
           id?: string
           new_status: string
@@ -3907,6 +3913,9 @@ export type Database = {
           changed_by?: string | null
           clearance_id?: string
           enrolled_id?: string
+          field?: string
+          new_value?: string | null
+          old_value?: string | null
           event_id?: string
           id?: string
           new_status?: string

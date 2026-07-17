@@ -194,6 +194,10 @@ export default function MedicalPage() {
                   hour: '2-digit',
                   minute: '2-digit',
                 })
+                if (e.field === 'notes' || !e.new_status) {
+                  const clip = (v: string | null) => (!v ? '—' : v.length > 40 ? v.slice(0, 37) + '…' : v)
+                  return `${when}  Notes: ${clip(e.old_value)} → ${clip(e.new_value)}`
+                }
                 const from = e.old_status ? `${STATUS_LABEL[e.old_status]} → ` : ''
                 return `${when}  ${from}${STATUS_LABEL[e.new_status]}`
               })

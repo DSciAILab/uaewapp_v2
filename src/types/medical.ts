@@ -42,8 +42,12 @@ export interface MedicalLogEntry {
   clearance_id: string
   event_id: string
   enrolled_id: string
+  /** 'status' rows keep old/new_status; 'notes' rows use old/new_value. */
+  field: 'status' | 'notes'
   old_status: MedicalStatus | null
-  new_status: MedicalStatus
+  new_status: MedicalStatus | null
+  old_value: string | null
+  new_value: string | null
   changed_at: string
   changed_by: string | null
 }
