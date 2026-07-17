@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import type { Database } from '@/types/supabase';
 import { TaskTemplate, TaskTemplateFormData, EventTask, EventTaskFormData, TaskFilters, TaskStatus, TaskCategory, TaskPriority, TaskChecklistItem } from '@/types/task';
 
 function getClient() {
@@ -316,6 +317,7 @@ export async function createEventTask(eventId: string, formData: EventTaskFormDa
       status: formData.status,
       assigned_to: formData.assigned_to || null,
       assigned_by: formData.assigned_to ? userId : null,
+      start_date: formData.start_date || null,
       due_date: formData.due_date || null,
       due_time: formData.due_time || null,
       checklist_items: checklistItems,
@@ -352,7 +354,28 @@ export async function createTaskFromTemplate(eventId: string, templateId: string
 }
 
 export async function updateEventTask(taskId: string, formData: Partial<EventTaskFormData>): Promise<EventTask> {
-  const updateData: Record<string, unknown> = { ...formData };
+  /*
+   * Explicit whitelist, not a spread of formData.
+   *
+   * Spreading sent every form field straight to PostgREST, so an untouched
+   * date input — which React holds as '' — reached a `date` column and
+   * Postgres rejected the whole update: `invalid input syntax for type date:
+   * ""`. Empty means "no date", which is NULL. Same shape as updateBatch.
+   */
+  const updateData: Database['public']['Tables']['mma_event_tasks']['Update'] = {};
+
+  const orNull = (v: string | undefined) => (v && v.trim() ? v : null);
+
+  if (formData.name !== undefined) updateData.name = formData.name;
+  if (formData.description !== undefined) updateData.description = orNull(formData.description);
+  if (formData.category !== undefined) updateData.category = formData.category;
+  if (formData.priority !== undefined) updateData.priority = formData.priority;
+  if (formData.status !== undefined) updateData.status = formData.status;
+  if (formData.assigned_to !== undefined) updateData.assigned_to = formData.assigned_to || null;
+  if (formData.start_date !== undefined) updateData.start_date = orNull(formData.start_date);
+  if (formData.due_date !== undefined) updateData.due_date = orNull(formData.due_date);
+  if (formData.due_time !== undefined) updateData.due_time = orNull(formData.due_time);
+  if (formData.notes !== undefined) updateData.notes = orNull(formData.notes);
 
   if (formData.checklist_items) {
     const current = await getTaskById(taskId);
