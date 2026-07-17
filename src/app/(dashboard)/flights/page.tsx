@@ -54,6 +54,20 @@ import { getActiveEvents } from '@/lib/services/events'
 import { usePermissions } from '@/hooks/use-permissions'
 import type { Event } from '@/types/database'
 import type { FlightSchema } from '@/lib/validations/flight'
+import { parseCSVDate, parseCSVTime } from '@/lib/utils/csv-values'
+
+/**
+ * Coerces one mapped CSV cell for a flight.
+ *
+ * This screen used to send the raw cell straight through, so a European
+ * "23/07/2026" reached Postgres, which read 23 as a month and rejected the row.
+ */
+function transformFlightValue(field: string, value: string): unknown {
+  if (!value) return null;
+  if (field.endsWith('_date')) return parseCSVDate(value);
+  if (field.endsWith('_time')) return parseCSVTime(value);
+  return String(value).trim() || null;
+}
 
 const FLIGHT_FIELDS: FieldDef[] = [
   { value: 'passport_name', label: 'Passport Name' },
@@ -345,7 +359,7 @@ function FlightsContent() {
                 requiredField="passport_name"
                 uploadHint="Matching is done by passport name"
                 onTemplateDownload={() => downloadCSVTemplate('flight_import_template.csv', FLIGHT_CSV_TEMPLATE)}
-                transformValue={(_field, value) => value || null}
+                transformValue={transformFlightValue}
                 onImport={(rows, upsertMode, onProgress) =>
                   importFlightsFromCSV(selectedEventId, rows, upsertMode, onProgress)
                 }

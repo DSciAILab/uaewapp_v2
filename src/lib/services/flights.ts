@@ -346,10 +346,11 @@ export async function importFlightsFromCSV(
   rows: FlightCSVRow[],
   upsertMode: boolean = true,
   onProgress?: (current: number, total: number, message?: string) => void
-): Promise<{ created: number; updated: number; skipped: FlightImportError[]; errors: FlightImportError[] }> {
+): Promise<{ created: number; updated: number; skipped: FlightImportError[]; errors: FlightImportError[]; divergences: FlightImportError[] }> {
   const supabase = getClient()
   const errors: FlightImportError[] = []
   const skipped: FlightImportError[] = []
+  const divergences: FlightImportError[] = []
   let created = 0
   let updated = 0
   const total = rows.length
@@ -372,15 +373,71 @@ export async function importFlightsFromCSV(
   if (enrollError) throw new Error('Failed to fetch enrollments: ' + enrollError.message)
 
   // Build a name→enrollment map (case insensitive)
-  const nameMap = new Map<string, { enrollmentId: string; needsFlight: string }>()
+  /*
+   * Matching the CSV's passport name to an enrolled athlete.
+   *
+   * It used to be an exact lowercase lookup, which failed on every real file:
+   * a passport carries middle names and accents the roster doesn't
+   * ("Oceane Astrid Cindy Samson" vs "Océane Samson"), and a typo in the
+   * roster ("Karin" for "Karim") broke it outright.
+   *
+   * The rule: every word of the ROSTER name must appear in the CSV name.
+   * That lets the passport be more complete than the roster — the real case —
+   * without letting a different person through: "Magomed Kurbanovich
+   * Magomedov" does not match "Shamidkhan Magomedov", because "shamidkhan" is
+   * absent. Both compiled_name and event_name are tried; either may win.
+   *
+   * Ambiguity is rejected, never guessed. Attaching a flight to the wrong
+   * athlete is discovered at an airport counter.
+   */
+  const normalizeForMatch = (value: string): string =>
+    (value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+
+  interface Candidate {
+    enrollmentId: string
+    needsFlight: string
+    rosterName: string
+    tokens: string[]
+  }
+
+  const candidates: Candidate[] = []
   for (const e of (enrollments || [])) {
     const person = e.person
     if (!person) continue
-    const compiledName = (person.compiled_name || '').trim().toLowerCase()
-    const eventName = (person.event_name || '').trim().toLowerCase()
-    const entry = { enrollmentId: e.id, needsFlight: e.needs_flight || 'none' }
-    if (compiledName) nameMap.set(compiledName, entry)
-    if (eventName && eventName !== compiledName) nameMap.set(eventName, entry)
+    for (const rosterName of [person.compiled_name, person.event_name]) {
+      const normalized = normalizeForMatch(rosterName || '')
+      if (!normalized) continue
+      candidates.push({
+        enrollmentId: e.id,
+        needsFlight: e.needs_flight || 'none',
+        rosterName: rosterName || '',
+        tokens: normalized.split(' '),
+      })
+    }
+  }
+
+  /** The enrolled athlete this CSV name refers to, or why it doesn't resolve. */
+  const resolvePerson = (
+    csvName: string
+  ): { hit: Candidate } | { error: 'not_found' } | { error: 'ambiguous'; names: string[] } => {
+    const csvTokens = new Set(normalizeForMatch(csvName).split(' '))
+    if (csvTokens.size === 0) return { error: 'not_found' }
+
+    const matches = candidates.filter((c) => c.tokens.every((t) => csvTokens.has(t)))
+    if (matches.length === 0) return { error: 'not_found' }
+
+    // The same athlete can match on both of their names — that is one person.
+    const distinct = [...new Set(matches.map((m) => m.enrollmentId))]
+    if (distinct.length > 1) {
+      return { error: 'ambiguous', names: [...new Set(matches.map((m) => m.rosterName))] }
+    }
+    return { hit: matches[0] }
   }
 
   // 2. Fetch existing flights for this event
@@ -413,10 +470,28 @@ export async function importFlightsFromCSV(
       continue
     }
 
-    const match = nameMap.get(passportName.toLowerCase())
-    if (!match) {
-      skipped.push({ row: rowNum, name: passportName, message: 'Person not found in the event' })
+    const resolved = resolvePerson(passportName)
+    if ('error' in resolved) {
+      skipped.push({
+        row: rowNum,
+        name: passportName,
+        message:
+          resolved.error === 'ambiguous'
+            ? `Ambiguous — matches ${resolved.names.length} enrolled athletes: ${resolved.names.join(', ')}`
+            : 'Person not found in the event',
+      })
       continue
+    }
+    const match = resolved.hit
+
+    // The passport is the authority for the ticket, so a roster name that
+    // differs is worth surfacing — reported, never silently overwritten.
+    if (normalizeForMatch(match.rosterName) !== normalizeForMatch(passportName)) {
+      divergences.push({
+        row: rowNum,
+        name: passportName,
+        message: `Roster has "${match.rosterName}" — passport says "${passportName}"`,
+      })
     }
 
     const flightType: FlightType = (() => {
@@ -478,5 +553,5 @@ export async function importFlightsFromCSV(
   }
 
   if (onProgress) onProgress(total, total, 'Done!')
-  return { created, updated, skipped, errors }
+  return { created, updated, skipped, errors, divergences }
 }
