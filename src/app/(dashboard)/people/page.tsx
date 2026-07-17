@@ -368,6 +368,22 @@ export default function PeoplePage() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              variant={filters.personIds ? 'default' : 'outline'}
+              size="sm"
+              disabled={!activeEvent}
+              title={activeEvent ? `Show only people enrolled in ${activeEvent.name}` : 'No active event'}
+              onClick={() =>
+                setFilters({
+                  ...filters,
+                  personIds: filters.personIds ? undefined : Array.from(enrolledIds),
+                  page: 1,
+                })
+              }
+            >
+              <Users className="mr-2 h-4 w-4" />
+              Enrolled{activeEvent && filters.personIds ? ` · ${activeEvent.name}` : ''}
+            </Button>
             <Select
               value={filters.nationality || 'all'}
               onValueChange={(v) => setFilters({ ...filters, nationality: v === 'all' ? undefined : v, page: 1 })}

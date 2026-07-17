@@ -210,6 +210,8 @@ export interface PeopleFilters {
   search?: string
   nationality?: string
   hasPassport?: boolean
+  /** Restrict to these person ids (e.g. people enrolled in the active event). */
+  personIds?: string[]
   page?: number
   pageSize?: number
 }

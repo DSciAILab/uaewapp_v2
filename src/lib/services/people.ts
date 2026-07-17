@@ -30,6 +30,7 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
     search,
     nationality,
     hasPassport,
+    personIds,
     page = 1,
     pageSize = 20,
   } = filters
@@ -66,6 +67,11 @@ export async function getPeople(filters: PeopleFilters = {}): Promise<PaginatedR
     } else {
       query = query.is('passport_number', null)
     }
+  }
+
+  // Filtro por ids (ex.: enrolled no evento ativo)
+  if (personIds) {
+    query = query.in('id', personIds)
   }
 
   // Ordenação
