@@ -948,3 +948,30 @@ export async function importStatsFromCSV(
   if (onProgress) onProgress(total, total, 'Done!')
   return { created, updated, skipped, errors }
 }
+
+/**
+ * Distinct fighting styles and team/gyms already on record (UAE-20).
+ *
+ * Feeds the creatable dropdowns so staff pick an existing spelling instead of
+ * coining a fourth "Muay Thai". Both grow on their own as new values are saved.
+ */
+export async function getStatsFacets(): Promise<{ styles: string[]; teams: string[] }> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('mma_fighter_stats')
+    .select('fighting_style, team_gym');
+  if (error) throw new Error('Failed to load stats options');
+
+  const styles = new Set<string>();
+  const teams = new Set<string>();
+  for (const r of data || []) {
+    const s = (r.fighting_style || '').trim();
+    const t = (r.team_gym || '').trim();
+    if (s) styles.add(s);
+    if (t) teams.add(t);
+  }
+  return {
+    styles: [...styles].sort((a, b) => a.localeCompare(b)),
+    teams: [...teams].sort((a, b) => a.localeCompare(b)),
+  };
+}
