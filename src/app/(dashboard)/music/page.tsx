@@ -9,10 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Music, Music2, CheckCircle2, XCircle,
-  Search, ExternalLink, Filter, Pencil, Plus, ArrowUpDown, ArrowUp, ArrowDown,
+  Search, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
-import { MusicForm } from '@/components/music/music-form';
-import { MusicPlayer } from '@/components/music/music-player';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
 import { EntranceMusic, MusicStatus } from '@/types/music';
 import {
@@ -125,11 +123,6 @@ function getStatusOrder(row: FighterMusicRow): number {
 export default function GlobalMusicPage() {
   const [rows, setRows] = useState<FighterMusicRow[]>([]);
   const [allMusic, setAllMusic] = useState<EntranceMusic[]>([]);
-  const [editingMusic, setEditingMusic] = useState<EntranceMusic | null>(null);
-  const [previewMusic, setPreviewMusic] = useState<EntranceMusic | null>(null);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [formEventId, setFormEventId] = useState('');
-  const [formEnrolledId, setFormEnrolledId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [eventFilter, setEventFilter] = useState('all');
@@ -256,24 +249,6 @@ export default function GlobalMusicPage() {
     return out;
   }, [rows]);
 
-  const handleAddMusic = (row: FighterMusicRow) => {
-    setEditingMusic(null);
-    setFormEventId(row.event_id);
-    setFormEnrolledId(row.enrollment_id);
-    setIsFormOpen(true);
-  };
-
-  const handleEditMusic = (row: FighterMusicRow) => {
-    if (row.music) {
-      setEditingMusic(row.music);
-      setFormEventId(row.event_id);
-      setFormEnrolledId('');
-      setIsFormOpen(true);
-    } else {
-      handleAddMusic(row);
-    }
-  };
-
   type SongSlot = 1 | 2 | 3 | 'notes';
   const SLOT_FIELDS = { 1: 'source_url', 2: 'source_url_2', 3: 'source_url_3' } as const;
 
@@ -314,13 +289,6 @@ export default function GlobalMusicPage() {
     } catch (error: any) {
       toast.error(error.message || 'Failed to save song');
     }
-  };
-
-  const handleFormClose = () => {
-    setIsFormOpen(false);
-    setEditingMusic(null);
-    setFormEventId('');
-    setFormEnrolledId('');
   };
 
   return (
@@ -461,18 +429,13 @@ export default function GlobalMusicPage() {
                             <SortIcon column="status" sortKey={sortKey} sortDir={sortDir} />
                           </button>
                         </TableHead>
-                        <TableHead className="w-[80px] text-center">Action</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {filtered.map(row => {
                         const m = row.music;
                         return (
-                          <TableRow
-                            key={row.enrollment_id}
-                            className="hover:bg-muted/50 transition-colors cursor-pointer"
-                            onClick={() => handleEditMusic(row)}
-                          >
+                          <TableRow key={row.enrollment_id} className="hover:bg-muted/50 transition-colors">
                             <TableCell className="p-2 text-center font-bold text-lg bg-yellow-50/30 text-yellow-700/80 dark:bg-yellow-500/5 dark:text-yellow-400/80">
                               {row.fight_order ?? '-'}
                             </TableCell>
@@ -548,20 +511,6 @@ export default function GlobalMusicPage() {
                                 </Badge>
                               )}
                             </TableCell>
-
-                            <TableCell className="text-center" onClick={e => e.stopPropagation()}>
-                              {m ? (
-                                <Button variant="ghost" size="sm" className="h-7 text-xs"
-                                  onClick={() => handleEditMusic(row)}>
-                                  <Pencil className="h-3 w-3 mr-1" /> Edit
-                                </Button>
-                              ) : (
-                                <Button variant="default" size="sm" className="h-7 text-xs"
-                                  onClick={() => handleAddMusic(row)}>
-                                  <Plus className="h-3 w-3 mr-1" /> Add
-                                </Button>
-                              )}
-                            </TableCell>
                           </TableRow>
                         );
                       })}
@@ -575,10 +524,6 @@ export default function GlobalMusicPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {previewMusic && (
-            <MusicPlayer music={previewMusic} onClose={() => setPreviewMusic(null)} />
-          )}
-
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Walkout Rules</CardTitle>
@@ -631,17 +576,6 @@ export default function GlobalMusicPage() {
         </div>
       </div>
 
-      {/* Music Form */}
-      {formEventId && (
-        <MusicForm
-          eventId={formEventId}
-          music={editingMusic}
-          open={isFormOpen}
-          onOpenChange={handleFormClose}
-          onSuccess={loadData}
-          defaultEnrolledId={formEnrolledId}
-        />
-      )}
     </div>
   );
 }
