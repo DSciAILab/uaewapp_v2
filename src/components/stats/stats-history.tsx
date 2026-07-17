@@ -22,6 +22,7 @@ import {
   type SortState,
 } from '@/components/fighters/fighter-identity';
 import { getFightCardPositions, type FightCardPosition } from '@/lib/services/fight-card-positions';
+import { getEventById } from '@/lib/services/events';
 
 type SortKey = 'order' | 'corner' | 'fighter' | 'weightClass' | 'weight' | 'status' | 'time';
 
@@ -33,6 +34,7 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
   const [weighIns, setWeighIns] = useState<EventWeighIn[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
+  const [eventName, setEventName] = useState<string | null>(null);
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
   useEffect(() => {
@@ -46,6 +48,8 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
           ringName: w.enrolled?.person?.event_name,
         }));
         setPositions(await getFightCardPositions(eventId, people));
+        // person.event_name is the ring name; the identity block shows the EVENT.
+        setEventName(await getEventById(eventId).then((e) => e?.name ?? null).catch(() => null));
       } catch (err) {
         console.error('Failed to load weigh-ins:', err);
       } finally {
@@ -170,7 +174,7 @@ export function StatsHistory({ eventId }: StatsHistoryProps) {
                           ? String(w.enrolled.person.appadmin_fighter_id)
                           : null
                       }
-                      eventName={w.enrolled?.person?.event_name}
+                      eventName={eventName}
                     />
                   </TableCell>
                   <TableCell>

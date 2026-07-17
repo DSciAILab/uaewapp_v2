@@ -14,6 +14,8 @@ export type WeightClass =
 export interface FighterStats {
   id: string;
   person_id: string;
+  /** Enrollment this row was built from — the key for fight-card positions. */
+  enrollment_id?: string;
   
   // Physical stats
   height_cm: number | null;

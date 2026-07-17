@@ -74,7 +74,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
   const [showBatchEdit, setShowBatchEdit] = useState(false);
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
-  const { positions } = useFightCard(
+  const { positions, eventNames } = useFightCard(
     useMemo(
       () =>
         hotels.map((h) => ({
@@ -248,7 +248,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                           <FighterIdentity
                             name={guestName}
                             fighterId={hotel.enrolled?.person?.appadmin_fighter_id}
-                            eventName={hotel.enrolled?.person?.event_name ?? null}
+                            eventName={eventNames.get(hotel.enrolled?.event_id ?? '') ?? null}
                             subtitle={
                               roleName ? (
                                 <span className="text-[10px] text-muted-foreground uppercase tracking-tight truncate">

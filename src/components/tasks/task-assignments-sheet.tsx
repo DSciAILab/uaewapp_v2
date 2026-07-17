@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Search, Plus, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { EventTask } from '@/types/task';
 import { TaskAssignment, getTaskAssignments, createAssignments, updateAssignmentStatus, deleteAssignment, getUnassignedEnrollments } from '@/lib/services/task-assignments';
+import { getEventById } from '@/lib/services/events';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { getFighterPhotoUrl } from '@/lib/utils';
@@ -50,6 +51,9 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const [searchQuery, setSearchQuery] = useState('');
   const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
+  // Second line of the identity block is the EVENT — person.event_name is the
+  // athlete's ring name, which is a different thing despite the column name.
+  const [eventName, setEventName] = useState<string | null>(null);
 
   // Load assignments when sheet opens
   const loadAssignments = useCallback(async () => {
@@ -81,6 +85,15 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
       loadAssignments();
     }
   }, [open, task, loadAssignments]);
+
+  useEffect(() => {
+    if (!open || !eventId) return;
+    let cancelled = false;
+    getEventById(eventId)
+      .then((e) => { if (!cancelled) setEventName(e?.name ?? null); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [open, eventId]);
 
   // Load available people for dialog
   const loadAvailable = async () => {
@@ -310,7 +323,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                       <FighterIdentity
                         name={name}
                         fighterId={person?.appadmin_fighter_id ? String(person.appadmin_fighter_id) : null}
-                        eventName={person?.event_name}
+                        eventName={eventName}
                       />
                     </TableCell>
 

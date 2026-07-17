@@ -149,6 +149,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
   const { data: enrolled, error: enrolledError } = await supabase
     .from('mma_enrollments')
     .select(`
+      id,
       person_id,
       corner,
       person:mma_people!inner(id, compiled_name:compiled_name, nationality, appadmin_fighter_id, event_name),
@@ -188,13 +189,16 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     const existing = statsMap.get(e.person_id);
     const corner = e.corner || existing?.corner || null; // Enrollment corner takes precedence
 
-    if (existing) return toFighterStats(existing, { corner });
+    if (existing) return { ...toFighterStats(existing, { corner }), enrollment_id: e.id };
 
     // Return placeholder for UI
     const now = new Date().toISOString();
     const placeholder: FighterStats = {
       id: `temp_${e.person_id}`, // Temporary ID for React keys
       person_id: e.person_id,
+      // Lets the table key the shared fight-card resolver instead of relying on
+      // this service's own corner lookup.
+      enrollment_id: e.id,
       person: toPerson(e.person),
 
       // Defaults
