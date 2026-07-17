@@ -5,13 +5,21 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MessageCircle, Plane, RefreshCw, Search } from 'lucide-react';
+import { ArrowDown, ArrowUp, ArrowUpDown, MessageCircle, Plane, RefreshCw, Search } from 'lucide-react';
 
 // UAE-20: public mirror of the ops sheet's Arrival List tab. The sheet is the
 // source of truth; data comes through /api/public/arrival and refreshes both
 // automatically and on demand.
 const COORDINATOR_PHONE = '+971543054140';
 const AUTO_REFRESH_MS = 60_000;
+
+type SortKey = keyof ArrivalRow;
+
+/** dd/mm/yyyy -> sortable yyyy-mm-dd; anything else returned as-is. */
+function sortableDate(v: string): string {
+  const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : v;
+}
 
 interface ArrivalRow {
   order: string;
@@ -33,6 +41,16 @@ export default function PublicArrivalPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else {
+      setSortKey(key);
+      setSortDir('asc');
+    }
+  };
 
   const load = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
@@ -58,13 +76,51 @@ export default function PublicArrivalPage() {
     return () => clearInterval(id);
   }, [load]);
 
-  const filtered = search
+  let filtered = search
     ? rows.filter((r) =>
         [r.name, r.flight, r.carNumber, r.airport].some((v) =>
           v.toLowerCase().includes(search.toLowerCase())
         )
       )
     : rows;
+
+  if (sortKey) {
+    filtered = [...filtered].sort((a, b) => {
+      let cmp: number;
+      if (sortKey === 'order') {
+        cmp = (parseInt(a.order, 10) || 0) - (parseInt(b.order, 10) || 0);
+      } else if (sortKey === 'flightDate') {
+        cmp = sortableDate(a.flightDate).localeCompare(sortableDate(b.flightDate));
+      } else {
+        // Empty values always sink to the bottom regardless of direction.
+        const av = a[sortKey];
+        const bv = b[sortKey];
+        if (!av && bv) return 1;
+        if (av && !bv) return -1;
+        cmp = av.localeCompare(bv, undefined, { numeric: true });
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
+  }
+
+  const SortableHead = ({ k, label, className }: { k: SortKey; label: string; className?: string }) => (
+    <TableHead className={className}>
+      <button
+        type="button"
+        className="inline-flex items-center text-xs font-medium hover:text-foreground transition-colors"
+        onClick={() => toggleSort(k)}
+      >
+        {label}
+        {sortKey !== k ? (
+          <ArrowUpDown className="ml-1 h-3 w-3 opacity-40" />
+        ) : sortDir === 'asc' ? (
+          <ArrowUp className="ml-1 h-3 w-3" />
+        ) : (
+          <ArrowDown className="ml-1 h-3 w-3" />
+        )}
+      </button>
+    </TableHead>
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -125,15 +181,15 @@ export default function PublicArrivalPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-muted/50">
-                  <TableHead className="w-[50px] text-center">#</TableHead>
-                  <TableHead className="min-w-[200px]">Name</TableHead>
-                  <TableHead>Flight</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Airport</TableHead>
-                  <TableHead>Hotel Booking</TableHead>
-                  <TableHead>Car Number</TableHead>
-                  <TableHead>Driver</TableHead>
+                  <SortableHead k="order" label="#" className="w-[50px] text-center" />
+                  <SortableHead k="name" label="Name" className="min-w-[200px]" />
+                  <SortableHead k="flight" label="Flight" />
+                  <SortableHead k="flightDate" label="Date" />
+                  <SortableHead k="flightTime" label="Time" />
+                  <SortableHead k="airport" label="Airport" />
+                  <SortableHead k="hotelBooking" label="Hotel Booking" />
+                  <SortableHead k="carNumber" label="Car Number" />
+                  <SortableHead k="driver" label="Driver" />
                 </TableRow>
               </TableHeader>
               <TableBody>
