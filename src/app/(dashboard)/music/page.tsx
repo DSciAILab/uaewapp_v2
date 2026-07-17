@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
-  Music, Music2, CheckCircle2, XCircle, History,
+  Music, XCircle, History,
   Search, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
@@ -418,9 +418,9 @@ export default function GlobalMusicPage() {
         </Select>
       </div>
 
-      {/* Table + Sidebar */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
+      {/* Table */}
+      <div>
+        <div>
           <Card>
             <CardContent className="pt-6">
               {isLoading ? (
@@ -585,60 +585,16 @@ export default function GlobalMusicPage() {
           </Card>
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Walkout Rules</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li>• Music must be confirmed 24h before event.</li>
-                <li>• Maximum duration is 60 seconds per fighter.</li>
-                <li>• Walkout order is strictly followed.</li>
-              </ul>
-            </CardContent>
-          </Card>
-
-          {events.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Active Events</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {events.map(ev => {
-                    const evRows = rows.filter(r => r.event_id === ev.id);
-                    const withMusic = evRows.filter(r => r.music !== null).length;
-                    const confirmed = evRows.filter(r => r.music?.status === 'confirmed').length;
-                    return (
-                      <div key={ev.id} className="p-2 rounded bg-muted/30 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium truncate">{ev.name}</span>
-                          <Badge variant="outline" className="text-[10px]">
-                            {evRows.length} fighters
-                          </Badge>
-                        </div>
-                        <div className="flex gap-2 text-[10px] text-muted-foreground">
-                          <span className="flex items-center gap-1">
-                            <Music2 className="h-3 w-3 text-status-neutral" aria-hidden="true" />
-                            {withMusic}/{evRows.length} with music
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <CheckCircle2 className="h-3 w-3 text-status-confirmed" aria-hidden="true" />
-                            {confirmed} confirmed
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
       </div>
 
+      <MusicHistoryDrawer
+        open={historyOpenFor !== null}
+        onOpenChange={(open) => !open && setHistoryOpenFor(null)}
+        athleteName={historyOpenFor?.person_name ?? ''}
+        fetchHistory={() =>
+          historyOpenFor ? getMusicHistory(historyOpenFor.enrollment_id) : Promise.resolve([])
+        }
+      />
     </div>
   );
 }
