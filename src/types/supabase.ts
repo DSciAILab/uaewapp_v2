@@ -3237,6 +3237,7 @@ export type Database = {
           name: string
           notes: string | null
           priority: string | null
+          start_date: string | null
           started_at: string | null
           status: string | null
           template_id: string | null
@@ -3257,6 +3258,7 @@ export type Database = {
           name: string
           notes?: string | null
           priority?: string | null
+          start_date?: string | null
           started_at?: string | null
           status?: string | null
           template_id?: string | null
@@ -3277,6 +3279,7 @@ export type Database = {
           name?: string
           notes?: string | null
           priority?: string | null
+          start_date?: string | null
           started_at?: string | null
           status?: string | null
           template_id?: string | null

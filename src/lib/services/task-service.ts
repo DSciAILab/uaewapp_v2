@@ -93,6 +93,7 @@ type EventTaskRow = {
   assigned_by: string | null;
   due_date: string | null;
   due_time: string | null;
+  start_date: string | null;
   started_at: string | null;
   completed_at: string | null;
   checklist_items: unknown;
@@ -116,6 +117,7 @@ function mapEventTask(
     status: toTaskStatus(row.status),
     assigned_to: row.assigned_to,
     assigned_by: row.assigned_by,
+    start_date: row.start_date,
     due_date: row.due_date,
     due_time: row.due_time,
     started_at: row.started_at,
@@ -339,6 +341,7 @@ export async function createTaskFromTemplate(eventId: string, templateId: string
     priority: overrides?.priority || template.default_priority,
     status: overrides?.status || 'pending',
     assigned_to: overrides?.assigned_to,
+    start_date: overrides?.start_date,
     due_date: overrides?.due_date,
     due_time: overrides?.due_time,
     checklist_items: overrides?.checklist_items || template.checklist_items,

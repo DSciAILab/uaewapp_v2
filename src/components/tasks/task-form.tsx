@@ -24,11 +24,15 @@ const taskSchema = z.object({
   priority: z.enum(['low', 'medium', 'high', 'urgent']),
   status: z.enum(['pending', 'in_progress', 'completed', 'cancelled']),
   assigned_to: z.string().optional(),
+  start_date: z.string().optional(),
   due_date: z.string().optional(),
   due_time: z.string().optional(),
   checklist_items: z.array(z.string()),
   notes: z.string().optional(),
-});
+}).refine(
+  (v) => !v.start_date || !v.due_date || v.start_date <= v.due_date,
+  { message: 'Start date must be on or before the due date', path: ['start_date'] }
+);
 
 interface TaskFormProps {
   eventId: string;
@@ -54,6 +58,7 @@ export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskF
       priority: 'medium',
       status: 'pending',
       assigned_to: '',
+      start_date: '',
       due_date: '',
       due_time: '',
       checklist_items: [],
@@ -73,6 +78,7 @@ export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskF
         priority: task.priority,
         status: task.status,
         assigned_to: task.assigned_to || '',
+        start_date: task.start_date || '',
         due_date: task.due_date || '',
         due_time: task.due_time || '',
         checklist_items: task.checklist_items.map(item => item.text),
@@ -87,6 +93,7 @@ export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskF
         priority: 'medium',
         status: 'pending',
         assigned_to: '',
+        start_date: '',
         due_date: '',
         due_time: '',
         checklist_items: [],
@@ -223,14 +230,26 @@ export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskF
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              <FormField
+                control={form.control}
+                name="start_date"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Start Date</FormLabel>
+                    <FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="due_date"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Due Date</FormLabel>
-                    <FormControl><Input type="date" {...field} /></FormControl>
+                    <FormControl><Input type="date" {...field} value={field.value ?? ''} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
