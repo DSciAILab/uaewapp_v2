@@ -161,7 +161,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .from('mma_visas')
       .select('id')
       .eq('enrollment_id', enrolled_id)
-      .single()
+      .maybeSingle()
 
     if (!existingVisa) {
       const visaInsert: Record<string, unknown> = {
@@ -195,7 +195,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .from('mma_flights')
       .select('id')
       .eq('enrollment_id', enrolled_id)
-      .single()
+      .maybeSingle()
 
     if (!existingFlight) {
         const { error: flightError } = await supabase.from('mma_flights').insert({
@@ -214,7 +214,7 @@ async function syncRelatedModules(enrollment: Enrollment) {
       .from('mma_hotels')
       .select('id')
       .eq('enrollment_id', enrolled_id)
-      .single()
+      .maybeSingle()
 
     if (!existingHotel) {
       // Buscar dados do evento para datas padrão
