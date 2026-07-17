@@ -80,7 +80,7 @@ export async function loadFightCard(eventId: string): Promise<FightCardData> {
         event: event?.code || '',
         corner: cornerLabel,
         division,
-        name: (p?.compiled_name as string) || '',
+        name: (p?.event_name as string) || (p?.compiled_name as string) || '',
         nickname: (st?.nickname as string) || '',
         record,
         nationality: (p?.nationality as string) || '',
