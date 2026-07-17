@@ -3436,6 +3436,8 @@ export type Database = {
           coach2_size: string | null
           coach3_size: string | null
           corner: string | null
+          collected_at: string | null
+          collected_by: string | null
           created_at: string | null
           draws: number | null
           fighting_style: string | null
@@ -3470,6 +3472,8 @@ export type Database = {
           coach2_size?: string | null
           coach3_size?: string | null
           corner?: string | null
+          collected_at?: string | null
+          collected_by?: string | null
           created_at?: string | null
           draws?: number | null
           fighting_style?: string | null
@@ -3504,6 +3508,8 @@ export type Database = {
           coach2_size?: string | null
           coach3_size?: string | null
           corner?: string | null
+          collected_at?: string | null
+          collected_by?: string | null
           created_at?: string | null
           draws?: number | null
           fighting_style?: string | null
