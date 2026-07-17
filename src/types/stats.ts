@@ -16,6 +16,10 @@ export interface FighterStats {
   person_id: string;
   /** Enrollment this row was built from — the key for fight-card positions. */
   enrollment_id?: string;
+
+  /** Set when staff confirm this athlete's stats are current for the event. */
+  confirmed_at?: string | null;
+  confirmed_by?: string | null;
   
   // Physical stats
   height_cm: number | null;
@@ -73,6 +77,8 @@ export interface FighterStats {
 }
 
 export interface FighterStatsFormData {
+  /** Written to mma_people, not mma_fighter_stats — the nationality the athlete represents. */
+  nationality?: string | null;
   height_cm?: number;
   reach_cm?: number;
   weight_class?: WeightClass;

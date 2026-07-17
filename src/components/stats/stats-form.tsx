@@ -14,6 +14,8 @@ import { Badge } from '@/components/ui/badge';
 import { FighterStats, FighterStatsFormData, WeightClass, WEIGHT_CLASS_LABELS } from '@/types/stats';
 import { upsertFighterStats, getStatsFacets } from '@/lib/services/stats-service';
 import { CreatableCombobox } from '@/components/ui/creatable-combobox';
+import { Combobox } from '@/components/ui/combobox';
+import { COUNTRIES, flagFor } from '@/lib/countries';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -21,6 +23,7 @@ const statsSchema = z.object({
   height_cm: z.coerce.number().min(100).max(250).optional(),
   reach_cm: z.coerce.number().min(100).max(250).optional(),
   weight_class: z.string().optional(),
+  nationality: z.string().optional(),
   wins: z.coerce.number().min(0).default(0),
   losses: z.coerce.number().min(0).default(0),
   draws: z.coerce.number().min(0).default(0),
@@ -67,6 +70,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
       height_cm: undefined,
       reach_cm: undefined,
       weight_class: undefined,
+      nationality: undefined,
       wins: 0,
       losses: 0,
       draws: 0,
@@ -90,6 +94,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
         height_cm: stats.height_cm || undefined,
         reach_cm: stats.reach_cm || undefined,
         weight_class: stats.weight_class || undefined,
+        nationality: stats.person?.nationality || undefined,
         wins: stats.wins,
         losses: stats.losses,
         draws: stats.draws,
@@ -149,7 +154,7 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                 <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground italic">
                    <span>{stats.person.event_name || 'UAEW'}</span>
                    <span>•</span>
-                   <span>{stats.person.nationality || 'Unknown'}</span>
+                   <span>{stats.person.nationality ? `${flagFor(stats.person.nationality)} ${stats.person.nationality}` : 'Unknown'}</span>
                 </div>
              </div>
           </div>
@@ -215,6 +220,28 @@ export function StatsForm({ personId, personName, stats, open, onOpenChange, onS
                     <FormItem>
                       <FormLabel>Reach (cm)</FormLabel>
                       <FormControl><Input type="number" inputMode="numeric" placeholder="180" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="nationality"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Nationality</FormLabel>
+                      <FormControl>
+                        <Combobox
+                          options={COUNTRIES.map((c) => ({
+                            value: c.name,
+                            label: `${c.flag} ${c.name}`,
+                          }))}
+                          value={field.value || ''}
+                          onValueChange={field.onChange}
+                          placeholder="Select country…"
+                          searchPlaceholder="Search country…"
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
