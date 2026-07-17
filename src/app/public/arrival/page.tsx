@@ -145,14 +145,19 @@ export default function PublicArrivalPage() {
 
         {/* Coordinator + refresh bar */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-3">
-          <button
-            type="button"
-            onClick={() => { setSupportSearch(''); setSupportOpen(true); }}
-            className="flex items-center gap-2 text-sm font-medium text-green-600 hover:text-green-700"
-          >
-            <MessageCircle className="h-4 w-4" />
-            Transport Coordinator (24x7) · {COORDINATOR_PHONE}
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground">
+              Transport Coordinator (24x7)
+            </span>
+            <Button
+              size="sm"
+              className="bg-green-600 hover:bg-green-700 text-white"
+              onClick={() => { setSupportSearch(''); setSupportOpen(true); }}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              For Support Click Here
+            </Button>
+          </div>
           <div className="flex items-center gap-3">
             {fetchedAt && (
               <span className="text-xs text-muted-foreground tabular-nums">
