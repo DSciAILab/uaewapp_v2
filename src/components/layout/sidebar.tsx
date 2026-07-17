@@ -23,6 +23,8 @@ import {
   X,
   ChevronsLeft,
   ChevronsRight,
+  ChevronDown,
+  Luggage,
   Command,
   LogOut,
 } from 'lucide-react'
@@ -50,16 +52,40 @@ const icons = {
   Layers,
   ClipboardList,
   Stethoscope,
+  Luggage,
 }
 
-const navItems = [
+interface NavLeaf {
+  label: string
+  href: string
+  icon: string
+  area?: string
+}
+
+interface NavGroup {
+  label: string
+  icon: string
+  children: NavLeaf[]
+}
+
+type NavEntry = NavLeaf | NavGroup
+
+const isGroup = (entry: NavEntry): entry is NavGroup => 'children' in entry
+
+const navItems: NavEntry[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
   { label: 'Events', href: '/events', icon: 'Calendar', area: 'events' },
   { label: 'People', href: '/people', icon: 'Users', area: 'people' },
-  { label: 'Flights', href: '/flights', icon: 'Plane', area: 'flights' },
-  { label: 'Visas', href: '/visas', icon: 'FileText', area: 'visas' },
-  { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
-  { label: 'Transport', href: '/transport', icon: 'Car', area: 'transport' },
+  {
+    label: 'Logistics',
+    icon: 'Luggage',
+    children: [
+      { label: 'Flights', href: '/flights', icon: 'Plane', area: 'flights' },
+      { label: 'Visas', href: '/visas', icon: 'FileText', area: 'visas' },
+      { label: 'Hotel', href: '/hotels', icon: 'Building2', area: 'hotels' },
+      { label: 'Transport', href: '/transport', icon: 'Car', area: 'transport' },
+    ],
+  },
   { label: 'Fighter Stats', href: '/stats', icon: 'BarChart3', area: 'operations' },
   { label: 'Walk-out Songs', href: '/music', icon: 'Music', area: 'operations' },
   { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
@@ -83,12 +109,23 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
   const supabase = createClient()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [openGroups, setOpenGroups] = useState<string[]>([])
 
   const eventIdMatch = pathname.match(/\/events\/([^\/]+)/)
   const eventId = eventIdMatch ? eventIdMatch[1] : null
 
   useEffect(() => {
     setMobileOpen(false)
+  }, [pathname])
+
+  // Land on /hotels (or /events/x/hotels) and its group must already be open —
+  // otherwise a deep link shows a menu with no visible trace of where you are.
+  useEffect(() => {
+    const active = navItems
+      .filter(isGroup)
+      .filter((g) => g.children.some((c) => pathname.includes(c.href)))
+      .map((g) => g.label)
+    if (active.length) setOpenGroups((prev) => Array.from(new Set([...prev, ...active])))
   }, [pathname])
 
   const handleLogout = async () => {
@@ -102,59 +139,123 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
     }
   }
 
-  const filteredItems = navItems
-    .map((item) => {
-      const eventScopedAreas = ['hotels', 'transport', 'operations', 'pre_event']
-      if (eventId && eventScopedAreas.includes(item.area || '')) {
-        const subPath = item.href.startsWith('/') ? item.href : `/${item.href}`
-        return { ...item, href: `/events/${eventId}${subPath}` }
-      }
-      return item
-    })
-    .filter((item) => {
-      if (!item.area) return true
-      if (permissionsLoading) return user?.user_type === 'admin'
-      if (isAdmin) return true
-      return canView(item.area)
-    })
+  const scopeHref = (item: NavLeaf): NavLeaf => {
+    const eventScopedAreas = ['hotels', 'transport', 'operations', 'pre_event']
+    if (eventId && eventScopedAreas.includes(item.area || '')) {
+      const subPath = item.href.startsWith('/') ? item.href : `/${item.href}`
+      return { ...item, href: `/events/${eventId}${subPath}` }
+    }
+    return item
+  }
+
+  const canSee = (item: NavLeaf) => {
+    if (!item.area) return true
+    if (permissionsLoading) return user?.user_type === 'admin'
+    if (isAdmin) return true
+    return canView(item.area)
+  }
+
+  // A group is only as visible as its children: hide the ones this user can't
+  // see, and drop the group itself once nothing is left inside it.
+  const filteredItems: NavEntry[] = navItems
+    .map((entry) =>
+      isGroup(entry)
+        ? { ...entry, children: entry.children.map(scopeHref).filter(canSee) }
+        : scopeHref(entry)
+    )
+    .filter((entry) => (isGroup(entry) ? entry.children.length > 0 : canSee(entry)))
+
+  const isLeafActive = (item: NavLeaf) =>
+    pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
 
   const navContent = (variant: 'desktop' | 'mobile') => {
     const isMobile = variant === 'mobile'
+    const showLabels = isMobile || !collapsed
+
+    const renderLeaf = (item: NavLeaf, nested = false) => {
+      const Icon = icons[item.icon as keyof typeof icons]
+      const isActive = isLeafActive(item)
+
+      return (
+        <Link
+          key={item.href}
+          href={item.href}
+          className={cn(
+            'group flex items-center gap-3 px-2.5 py-1.5 rounded-md transition-colors text-sm',
+            isActive
+              ? 'bg-primary/15 text-primary border-l-2 border-primary'
+              : 'text-muted-foreground hover:bg-surface-2/60 hover:text-foreground',
+            nested && 'text-xs'
+          )}
+          title={collapsed ? item.label : undefined}
+        >
+          <Icon className={cn('shrink-0', nested ? 'h-3.5 w-3.5' : 'h-4 w-4')} strokeWidth={2} />
+          {showLabels && <span className="truncate">{item.label}</span>}
+        </Link>
+      )
+    }
+
+    const renderGroup = (group: NavGroup) => {
+      const Icon = icons[group.icon as keyof typeof icons]
+      const isOpen = openGroups.includes(group.label)
+      const hasActiveChild = group.children.some(isLeafActive)
+
+      return (
+        <div key={group.label}>
+          <button
+            type="button"
+            onClick={() => {
+              // The collapsed rail is 56px wide — no room for children. Open the
+              // sidebar first, then reveal the group, instead of doing nothing.
+              if (!isMobile && collapsed) {
+                setCollapsed(false)
+                setOpenGroups((prev) => Array.from(new Set([...prev, group.label])))
+                return
+              }
+              setOpenGroups((prev) =>
+                prev.includes(group.label)
+                  ? prev.filter((l) => l !== group.label)
+                  : [...prev, group.label]
+              )
+            }}
+            className={cn(
+              'w-full flex items-center gap-3 px-2.5 py-1.5 rounded-md transition-colors text-sm',
+              hasActiveChild && !isOpen
+                ? 'text-primary'
+                : 'text-muted-foreground hover:bg-surface-2/60 hover:text-foreground'
+            )}
+            title={collapsed ? group.label : undefined}
+            aria-expanded={isOpen}
+          >
+            <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
+            {showLabels && (
+              <>
+                <span className="truncate flex-1 text-left">{group.label}</span>
+                <ChevronDown
+                  className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isOpen && 'rotate-180')}
+                />
+              </>
+            )}
+          </button>
+
+          {showLabels && isOpen && (
+            <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border/60 pl-2">
+              {group.children.map((child) => renderLeaf(child, true))}
+            </div>
+          )}
+        </div>
+      )
+    }
+
     return (
       <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
         {permissionsLoading && filteredItems.length <= 1 ? (
           <div className="flex flex-col items-center justify-center py-10 gap-2 opacity-50">
             <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-            {(isMobile || !collapsed) && (
-              <span className="label-mono">Loading</span>
-            )}
+            {showLabels && <span className="label-mono">Loading</span>}
           </div>
         ) : (
-          filteredItems.map((item) => {
-            const Icon = icons[item.icon as keyof typeof icons]
-            const isActive =
-              pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href))
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'group flex items-center gap-3 px-2.5 py-1.5 rounded-md transition-colors text-sm',
-                  isActive
-                    ? 'bg-primary/15 text-primary border-l-2 border-primary'
-                    : 'text-muted-foreground hover:bg-surface-2/60 hover:text-foreground'
-                )}
-                title={collapsed ? item.label : undefined}
-              >
-                <Icon className="h-4 w-4 shrink-0" strokeWidth={2} />
-                {(isMobile || !collapsed) && (
-                  <span className="truncate">{item.label}</span>
-                )}
-              </Link>
-            )
-          })
+          filteredItems.map((entry) => (isGroup(entry) ? renderGroup(entry) : renderLeaf(entry)))
         )}
       </nav>
     )
