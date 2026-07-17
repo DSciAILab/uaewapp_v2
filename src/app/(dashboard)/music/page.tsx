@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ import {
   getMusicHistory,
 } from '@/lib/services/music-service';
 import { MusicHistoryDrawer } from '@/components/music/music-history-drawer';
+import { normalizeUrl, isYouTubeLink } from '@/lib/utils/song-links';
 import { WalkoutSongCell, WalkoutNotesCell } from '@/components/music/walkout-song-cell';
 import { MedicalWhatsAppLink } from '@/components/medical/medical-whatsapp-link';
 import { cn } from '@/lib/utils';
@@ -124,6 +126,7 @@ function getStatusOrder(row: FighterMusicRow): number {
 }
 
 export default function GlobalMusicPage() {
+  const router = useRouter();
   const [rows, setRows] = useState<FighterMusicRow[]>([]);
   const [allMusic, setAllMusic] = useState<EntranceMusic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -256,6 +259,19 @@ export default function GlobalMusicPage() {
   type SongSlot = 1 | 2 | 3 | 'notes';
   const SLOT_FIELDS = { 1: 'source_url', 2: 'source_url_2', 3: 'source_url_3' } as const;
   const SLOT_STATUS = { 1: 'status_1', 2: 'status_2', 3: 'status_3' } as const;
+  const SLOT_TITLE = { 1: 'title_1', 2: 'title_2', 3: 'title_3' } as const;
+
+  /** Best-effort YouTube title; never blocks the save. */
+  const resolveTitle = async (url: string): Promise<string | null> => {
+    if (!isYouTubeLink(url)) return null;
+    try {
+      const res = await fetch(`/api/song-title?url=${encodeURIComponent(url)}`);
+      if (!res.ok) return null;
+      return ((await res.json()) as { title: string | null }).title;
+    } catch {
+      return null;
+    }
+  };
 
   /** Row status is derived: any approved song makes the row Done. */
   const deriveRowStatus = (statuses: SongStatus[]): MusicStatus =>
@@ -277,10 +293,14 @@ export default function GlobalMusicPage() {
         patch.notes = value || null;
         oldValue = m?.notes ?? null;
       } else {
-        patch[SLOT_FIELDS[slot]] = value || null;
+        // Store links with a scheme: a bare "youtube.com/..." is relative and
+        // would resolve against our own origin.
+        const url = normalizeUrl(value);
+        patch[SLOT_FIELDS[slot]] = url;
         oldValue = (m?.[SLOT_FIELDS[slot]] as string | null) ?? null;
-        // New/changed link restarts that song's approval.
+        // New/changed link restarts that song's approval, and its title.
         patch[SLOT_STATUS[slot]] = 'pending';
+        patch[SLOT_TITLE[slot]] = url ? await resolveTitle(url) : null;
         field = `song_${slot}`;
       }
 
@@ -480,7 +500,11 @@ export default function GlobalMusicPage() {
                       {filtered.map(row => {
                         const m = row.music;
                         return (
-                          <TableRow key={row.enrollment_id} className="hover:bg-muted/50 transition-colors">
+                          <TableRow
+                            key={row.enrollment_id}
+                            className="hover:bg-muted/50 transition-colors cursor-pointer"
+                            onClick={() => router.push(`/music/${row.enrollment_id}`)}
+                          >
                             <TableCell className="p-2 text-center font-bold text-lg bg-yellow-50/30 text-yellow-700/80 dark:bg-yellow-500/5 dark:text-yellow-400/80">
                               {row.fight_order ?? '-'}
                             </TableCell>
@@ -522,6 +546,7 @@ export default function GlobalMusicPage() {
                             <TableCell onClick={e => e.stopPropagation()}>
                               <WalkoutSongCell
                                 value={m?.source_url ?? null}
+                                title={m?.title_1 ?? null}
                                 label="Song 1"
                                 status={m?.status_1 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 1, v)}
@@ -531,6 +556,7 @@ export default function GlobalMusicPage() {
                             <TableCell onClick={e => e.stopPropagation()}>
                               <WalkoutSongCell
                                 value={m?.source_url_2 ?? null}
+                                title={m?.title_2 ?? null}
                                 label="Song 2"
                                 status={m?.status_2 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 2, v)}
@@ -540,6 +566,7 @@ export default function GlobalMusicPage() {
                             <TableCell onClick={e => e.stopPropagation()}>
                               <WalkoutSongCell
                                 value={m?.source_url_3 ?? null}
+                                title={m?.title_3 ?? null}
                                 label="Song 3"
                                 status={m?.status_3 || 'pending'}
                                 onSave={(v) => handleCellSave(row, 3, v)}
@@ -563,7 +590,7 @@ export default function GlobalMusicPage() {
                               )}
                             </TableCell>
 
-                            <TableCell className="text-center">
+                            <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                               <Button
                                 variant="ghost"
                                 size="icon"
