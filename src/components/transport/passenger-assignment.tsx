@@ -5,9 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { UserPlus, UserMinus, Users, Plane, PlaneLanding, PlaneTakeoff, Loader2, Car } from 'lucide-react';
-import { EventCar, CarPassenger } from '@/types/transport';
+import { UserPlus, UserMinus, Users, PlaneLanding, PlaneTakeoff, Loader2, Car } from 'lucide-react';
+import { EventCar, TransportType, UnassignedPassenger } from '@/types/transport';
 import { assignPassenger, removePassenger, getUnassignedPassengers } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
 
@@ -19,10 +18,20 @@ interface PassengerAssignmentProps {
   onSuccess: () => void;
 }
 
+function DirectionBadge({ type }: { type: TransportType }) {
+  const Icon = type === 'arrival' ? PlaneLanding : PlaneTakeoff;
+  return (
+    <Badge variant="outline" className="capitalize text-[9px] h-4 px-1">
+      <Icon className="h-3 w-3 mr-1" />
+      {type}
+    </Badge>
+  );
+}
+
 export function PassengerAssignment({ eventId, car, open, onOpenChange, onSuccess }: PassengerAssignmentProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUnassignedLoading, setIsUnassignedLoading] = useState(false);
-  const [unassigned, setUnassigned] = useState<Array<{ enrolled_id: string; person_name: string; role?: { name: string } }>>([]);
+  const [unassigned, setUnassigned] = useState<UnassignedPassenger[]>([]);
 
   const loadUnassigned = async () => {
     setIsUnassignedLoading(true);
@@ -42,10 +51,12 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
     }
   }, [open]);
 
-  const handleAddPassenger = async (enrolledId: string) => {
+  // transport_type is NOT NULL on mma_car_passengers, so the direction must come
+  // from the pending leg being filled — it can no longer be read off the car.
+  const handleAddPassenger = async (enrolledId: string, transportType: TransportType) => {
     setIsLoading(true);
     try {
-      await assignPassenger(car.id, { enrollment_id: enrolledId });
+      await assignPassenger(car.id, { enrolled_id: enrolledId, transport_type: transportType });
       toast.success('Passenger added');
       onSuccess();
       loadUnassigned();
@@ -71,6 +82,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
   };
 
   const passengers = car.passengers || [];
+  const capacity = car.capacity ?? 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,11 +94,14 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
           </DialogTitle>
           <div className="flex items-center gap-2 mt-1">
             <Badge variant="outline" className="capitalize">
-              {car.type === 'arrival' ? <PlaneLanding className="h-3 w-3 mr-1" /> : car.type === 'departure' ? <PlaneTakeoff className="h-3 w-3 mr-1" /> : <Car className="h-3 w-3 mr-1" />}
-              {car.type}
+              <Car className="h-3 w-3 mr-1" />
+              {car.vehicle_type || 'Vehicle'}
             </Badge>
-            <span className="text-xs text-muted-foreground italic">
-                {car.route_from} → {car.route_to}
+            {car.car_label && (
+              <span className="text-xs text-muted-foreground italic">{car.car_label}</span>
+            )}
+            <span className="text-xs text-muted-foreground">
+              {passengers.length} / {capacity} seats
             </span>
           </div>
         </DialogHeader>
@@ -97,7 +112,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
               Currently Assigned ({passengers.length})
               <span className="h-[1px] flex-1 bg-muted"></span>
             </h4>
-            
+
             <div className="space-y-2">
               {passengers.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground border border-dashed rounded-lg bg-slate-50/50">
@@ -109,9 +124,12 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
                   <div key={passenger.id} className="flex items-center justify-between p-3 border rounded-lg bg-card/50 hover:bg-card transition-colors">
                     <div>
                       <p className="font-medium text-sm">{passenger.enrolled?.person?.compiled_name}</p>
-                      <Badge variant="outline" className="text-[9px] h-4 px-1 uppercase mt-1">
-                        {passenger.enrolled?.person?.role?.name}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <Badge variant="outline" className="text-[9px] h-4 px-1 uppercase">
+                          {passenger.enrolled?.person?.role?.name}
+                        </Badge>
+                        <DirectionBadge type={passenger.transport_type} />
+                      </div>
                     </div>
                     <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive shrink-0" onClick={() => handleRemovePassenger(passenger.id)} disabled={isLoading}>
                       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserMinus className="h-4 w-4" />}
@@ -127,7 +145,7 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
               Available to Assign
               <span className="h-[1px] flex-1 bg-muted"></span>
             </h4>
-            
+
             {isUnassignedLoading ? (
               <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
             ) : unassigned.length === 0 ? (
@@ -137,16 +155,22 @@ export function PassengerAssignment({ eventId, car, open, onOpenChange, onSucces
             ) : (
               <div className="space-y-1.5">
                 {unassigned.map((p) => (
-                  <div key={p.enrolled_id} className="flex items-center justify-between p-2 pl-3 border rounded-md text-sm bg-muted/20 hover:bg-muted/40 transition-colors">
-                    <span className="font-medium truncate mr-2">
-                        {p.person_name} 
-                        <span className="ml-2 text-[10px] font-normal opacity-60">({p.role?.name})</span>
+                  <div
+                    key={`${p.enrolled_id}_${p.transport_type}`}
+                    className="flex items-center justify-between p-2 pl-3 border rounded-md text-sm bg-muted/20 hover:bg-muted/40 transition-colors"
+                  >
+                    <span className="font-medium truncate mr-2 flex items-center gap-2">
+                        <span className="truncate">
+                          {p.person_name}
+                          <span className="ml-2 text-[10px] font-normal opacity-60">({p.role?.name})</span>
+                        </span>
+                        <DirectionBadge type={p.transport_type} />
                     </span>
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       className="h-7 px-3 text-blue-600 hover:text-blue-700 hover:bg-blue-50 shrink-0"
-                      onClick={() => handleAddPassenger(p.enrolled_id)}
+                      onClick={() => handleAddPassenger(p.enrolled_id, p.transport_type)}
                       disabled={isLoading}
                     >
                       <UserPlus className="h-3.5 w-3.5 mr-1" /> Add

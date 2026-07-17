@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { EventCar, FlightGroup } from '@/types/transport';
+import { EventCar, FlightGroup, TransportType } from '@/types/transport';
 import { assignPassenger, removePassenger } from '@/lib/services/transport-service';
 import { toast } from 'sonner';
-import { ArrowRight, Car, Plane, Users, Plus, X } from 'lucide-react';
+import { Car, Plane, Plus, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import {
@@ -27,11 +27,14 @@ interface FlightGroupingViewProps {
 export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingViewProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const handleAssign = async (enrollmentId: string, carId: string) => {
-    setLoadingId(`${enrollmentId}-${carId}`);
+  // The leg comes from the flight group being filled — transport_type is now a
+  // required NOT NULL column on the passenger row.
+  const handleAssign = async (enrolledId: string, carId: string, transportType: TransportType) => {
+    setLoadingId(`${enrolledId}-${carId}`);
     try {
       await assignPassenger(carId, {
-        enrollment_id: enrollmentId
+        enrolled_id: enrolledId,
+        transport_type: transportType,
       });
       toast.success('Passenger assigned to car');
       onRefresh();
@@ -100,7 +103,9 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                    {group.passengers.map((p) => {
                        const assignedCar = p.assigned_car;
                        // Find the specific passenger record ID from the assigned car's passengers
-                       const passengerRecord = assignedCar?.passengers?.find(pass => pass.enrollment_id === p.enrolled_id);
+                       const passengerRecord = assignedCar?.passengers?.find(
+                         pass => pass.enrolled_id === p.enrolled_id && pass.transport_type === group.flight.type
+                       );
                        
                        return (
                            <div key={`${p.enrolled_id}-${group.flight.type}`} className="flex items-center justify-between p-3 bg-card border rounded-lg shadow-sm hover:shadow-md transition-shadow">
@@ -135,23 +140,33 @@ export function FlightGroupingView({ groups, cars, onRefresh }: FlightGroupingVi
                                                    Assign Car
                                                </Button>
                                            </DropdownMenuTrigger>
-                                           <DropdownMenuContent align="end" className="w-[180px]">
-                                               {cars.filter(c => c.type === group.flight.type).map(car => {
+                                           <DropdownMenuContent align="end" className="w-[200px]">
+                                               {/* Cars are direction-agnostic in the current schema, so every
+                                                   event vehicle is a candidate for either leg. */}
+                                               {cars.map(car => {
                                                    const currentCount = car.passengers?.length || 0;
+                                                   const capacity = car.capacity ?? 0;
+                                                   const isFull = capacity > 0 && currentCount >= capacity;
                                                    return (
-                                                       <DropdownMenuItem 
-                                                        key={car.id} 
-                                                        onClick={() => handleAssign(p.enrolled_id, car.id)}
+                                                       <DropdownMenuItem
+                                                        key={car.id}
+                                                        disabled={isFull}
+                                                        onClick={() => handleAssign(p.enrolled_id, car.id, group.flight.type)}
                                                        >
                                                            <Car className="h-4 w-4 mr-2 text-slate-400" />
-                                                           <span className="flex-1">Car #{car.car_number}</span>
-                                                           <Badge variant="secondary" className="text-[10px] h-4 px-1">{currentCount} pax</Badge>
+                                                           <span className="flex-1">
+                                                             Car #{car.car_number}
+                                                             {car.car_label ? ` — ${car.car_label}` : ''}
+                                                           </span>
+                                                           <Badge variant="secondary" className="text-[10px] h-4 px-1">
+                                                             {currentCount}/{capacity}
+                                                           </Badge>
                                                        </DropdownMenuItem>
                                                    );
                                                })}
-                                               {cars.filter(c => c.type === group.flight.type).length === 0 && (
+                                               {cars.length === 0 && (
                                                    <div className="p-3 text-xs text-center text-muted-foreground">
-                                                       No {group.flight.type} cars available
+                                                       No vehicles registered for this event
                                                    </div>
                                                )}
                                            </DropdownMenuContent>

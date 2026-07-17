@@ -35,9 +35,10 @@ export function LogisticsTable({ data, cars, eventId, onRefresh }: LogisticsTabl
       // For MVP: Simplest flow -> Assign.
       
       const formData: CarPassengerFormData = {
-        enrollment_id: enrolledId,
+        enrolled_id: enrolledId,
+        transport_type: type,
       };
-      
+
       await assignPassenger(carId, formData);
       toast.success('Transport assigned');
       onRefresh();
