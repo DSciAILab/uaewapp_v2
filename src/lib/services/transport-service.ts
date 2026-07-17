@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import type { Database } from '@/types/supabase';
 import {
   Driver,
   DriverFormData,
@@ -180,7 +181,7 @@ export async function createEventCar(eventId: string, formData: EventCarFormData
 export async function updateEventCar(carId: string, formData: Partial<EventCarFormData>): Promise<EventCar> {
   const supabase = getClient();
   // driver_id is a uuid column: '' from a cleared <Select> must become NULL.
-  const patch: Record<string, unknown> = { ...formData };
+  const patch: Database['public']['Tables']['mma_event_cars']['Update'] = { ...formData };
   if ('driver_id' in patch) patch.driver_id = formData.driver_id || null;
 
   const { data, error } = await supabase
