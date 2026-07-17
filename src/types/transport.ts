@@ -14,6 +14,15 @@ export type TransportType = 'arrival' | 'departure';
 
 export const TRANSPORT_TYPES: TransportType[] = ['arrival', 'departure'];
 
+/**
+ * Trip type of the CAR itself (mma_event_cars.transport_type, added UAE-20).
+ * Unlike passenger transport_type, this includes standalone services that are
+ * not tied to athletes or flights.
+ */
+export type CarTransportType = 'arrival' | 'departure' | 'shuttle' | 'custom';
+
+export const CAR_TRANSPORT_TYPES: CarTransportType[] = ['arrival', 'departure', 'shuttle', 'custom'];
+
 export interface Driver {
   id: string;
   full_name: string;
@@ -58,6 +67,13 @@ export interface EventCar {
   vehicle_type: string | null;
   license_plate: string | null;
   notes: string | null;
+  // Trip fields (UAE-20): let a car be a standalone transport (e.g. a shuttle)
+  // with its own route/schedule and no passengers.
+  transport_type: CarTransportType | null;
+  pickup_location: string | null;
+  dropoff_location: string | null;
+  scheduled_date: string | null;
+  scheduled_time: string | null;
   created_at: string | null;
   updated_at: string | null;
 
@@ -80,6 +96,11 @@ export interface EventCarFormData {
   vehicle_type?: string;
   license_plate?: string;
   notes?: string;
+  transport_type?: CarTransportType | '';
+  pickup_location?: string;
+  dropoff_location?: string;
+  scheduled_date?: string;
+  scheduled_time?: string;
 }
 
 export interface CarPassenger {

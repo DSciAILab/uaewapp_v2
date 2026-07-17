@@ -39,7 +39,7 @@ export async function getDashboardData(eventId: string, client?: SupabaseClient,
     status: eventResult.data.status,
   };
 
-  const metrics = metricsResult.data as EventMetrics;
+  const metrics = metricsResult.data as unknown as EventMetrics;
   const modules = calculateModuleStatuses(metrics);
 
   return {
@@ -58,7 +58,7 @@ export async function getEventMetrics(eventId: string, client?: SupabaseClient):
   const supabase = client || getClient();
   const { data, error } = await supabase.rpc('get_event_dashboard_metrics', { p_event_id: eventId });
   if (error) throw error;
-  return data as EventMetrics;
+  return data as unknown as EventMetrics;
 }
 
 /**

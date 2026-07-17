@@ -113,7 +113,24 @@ export function CarTable({ cars, onEdit, onManagePassengers, onRefresh }: CarTab
                       </div>
                     </TableCell>
                     <TableCell>
-                      <div className="text-sm">{renderDirections(car.transport_types)}</div>
+                      <div className="text-sm space-y-0.5">
+                        {car.transport_type && (
+                          <div className="flex flex-col">
+                            <span className="text-xs font-medium uppercase tracking-wide">{car.transport_type}</span>
+                            {(car.pickup_location || car.dropoff_location) && (
+                              <span className="text-xs text-muted-foreground">
+                                {car.pickup_location || '?'} → {car.dropoff_location || '?'}
+                              </span>
+                            )}
+                            {(car.scheduled_date || car.scheduled_time) && (
+                              <span className="text-xs text-muted-foreground">
+                                {[car.scheduled_date, car.scheduled_time].filter(Boolean).join(' ')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        {!car.transport_type && renderDirections(car.transport_types)}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {car.driver ? (

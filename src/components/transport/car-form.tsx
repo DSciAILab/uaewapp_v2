@@ -24,6 +24,11 @@ const carSchema = z.object({
   vehicle_type: z.string().optional(),
   license_plate: z.string().optional(),
   notes: z.string().optional(),
+  transport_type: z.enum(['arrival', 'departure', 'shuttle', 'custom']).optional().or(z.literal('')),
+  pickup_location: z.string().optional(),
+  dropoff_location: z.string().optional(),
+  scheduled_date: z.string().optional(),
+  scheduled_time: z.string().optional(),
 });
 
 interface CarFormProps {
@@ -36,6 +41,7 @@ interface CarFormProps {
 }
 
 const UNASSIGNED = 'unassigned';
+const NO_TRIP = 'none';
 
 export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }: CarFormProps) {
   const [isLoading, setIsLoading] = useState(false);
@@ -50,6 +56,11 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
       vehicle_type: '',
       license_plate: '',
       notes: '',
+      transport_type: '',
+      pickup_location: '',
+      dropoff_location: '',
+      scheduled_date: '',
+      scheduled_time: '',
     },
   });
 
@@ -62,6 +73,11 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
         vehicle_type: car.vehicle_type || '',
         license_plate: car.license_plate || '',
         notes: car.notes || '',
+        transport_type: car.transport_type || '',
+        pickup_location: car.pickup_location || '',
+        dropoff_location: car.dropoff_location || '',
+        scheduled_date: car.scheduled_date || '',
+        scheduled_time: car.scheduled_time || '',
       });
     } else {
       form.reset({
@@ -71,6 +87,11 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
         vehicle_type: 'van',
         license_plate: '',
         notes: '',
+        transport_type: '',
+        pickup_location: '',
+        dropoff_location: '',
+        scheduled_date: '',
+        scheduled_time: '',
       });
     }
   }, [car, open, form]);
@@ -201,6 +222,94 @@ export function CarForm({ eventId, car, drivers, open, onOpenChange, onSuccess }
                   </FormItem>
                 )}
               />
+            </div>
+
+            <div className="rounded-md border border-dashed p-4 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Optional trip: give this vehicle its own route and time (e.g. a shuttle).
+                Passengers can be assigned later — or never.
+              </p>
+
+              <FormField
+                control={form.control}
+                name="transport_type"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Trip Type</FormLabel>
+                    <Select onValueChange={(v) => field.onChange(v === NO_TRIP ? '' : v)} value={field.value || NO_TRIP}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="No trip" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value={NO_TRIP}>-- No trip --</SelectItem>
+                        <SelectItem value="shuttle">Shuttle</SelectItem>
+                        <SelectItem value="arrival">Arrival</SelectItem>
+                        <SelectItem value="departure">Departure</SelectItem>
+                        <SelectItem value="custom">Custom</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="pickup_location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>From</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Holiday Inn" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="dropoff_location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>To</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Etihad Arena" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="scheduled_date"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="scheduled_time"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} value={field.value ?? ''} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
             </div>
 
             <FormField

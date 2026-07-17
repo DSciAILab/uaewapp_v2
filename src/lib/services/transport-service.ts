@@ -169,6 +169,11 @@ export async function createEventCar(eventId: string, formData: EventCarFormData
       vehicle_type: formData.vehicle_type || null,
       license_plate: formData.license_plate || null,
       notes: formData.notes || null,
+      transport_type: formData.transport_type || null,
+      pickup_location: formData.pickup_location || null,
+      dropoff_location: formData.dropoff_location || null,
+      scheduled_date: formData.scheduled_date || null,
+      scheduled_time: formData.scheduled_time || null,
     })
     .select()
     .single();
@@ -183,6 +188,10 @@ export async function updateEventCar(carId: string, formData: Partial<EventCarFo
   // driver_id is a uuid column: '' from a cleared <Select> must become NULL.
   const patch: Database['public']['Tables']['mma_event_cars']['Update'] = { ...formData };
   if ('driver_id' in patch) patch.driver_id = formData.driver_id || null;
+  // Text trip fields: '' from a cleared input must become NULL.
+  for (const key of ['transport_type', 'pickup_location', 'dropoff_location', 'scheduled_date', 'scheduled_time'] as const) {
+    if (key in patch && !patch[key]) patch[key] = null;
+  }
 
   const { data, error } = await supabase
     .from('mma_event_cars')

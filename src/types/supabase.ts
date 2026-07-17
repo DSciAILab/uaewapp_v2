@@ -3081,6 +3081,11 @@ export type Database = {
           id: string
           license_plate: string | null
           notes: string | null
+          dropoff_location: string | null
+          pickup_location: string | null
+          scheduled_date: string | null
+          scheduled_time: string | null
+          transport_type: string | null
           updated_at: string | null
           vehicle_type: string | null
         }
@@ -3094,6 +3099,11 @@ export type Database = {
           id?: string
           license_plate?: string | null
           notes?: string | null
+          dropoff_location?: string | null
+          pickup_location?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          transport_type?: string | null
           updated_at?: string | null
           vehicle_type?: string | null
         }
@@ -3107,6 +3117,11 @@ export type Database = {
           id?: string
           license_plate?: string | null
           notes?: string | null
+          dropoff_location?: string | null
+          pickup_location?: string | null
+          scheduled_date?: string | null
+          scheduled_time?: string | null
+          transport_type?: string | null
           updated_at?: string | null
           vehicle_type?: string | null
         }
