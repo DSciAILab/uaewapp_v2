@@ -21,7 +21,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
     .from('mma_enrollments')
     .select(`
       id,
-      person:mma_people(id, name, surname, nationality, appadmin_fighter_id, passport_photo, event_name),
+      person:mma_people(id, name, surname, nationality, appadmin_fighter_id, passport_photo, event_name, phone),
       event:mma_events(name),
       role:mma_roles!inner(code)
     `)
@@ -121,6 +121,7 @@ export async function getStagingData(eventId: string): Promise<StagingRow[]> {
         compiled_name: matchData.name || eventName || fullName, // Use Fight Card name -> Event Name -> Full Name
         nationality: person.nationality,
         appadmin_fighter_id: person.appadmin_fighter_id,
+        phone: person.phone ?? null,
         photo_url: getFighterPhotoUrl(person.appadmin_fighter_id) || person.passport_photo
       },
       event_name: Array.isArray(enr.event) ? enr.event[0]?.name : enr.event?.name

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
+import { MedicalWhatsAppLink } from '@/components/medical/medical-whatsapp-link';
 import { Search, Bus, Users, CheckCircle2, Circle, Filter, Download, FileText, ArrowUpDown, ArrowUp, ArrowDown, Minus, Plus } from 'lucide-react';
 import { StagingRow } from '@/types/staging';
 import { updateStagingItem } from '@/lib/services/staging-service';
@@ -430,6 +431,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
               {renderHeader('#', 'fight_order', 'w-[60px] text-center bg-yellow-50/50')}
               <TableHead className="w-[80px] text-center">Photo</TableHead>
               {renderHeader('Fighter', 'person.compiled_name', 'w-[250px] justify-start')}
+              <TableHead className="w-[60px] text-center">WA</TableHead>
               <TableHead 
                 className="w-[180px] bg-blue-50/50 cursor-pointer hover:bg-blue-100/50 transition-colors"
                 onClick={() => handleSort('bus_number')}
@@ -456,7 +458,7 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
           <TableBody>
             {filteredData.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={11} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={12} className="h-24 text-center text-muted-foreground">
                         No fighters found matching filters.
                     </TableCell>
                 </TableRow>
@@ -505,6 +507,13 @@ export function StagingTable({ data: initialData, eventId }: StagingTableProps) 
                           </Badge>
                           <span className="text-[10px] text-muted-foreground truncate max-w-[150px]">{row.event_name}</span>
                       </div>
+                  </div>
+                </TableCell>
+
+                {/* WhatsApp */}
+                <TableCell className="text-center">
+                  <div className="flex justify-center">
+                    <MedicalWhatsAppLink phone={row.person.phone} />
                   </div>
                 </TableCell>
 

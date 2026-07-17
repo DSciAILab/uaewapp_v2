@@ -30,6 +30,7 @@ export interface StagingRow extends StagingCheckin {
     compiled_name: string;
     nationality?: string;
     appadmin_fighter_id?: string;
+    phone?: string | null;
     photo_url?: string; // We'll need to construct this from passport_photo or similar
   };
   event_name?: string;
