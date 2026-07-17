@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Pencil } from 'lucide-react';
 import { FighterStats } from '@/types/stats';
-import { calculateRecord, formatHeight, formatReach } from '@/lib/services/stats-service';
+import { formatHeight, formatReach } from '@/lib/services/stats-service';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import {
   FIGHT_ORDER_CELL_CLASS,
@@ -29,7 +29,6 @@ type SortKey =
   | 'nationality'
   | 'residency'
   | 'weight'
-  | 'record'
   | 'height'
   | 'team';
 
@@ -86,8 +85,6 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
           return s.residency;
         case 'weight':
           return s.weight_kg ?? null;
-        case 'record':
-          return s.wins;
         case 'height':
           return s.height_cm ?? null;
         case 'team':
@@ -114,7 +111,6 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
             <SortableHead column="nationality" label="Nationality" sort={sort} onSort={toggleSort} />
             <SortableHead column="residency" label="Residency" sort={sort} onSort={toggleSort} />
             <SortableHead column="weight" label="Weight" sort={sort} onSort={toggleSort} />
-            <SortableHead column="record" label="Record" sort={sort} onSort={toggleSort} />
             <SortableHead column="height" label="Height/Reach" sort={sort} onSort={toggleSort} />
             <SortableHead column="team" label="Team" sort={sort} onSort={toggleSort} />
             <TableHead className="w-[70px]"></TableHead>
@@ -161,9 +157,6 @@ export function StatsTable({ stats, eventId, onEdit }: StatsTableProps) {
                 </TableCell>
                 <TableCell className="text-sm font-medium">
                    {s.weight_kg ? `${s.weight_kg} kg` : '-'}
-                </TableCell>
-                <TableCell>
-                  <Badge variant="outline" className="font-bold text-[10px]">{calculateRecord(s)}</Badge>
                 </TableCell>
                 <TableCell className="text-[10px] whitespace-nowrap">
                    <div className="flex flex-col gap-0.5">
