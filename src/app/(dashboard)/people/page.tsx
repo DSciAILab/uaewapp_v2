@@ -39,6 +39,7 @@ import { usePermissions } from '@/hooks/use-permissions'
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown'
 import type { Person, PeopleFilters, PersonFormData } from '@/types/database'
 import type { PersonSchema } from '@/lib/validations/person'
+import { parseCSVDate } from '@/lib/utils/csv-values'
 import {
   getPeople,
   createPerson,
@@ -69,30 +70,6 @@ const PEOPLE_FIELDS: FieldDef[] = [
   { value: 'height', label: 'Height' },
   { value: 'reach', label: 'Reach' },
 ]
-
-/** Normalizes a CSV date cell to YYYY-MM-DD, or null when unparseable. */
-function parseCSVDate(value: string): string | null {
-  // DD/MM/YYYY or DD-MM-YYYY (European order)
-  if (/^\d{1,2}[\/\-]\d{1,2}[\/\-]\d{4}$/.test(value)) {
-    const [day, month, year] = value.split(/[\/\-]/).map(Number)
-    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-  }
-
-  // Excel serial date. Excel's epoch is 1899-12-30, which absorbs its
-  // "1900 was a leap year" bug.
-  if (/^\d+(\.\d+)?$/.test(value)) {
-    const serial = parseFloat(value)
-    if (!(serial > 0 && serial < 100000)) return null
-    const date = new Date(Date.UTC(1899, 11, 30) + serial * 86400 * 1000)
-    if (isNaN(date.getTime())) return null
-    return date.toISOString().split('T')[0]
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value
-
-  const attempt = new Date(value)
-  return isNaN(attempt.getTime()) ? null : attempt.toISOString().split('T')[0]
-}
 
 /** Coerces one mapped CSV cell into the shape PersonFormData expects. */
 function transformPersonValue(field: string, value: string): unknown {

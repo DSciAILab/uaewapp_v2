@@ -60,6 +60,12 @@ export interface ImportResult {
   updated: number
   skipped: ImportIssue[]
   errors: ImportIssue[]
+  /**
+   * Rows that DID import, but whose file disagreed with what we have on record
+   * — worth the operator's eyes, and deliberately separate from `skipped`,
+   * which means nothing was written.
+   */
+  divergences?: ImportIssue[]
 }
 
 export interface ResultLabels {
@@ -67,6 +73,7 @@ export interface ResultLabels {
   updated?: string
   skipped?: string
   errors?: string
+  divergences?: string
 }
 
 type ProgressFn = (current: number, total: number, message?: string) => void
@@ -146,6 +153,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
     updated: resultLabels?.updated ?? 'Updated',
     skipped: resultLabels?.skipped ?? 'Not Found',
     errors: resultLabels?.errors ?? 'Errors',
+    divergences: resultLabels?.divergences ?? 'Imported — check these',
   }
 
   const ingest = useCallback((text: string) => {
@@ -454,6 +462,7 @@ export function GenericCSVImport<TRow = Record<string, string>>({
     const rows = [
       ...result.errors.map(e => ({ ...e, kind: labels.errors })),
       ...result.skipped.map(s => ({ ...s, kind: labels.skipped })),
+      ...(result.divergences ?? []).map(d => ({ ...d, kind: labels.divergences })),
     ]
 
     let content = ''
@@ -474,7 +483,9 @@ export function GenericCSVImport<TRow = Record<string, string>>({
       content += `- **${labels.created}:** ${result.created}\n`
       content += `- **${labels.updated}:** ${result.updated}\n`
       content += `- **${labels.skipped}:** ${result.skipped.length}\n`
-      content += `- **${labels.errors}:** ${result.errors.length}\n\n`
+      content += `- **${labels.errors}:** ${result.errors.length}\n`
+      if (result.divergences?.length) content += `- **${labels.divergences}:** ${result.divergences.length}\n`
+      content += '\n'
       if (rows.length > 0) {
         content += `## Issues\n| Row | Name | Column | Type | Message |\n| :--- | :--- | :--- | :--- | :--- |\n`
         rows.forEach(r => {
@@ -545,6 +556,21 @@ export function GenericCSVImport<TRow = Record<string, string>>({
               <ul className="list-disc list-inside space-y-1 text-muted-foreground">
                 {result?.skipped.map((s, i) => (
                   <li key={i}>Row {s.row}: <strong>{s.name}</strong> — {s.message}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+
+        {(result?.divergences?.length || 0) > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-bold flex items-center gap-2 text-blue-500">
+              <AlertCircle className="h-4 w-4" /> {labels.divergences}
+            </p>
+            <div className="bg-blue-500/5 rounded-lg p-3 max-h-40 overflow-y-auto border border-blue-500/10 text-xs">
+              <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                {result?.divergences?.map((d, i) => (
+                  <li key={i}>Row {d.row}: <strong>{d.name}</strong> — {d.message}</li>
                 ))}
               </ul>
             </div>
