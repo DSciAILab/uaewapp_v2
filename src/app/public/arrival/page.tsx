@@ -65,6 +65,20 @@ function matchesSearch(r: ArrivalRow, query: string): boolean {
   return terms.some((t) => haystack.includes(t));
 }
 
+/**
+ * Live status for a flight number. Google's flight card is the target because
+ * it answers the only question asked at the airport — delayed, landed, which
+ * terminal — and it opens for everyone; the tracker sites gate mobile visitors
+ * behind bot checks. Anything that isn't a flight number (the sheet also
+ * carries "Resident") gets no link.
+ */
+function flightTrackingUrl(flight: string): string | null {
+  const code = flight.replace(/\s+/g, '').toUpperCase();
+  return /^[A-Z0-9]{2}\d{1,4}$/.test(code)
+    ? `https://www.google.com/search?q=${encodeURIComponent(`${code} flight status`)}`
+    : null;
+}
+
 /** dd/mm/yyyy -> sortable yyyy-mm-dd; anything else returned as-is. */
 function sortableDate(v: string): string {
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -257,10 +271,28 @@ export default function PublicArrivalPage() {
                       <TableCell className="text-center font-bold text-muted-foreground">{r.order}</TableCell>
                       <TableCell className="font-medium">{r.name}</TableCell>
                       <TableCell>
-                        <span className="flex items-center gap-1.5">
-                          <Plane className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-                          {r.flight || '-'}
-                        </span>
+                        {(() => {
+                          const track = r.flight ? flightTrackingUrl(r.flight) : null;
+                          const inner = (
+                            <>
+                              <Plane className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+                              {r.flight || '-'}
+                            </>
+                          );
+                          return track ? (
+                            <a
+                              href={track}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={`Track ${r.flight} live`}
+                              className="flex items-center gap-1.5 text-primary underline-offset-2 hover:underline"
+                            >
+                              {inner}
+                            </a>
+                          ) : (
+                            <span className="flex items-center gap-1.5">{inner}</span>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell className="tabular-nums">{r.flightDate || '-'}</TableCell>
                       <TableCell className="tabular-nums">{r.flightTime || '-'}</TableCell>
@@ -314,12 +346,30 @@ export default function PublicArrivalPage() {
                     </div>
                     <div className="flex-1 p-3 min-w-0 space-y-1.5">
                       <p className="font-bold text-sm leading-tight">{r.name}</p>
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Plane className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                        {[r.flight, r.flightDate, r.flightTime, r.airport && `· ${r.airport}`]
-                          .filter(Boolean)
-                          .join(' ') || 'Flight not listed'}
-                      </p>
+                      {(() => {
+                        const track = r.flight ? flightTrackingUrl(r.flight) : null;
+                        const line =
+                          [r.flight, r.flightDate, r.flightTime, r.airport && `· ${r.airport}`]
+                            .filter(Boolean)
+                            .join(' ') || 'Flight not listed';
+                        return (
+                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            <Plane className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                            {track ? (
+                              <a
+                                href={track}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary underline-offset-2 hover:underline"
+                              >
+                                {line}
+                              </a>
+                            ) : (
+                              line
+                            )}
+                          </p>
+                        );
+                      })()}
                       <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                         {r.carNumber ? (
                           <Badge variant="secondary" className="font-mono text-[10px]">{r.carNumber}</Badge>
