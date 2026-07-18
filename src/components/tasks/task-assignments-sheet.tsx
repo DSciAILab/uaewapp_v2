@@ -47,6 +47,7 @@ const ASSIGNMENT_STATUS_TONE: Record<AssignmentStatus, string> = {
   in_progress: 'text-orange-600 dark:text-orange-400',
   completed: 'text-emerald-600 dark:text-emerald-400',
   exempt: 'text-muted-foreground',
+  cancelled: 'text-muted-foreground line-through',
 };
 
 interface TaskAssignmentsSheetProps {
@@ -245,8 +246,10 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
 
   const toggleSort = (key: SortKey) => setSort(prev => nextSort(prev, key));
 
+  // Cancelled rows stay on screen but leave the count: holding them in the
+  // denominator would make the task look permanently unfinished (UAE-26).
   const stats = {
-    total: assignments.length,
+    total: assignments.filter(a => a.status !== 'cancelled').length,
     completed: assignments.filter(a => a.status === 'completed').length,
     pending: assignments.filter(a => a.status === 'pending').length
   };

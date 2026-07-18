@@ -29,8 +29,10 @@ import {
   createEnrollment, 
   updateEnrollment, 
   cancelEnrollment,
-  type EnrollmentWithDetails 
+  type EnrollmentWithDetails
 } from '@/lib/services/enrollments';
+import { cancelAssignmentsForEnrollment, countOpenAssignments } from '@/lib/services/task-assignments';
+import { Checkbox } from '@/components/ui/checkbox';
 
 import { formatDate } from '@/lib/utils';
 import { EventSchema, EnrollmentSchema } from '@/lib/validations/event';
@@ -52,6 +54,10 @@ function EventDashboardContent({ eventId }: { eventId: string }) {
   const [editingEnrollment, setEditingEnrollment] = useState<EnrollmentWithDetails | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [enrollmentToCancel, setEnrollmentToCancel] = useState<EnrollmentWithDetails | null>(null);
+  // How many of this athlete's tasks are still open, and whether to close them
+  // along with the enrolment (UAE-26).
+  const [openTaskCount, setOpenTaskCount] = useState<number | null>(null);
+  const [alsoCancelTasks, setAlsoCancelTasks] = useState(true);
 
   const { canEdit } = usePermissions();
   const { isConnected } = useRealtimeContext();
@@ -116,13 +122,44 @@ function EventDashboardContent({ eventId }: { eventId: string }) {
     }
   };
 
+  // Ask how much work is attached before the dialog offers to drop it.
+  useEffect(() => {
+    if (!enrollmentToCancel) {
+      setOpenTaskCount(null);
+      setAlsoCancelTasks(true);
+      return;
+    }
+    let stale = false;
+    countOpenAssignments(enrollmentToCancel.id)
+      .then((n) => !stale && setOpenTaskCount(n))
+      .catch(() => !stale && setOpenTaskCount(null));
+    return () => {
+      stale = true;
+    };
+  }, [enrollmentToCancel]);
+
   const handleCancelConfirm = async () => {
     if (!enrollmentToCancel) return;
     setSaving(true);
     try {
       await cancelEnrollment(enrollmentToCancel.id);
-      toast.success('Enrollment cancelled');
+      let cancelledTasks = 0;
+      if (alsoCancelTasks && openTaskCount) {
+        // The enrolment is already cancelled at this point; if this fails the
+        // athlete is still out, so say what is left rather than claim success.
+        try {
+          cancelledTasks = await cancelAssignmentsForEnrollment(enrollmentToCancel.id);
+        } catch {
+          toast.warning('Athlete cancelled, but their tasks were not — cancel them in Tasks.');
+        }
+      }
+      toast.success(
+        cancelledTasks
+          ? `Enrollment cancelled, and ${cancelledTasks} task${cancelledTasks > 1 ? 's' : ''} with it`
+          : 'Enrollment cancelled'
+      );
       setCancelDialogOpen(false);
+      setEnrollmentToCancel(null);
       refreshDash();
       fetchRoster();
     } catch (error: any) {
@@ -277,8 +314,26 @@ function EventDashboardContent({ eventId }: { eventId: string }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Cancel Enrollment</DialogTitle>
-            <DialogDescription>Are you sure you want to cancel the enrollment for {enrollmentToCancel?.person?.compiled_name}?</DialogDescription>
+            <DialogDescription>
+              Are you sure you want to cancel the enrollment for {enrollmentToCancel?.person?.compiled_name}?
+              Nothing is deleted — they stay on every screen, marked as cancelled.
+            </DialogDescription>
           </DialogHeader>
+          {!!openTaskCount && (
+            <label className="flex items-start gap-3 rounded-md border bg-muted/30 p-3 text-sm">
+              <Checkbox
+                checked={alsoCancelTasks}
+                onCheckedChange={(v) => setAlsoCancelTasks(v === true)}
+                className="mt-0.5"
+              />
+              <span>
+                Also cancel their {openTaskCount} open task{openTaskCount > 1 ? 's' : ''}
+                <span className="block text-xs text-muted-foreground">
+                  Tasks already done keep their result. Leave this unticked to close them yourself.
+                </span>
+              </span>
+            </label>
+          )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setEnrollmentToCancel(null)}>No, Keep</Button>
             <Button variant="destructive" onClick={handleCancelConfirm} disabled={saving}>Yes, Cancel</Button>

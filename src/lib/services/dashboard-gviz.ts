@@ -27,6 +27,10 @@ const STATUS_TO_SHEET: Record<string, string | null> = {
   pending: 'Requested',
   in_progress: 'In Progress',
   not_requested: '---',
+  // Emitted rather than dropped: an unmapped status is skipped entirely, which
+  // would make a cancelled athlete's task read as "nobody decided" on the
+  // war-room board — the one signal that screen exists to raise (UAE-26).
+  cancelled: 'Cancelled',
   undecided: null, // omitted on purpose — see the note above
 };
 
@@ -57,7 +61,9 @@ export async function getWarRoomTables(
         { v: matrix.eventName },
         { v: r.corner ?? '' },
         { v: r.division ?? '' },
-        { v: r.name },
+        // The wall display has no styling of its own to lean on, so the state
+        // has to travel inside the name or a dropped athlete reads as active.
+        { v: r.cancelled ? `${r.name} (CANCELLED)` : r.name },
         { v: '' },
         // Fight record is deliberately blank — UAEW does not track it.
         { v: '' },

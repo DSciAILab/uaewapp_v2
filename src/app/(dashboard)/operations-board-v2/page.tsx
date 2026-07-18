@@ -23,10 +23,12 @@ import { DoneIcon, NotRequiredIcon } from '@/components/tasks/task-status-icons'
 
 const GOLD = '#FDB913';
 
-const STATUS_ORDER: TaskStatus[] = ['undecided', 'pending', 'in_progress', 'done', 'not_requested'];
+const STATUS_ORDER: TaskStatus[] = ['undecided', 'pending', 'in_progress', 'done', 'not_requested', 'cancelled'];
 
-// A cell counts toward progress only if the task was actually requested.
-const isRequested = (s: TaskStatus) => s !== 'not_requested';
+// A cell counts toward progress only if the task was actually requested and is
+// still going to happen — a cancelled athlete's task would otherwise hold the
+// board below 100% forever (UAE-26).
+const isRequested = (s: TaskStatus) => s !== 'not_requested' && s !== 'cancelled';
 
 interface Fight {
   key: string;
@@ -50,6 +52,8 @@ function TaskCell({ status }: { status: TaskStatus }) {
         <DoneIcon className="h-4 w-4" />
       ) : status === 'not_requested' ? (
         <NotRequiredIcon className="h-4 w-4" />
+      ) : status === 'cancelled' ? (
+        <span aria-hidden="true">&times;</span>
       ) : status === 'undecided' ? (
         <span className="animate-pulse">?</span>
       ) : (
@@ -64,7 +68,14 @@ function Corner({ row, tasks, side }: { row: MatrixRow; tasks: readonly TaskDef[
   const ring = side === 'blue' ? 'ring-[#3da9ff]' : 'ring-[#ff3b3b]';
   const initials = row.name.trim().slice(0, 2).toUpperCase() || '?';
   return (
-    <div className={cn('flex min-w-0 items-center gap-3 px-3 py-2', side === 'red' && 'flex-row-reverse')}>
+    <div
+      className={cn(
+        'flex min-w-0 items-center gap-3 px-3 py-2',
+        side === 'red' && 'flex-row-reverse',
+        // Still readable, clearly out: the row is a record, not a to-do.
+        row.cancelled && 'opacity-45 grayscale'
+      )}
+    >
       <div className={cn('h-11 w-11 shrink-0 overflow-hidden rounded-full bg-neutral-900 ring-2 sm:h-12 sm:w-12', ring)}>
         {row.photoUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -77,11 +88,17 @@ function Corner({ row, tasks, side }: { row: MatrixRow; tasks: readonly TaskDef[
       </div>
 
       <div className={cn('flex min-w-0 flex-col gap-0.5', side === 'red' ? 'items-start text-left' : 'items-end text-right')}>
-        <span className="max-w-full truncate font-display text-sm font-extrabold uppercase leading-tight tracking-tight text-white sm:text-base">
+        <span
+          className={cn(
+            'max-w-full truncate font-display text-sm font-extrabold uppercase leading-tight tracking-tight text-white sm:text-base',
+            row.cancelled && 'line-through'
+          )}
+        >
           {row.name}
         </span>
         <span className={cn('flex gap-2 font-mono text-[10px] text-neutral-500', side === 'red' && 'flex-row-reverse')}>
           <span>ID {row.fighterId || 'N/A'}</span>
+          {row.cancelled && <span className="font-bold text-neutral-400">CANCELLED</span>}
         </span>
       </div>
 
@@ -204,6 +221,9 @@ export default function OperationsBoardPage() {
     const tasks = matrix?.tasks ?? [];
     for (const t of tasks) perTask[t.name] = { done: 0, total: 0 };
     for (const r of rows) {
+      // A cancelled athlete stays on screen but leaves the maths entirely —
+      // otherwise the board can never reach 100% (UAE-26).
+      if (r.cancelled) continue;
       for (const t of tasks) {
         const s = r.cells[t.name].status;
         if (isRequested(s)) {

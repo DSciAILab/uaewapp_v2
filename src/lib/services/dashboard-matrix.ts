@@ -32,6 +32,8 @@ export interface MatrixRow {
   /** Display-only fields the war-room grid shows under the name. */
   division: string | null;
   nationality: string | null;
+  /** Out of the event, but kept on the board as the record of who dropped. */
+  cancelled: boolean;
   cells: Record<string, MatrixCell>;
 }
 
@@ -56,9 +58,12 @@ export async function getDashboardMatrix(
     supabase.from('mma_events').select('name').eq('id', eventId).maybeSingle(),
     supabase
       .from('mma_enrollments')
-      .select('id, person_id, person:mma_people(id, compiled_name, event_name, appadmin_fighter_id, nationality), role:mma_roles!inner(code)')
+      // Cancelled athletes stay on the board, marked (UAE-26). Dropping them
+      // hid the very thing the operator needs to see: who left, and what of
+      // their logistics is still booked.
+      .select('id, person_id, status, person:mma_people(id, compiled_name, event_name, appadmin_fighter_id, nationality), role:mma_roles!inner(code)')
       .eq('event_id', eventId)
-      .eq('status', 'active')
+      .in('status', ['active', 'cancelled'])
       .eq('role.code', 'F'),
   ]);
 
@@ -71,6 +76,7 @@ export async function getDashboardMatrix(
       ring: (p?.event_name as string) || null,
       fighterId: (p?.appadmin_fighter_id as string) || null,
       nationality: (p?.nationality as string) || null,
+      cancelled: e.status === 'cancelled',
     };
   });
   const enrollmentIds = roster.map((r) => r.enrollmentId);
@@ -154,6 +160,7 @@ export async function getDashboardMatrix(
       fightOrder: pos?.fightOrder ?? null,
       division: pos?.division ?? null,
       nationality: r.nationality,
+      cancelled: r.cancelled,
       cells,
     };
   });

@@ -9,14 +9,21 @@ import { getEnrollmentsByEvent } from './enrollments';
  * yet — a gap the dashboard paints in the alarm colour — instead of being
  * indistinguishable from "decided this person is exempt".
  */
-export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'exempt';
+export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'exempt' | 'cancelled';
 
-/** Labels the staff sees, in the order they appear in the UI. */
+/**
+ * Labels the staff sees, in the order they appear in the UI.
+ *
+ * 'cancelled' is not 'exempt': exempt means this person never needed the task,
+ * cancelled means they left the event so it will not happen (UAE-26). Both drop
+ * out of the progress count, but only cancelled tells you something changed.
+ */
 export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
   pending: 'Requested',
   in_progress: 'In Progress',
   completed: 'Done',
   exempt: 'Not required',
+  cancelled: 'Cancelled',
 };
 
 // Types
@@ -128,6 +135,41 @@ export async function updateAssignmentStatus(
     .eq('id', assignmentId);
 
   if (error) throw new Error('Failed to update assignment');
+}
+
+/**
+ * Marks every still-open task of one enrolment as cancelled, and reports how
+ * many changed (UAE-26).
+ *
+ * Used when an athlete leaves the event: the work will not happen, but deleting
+ * the rows would erase the record that it was ever expected. Tasks already Done
+ * keep their result — the athlete really did do them — and ones already exempt
+ * or cancelled are left alone, which also makes calling this twice harmless.
+ */
+export async function cancelAssignmentsForEnrollment(enrollmentId: string): Promise<number> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('mma_task_assignments')
+    .update({ status: 'cancelled', completed_at: null, updated_at: new Date().toISOString() })
+    .eq('enrollment_id', enrollmentId)
+    .in('status', ['pending', 'in_progress'])
+    .select('id');
+
+  if (error) throw new Error('Failed to cancel the assignments');
+  return data?.length ?? 0;
+}
+
+/** How many tasks a cancel would touch, so the dialog can say the number first. */
+export async function countOpenAssignments(enrollmentId: string): Promise<number> {
+  const supabase = getClient();
+  const { count, error } = await supabase
+    .from('mma_task_assignments')
+    .select('id', { count: 'exact', head: true })
+    .eq('enrollment_id', enrollmentId)
+    .in('status', ['pending', 'in_progress']);
+
+  if (error) throw new Error('Failed to count the assignments');
+  return count ?? 0;
 }
 
 export async function deleteAssignment(assignmentId: string): Promise<void> {
