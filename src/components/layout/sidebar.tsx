@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import {
   LayoutDashboard,
+  LayoutGrid,
   Calendar,
   Users,
   Plane,
@@ -27,6 +28,7 @@ import {
   Command,
   LogOut,
   Swords,
+  Sparkles,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -35,10 +37,12 @@ import { StatusDot } from '@/components/ui/status-dot'
 import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { createClient } from '@/lib/supabase/client'
+import { CURRENT_VERSION } from '@/lib/changelog'
 import { FightCardDialog } from '@/components/fight-card/fight-card-dialog'
 
 const icons = {
   LayoutDashboard,
+  LayoutGrid,
   Calendar,
   Users,
   Plane,
@@ -74,6 +78,7 @@ const isGroup = (entry: NavEntry): entry is NavGroup => 'children' in entry
 
 const navItems: NavEntry[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
+  { label: 'Operations Board', href: '/operations-board', icon: 'LayoutGrid' },
   { label: 'Events', href: '/events', icon: 'Calendar', area: 'events' },
   { label: 'People', href: '/people', icon: 'Users', area: 'people' },
   {
@@ -264,7 +269,20 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
 
   const userBlock = (variant: 'desktop' | 'mobile') => {
     const isMobile = variant === 'mobile'
+    const showLabels = isMobile || !collapsed
     return (
+      <div className="border-t border-border/60">
+        <Link
+          href="/changelog"
+          className={cn(
+            'flex items-center gap-1.5 px-3 py-2 text-[10px] text-muted-foreground hover:text-foreground hover:bg-surface-2/40 transition-colors',
+            !isMobile && collapsed && 'justify-center'
+          )}
+          title={`Version ${CURRENT_VERSION} — what's new`}
+        >
+          <Sparkles className="h-3 w-3 shrink-0" />
+          {showLabels && <span className="label-mono">v{CURRENT_VERSION}</span>}
+        </Link>
       <div className="p-3 border-t border-border/60">
         <div
           className={cn(
@@ -291,6 +309,7 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
             <LogOut className="h-3.5 w-3.5" />
           </Button>
         </div>
+      </div>
       </div>
     )
   }

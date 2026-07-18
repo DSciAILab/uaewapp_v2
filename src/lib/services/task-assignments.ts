@@ -1,12 +1,30 @@
 import { createClient } from '@/lib/supabase/client';
 import { getEnrollmentsByEvent } from './enrollments';
 
+/**
+ * An assignment's status IS the decision record (UAE-23).
+ *
+ * The operating rule: enroll everyone in a task, then mark 'exempt' whoever
+ * does not need it. That way "no assignment at all" means nobody has decided
+ * yet — a gap the dashboard paints in the alarm colour — instead of being
+ * indistinguishable from "decided this person is exempt".
+ */
+export type AssignmentStatus = 'pending' | 'in_progress' | 'completed' | 'exempt';
+
+/** Labels the staff sees, in the order they appear in the UI. */
+export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
+  pending: 'Requested',
+  in_progress: 'In Progress',
+  completed: 'Done',
+  exempt: 'Not required',
+};
+
 // Types
 export interface TaskAssignment {
   id: string;
   task_id: string;
   enrollment_id: string;
-  status: 'pending' | 'completed' | 'exempt';
+  status: AssignmentStatus;
   completed_at: string | null;
   notes: string | null;
   created_at: string;
@@ -76,25 +94,27 @@ export async function createAssignments(taskId: string, enrollmentIds: string[])
 }
 
 export async function updateAssignmentStatus(
-  assignmentId: string, 
-  status: 'pending' | 'completed' | 'exempt', 
+  assignmentId: string,
+  status: AssignmentStatus,
   notes?: string
 ): Promise<void> {
   const supabase = getClient();
-  
+
   const payload: {
-    status: 'pending' | 'completed' | 'exempt';
+    status: AssignmentStatus;
     updated_at: string;
     completed_at?: string | null;
     notes?: string;
-  } = { 
+  } = {
     status,
     updated_at: new Date().toISOString()
   };
 
   if (status === 'completed') {
     payload.completed_at = new Date().toISOString();
-  } else if (status === 'pending') {
+  } else {
+    // Anything that is not Done has no completion time — including a status
+    // walked back from Done, which must not keep a stale timestamp.
     payload.completed_at = null;
   }
 
@@ -118,6 +138,26 @@ export async function deleteAssignment(assignmentId: string): Promise<void> {
     .eq('id', assignmentId);
 
   if (error) throw new Error('Failed to delete assignment');
+}
+
+/**
+ * Enrols every active fighter who is not on the task yet, as 'Requested'.
+ *
+ * This is the first half of the operating rule: put everyone on the task in one
+ * click, then mark the exceptions 'Not required'. Doing it person by person is
+ * how someone gets forgotten — and a forgotten athlete is invisible, because
+ * "nobody enrolled him" looks the same as "nobody got round to him".
+ *
+ * Only fighters: coaches and staff are enrolled deliberately, not in bulk.
+ * Returns how many were added, so the caller can say nothing was missing.
+ */
+export async function enrollAllFighters(eventId: string, taskId: string): Promise<number> {
+  const unassigned = await getUnassignedEnrollments(eventId, taskId);
+  const fighters = unassigned.filter((e) => e.role?.code === 'F');
+  if (fighters.length === 0) return 0;
+
+  await createAssignments(taskId, fighters.map((e) => e.id));
+  return fighters.length;
 }
 
 export async function getUnassignedEnrollments(eventId: string, taskId: string) {

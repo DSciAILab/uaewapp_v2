@@ -45,10 +45,12 @@ const DEFAULT_CSV_URL =
  */
 export async function getFightCardPositions(
   eventId: string,
-  people?: EnrollmentIdentity[]
+  people?: EnrollmentIdentity[],
+  /** Server-side client when called from a route handler — RLS denies anon. */
+  client?: ReturnType<typeof createClient>
 ): Promise<Map<string, FightCardPosition>> {
   const positions = new Map<string, FightCardPosition>();
-  const supabase = createClient();
+  const supabase = client ?? createClient();
 
   // --- 1. Exact: the card lives in the database ---
   const { data: matches, error } = await supabase

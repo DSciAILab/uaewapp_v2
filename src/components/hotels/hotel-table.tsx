@@ -5,6 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { StatusBadge } from '@/components/ui/status-badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MoreHorizontal, Pencil, Trash2, CheckCircle, XCircle, Eye } from 'lucide-react';
 import { format } from 'date-fns';
@@ -54,11 +55,15 @@ interface HotelTableProps {
   onRefresh: () => void;
 }
 
-const statusConfig: Record<HotelStatus | 'reserved', { label: string; className: string }> = {
-  pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200 border-yellow-200' },
-  reserved: { label: 'Reserved', className: 'bg-blue-100 text-blue-800 hover:bg-blue-200 border-blue-200' },
-  confirmed: { label: 'Confirmed', className: 'bg-green-100 text-green-800 hover:bg-green-200 border-green-200' },
-  cancelled: { label: 'Cancelled', className: 'bg-gray-100 text-gray-800 hover:bg-gray-200 border-gray-200' },
+// Design-system status tokens, not raw Tailwind colors — this table was the
+// odd one out (bg-yellow-100 / text-blue-800). Maps each hotel status to a
+// StatusBadge tone, the same primitive Medical and the rest of the app use.
+type DSStatus = 'pending' | 'confirmed' | 'warning' | 'critical' | 'neutral';
+const statusConfig: Record<HotelStatus | 'reserved', { label: string; status: DSStatus }> = {
+  pending: { label: 'Pending', status: 'pending' },
+  reserved: { label: 'Reserved', status: 'warning' },
+  confirmed: { label: 'Confirmed', status: 'confirmed' },
+  cancelled: { label: 'Cancelled', status: 'neutral' },
 };
 
 /** What the Status cell actually reads — a pending row with no booking is an action, not a state. */
@@ -305,9 +310,7 @@ export function HotelTable({ hotels, eventDates, onEdit, onRefresh }: HotelTable
                            </span>
                         </TableCell>
                         <TableCell>
-                        <Badge variant="outline" className={cn("font-bold text-[10px] uppercase", statusConfig[hotel.status]?.className || 'bg-gray-100')}>
-                            {statusLabel(hotel)}
-                        </Badge>
+                        <StatusBadge status={statusConfig[hotel.status]?.status ?? 'neutral'} label={statusLabel(hotel)} />
                         </TableCell>
                         <TableCell>
                         {hotel.has_divergence && hotel.divergence_type && hotel.divergence_type.length > 0 ? (

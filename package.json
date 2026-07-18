@@ -1,11 +1,11 @@
 {
   "name": "uaewapp_v2",
-  "version": "0.1.0",
+  "version": "2026.7.17",
   "packageManager": "pnpm@9.15.4",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "node scripts/gen-war-room.mjs && next dev",
+    "build": "node scripts/gen-war-room.mjs && next build",
     "start": "next start",
     "lint": "eslint"
   },
