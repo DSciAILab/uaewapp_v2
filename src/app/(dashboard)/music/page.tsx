@@ -330,9 +330,16 @@ export default function GlobalMusicPage() {
     }
   };
 
-  /** Row status is derived: any approved song makes the row Done. */
-  const deriveRowStatus = (statuses: SongStatus[]): MusicStatus =>
-    statuses.includes('approved') ? 'confirmed' : 'pending';
+  /**
+   * Row status is derived, never typed by hand. A full set of three links means
+   * the athlete finished submitting, so the row closes on its own (UAE-28); an
+   * approved song still closes it early, which is how a fighter who only ever
+   * sends one or two songs can be marked Done.
+   */
+  const deriveRowStatus = (statuses: SongStatus[], links: (string | null)[]): MusicStatus =>
+    links.filter((l) => l && l.trim()).length >= 3 || statuses.includes('approved')
+      ? 'confirmed'
+      : 'pending';
 
   /**
    * Inline cell save (UAE-20 Mod 5). Creates the music row on first fill.
@@ -376,7 +383,13 @@ export default function GlobalMusicPage() {
           slot === 2 ? 'pending' : m.status_2 || 'pending',
           slot === 3 ? 'pending' : m.status_3 || 'pending',
         ];
-        await updateAthleteMusic(m.id, { ...patch, status: deriveRowStatus(statuses) });
+        // The edited slot counts with its new value, not the one still in state.
+        const links: (string | null)[] = [1, 2, 3].map((s) =>
+          slot === s
+            ? ((patch[SLOT_FIELDS[s as 1 | 2 | 3]] as string | null) ?? null)
+            : ((m[SLOT_FIELDS[s as 1 | 2 | 3]] as string | null) ?? null)
+        );
+        await updateAthleteMusic(m.id, { ...patch, status: deriveRowStatus(statuses, links) });
       }
       await logMusicChange(row.event_id, row.enrollment_id, field, oldValue, value || null);
       await loadData();
