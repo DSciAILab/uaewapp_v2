@@ -1630,6 +1630,34 @@ let lastAttendanceTable = null;
 let lastFetchAt = 0;
 
 /**
+ * Where to read from, decided by the URL this page was opened at.
+ *
+ * Under /tv the page is running on a display that cannot practically log in —
+ * someone typed a short address on a TV remote. It reads from the public
+ * endpoint instead, authorised by a PIN entered once and remembered on that
+ * device. Everywhere else it is the normal signed-in dashboard.
+ *
+ * The PIN exists because this board shows Blood Test status against named
+ * athletes. A short address is guessable by design; the PIN is what stops the
+ * board being readable by anyone who wanders onto the URL.
+ */
+const IS_TV = location.pathname.startsWith('/tv');
+function tvKey() {
+  let k = null;
+  try { k = localStorage.getItem('uaew-tv-key'); } catch (e) {}
+  if (!k) {
+    k = window.prompt('Enter the display PIN for this screen:') || '';
+    if (k) { try { localStorage.setItem('uaew-tv-key', k); } catch (e) {} }
+  }
+  return k;
+}
+function apiUrl() {
+  return IS_TV
+    ? '/api/public/war-room?key=' + encodeURIComponent(tvKey())
+    : '/api/dashboard/war-room';
+}
+
+/**
  * Data source: our own database, via /api/dashboard/war-room.
  *
  * This screen was built to read two Google Sheets over gviz JSONP. The API
@@ -1645,7 +1673,12 @@ async function fetchWarRoom() {
   if (now - lastFetchAt < 2000) return; // collapse the paired startup calls
   lastFetchAt = now;
   try {
-    const res = await fetch('/api/dashboard/war-room', { cache: 'no-store' });
+    const res = await fetch(apiUrl(), { cache: 'no-store' });
+    if (res.status === 401 && IS_TV) {
+      // Wrong or rotated PIN — forget it so the next attempt asks again.
+      try { localStorage.removeItem('uaew-tv-key'); } catch (e) {}
+      throw new Error('display PIN rejected');
+    }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
     lastAttendanceTable = data.attendance;
