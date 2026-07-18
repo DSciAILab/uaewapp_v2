@@ -49,6 +49,22 @@ function driverMessage(r: ArrivalRow, driverName: string, eventTitle: string): s
   ].join('\n');
 }
 
+/**
+ * A row matches when ANY comma-separated term appears in ANY column, so
+ * "EK 058, FZ 204" lists both flights and "AUH, 20/07" widens rather than
+ * narrows. Reading every value off the row keeps new columns searchable
+ * without touching this function.
+ */
+function matchesSearch(r: ArrivalRow, query: string): boolean {
+  const terms = query
+    .split(',')
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+  if (terms.length === 0) return true;
+  const haystack = Object.values(r).join(' ').toLowerCase();
+  return terms.some((t) => haystack.includes(t));
+}
+
 /** dd/mm/yyyy -> sortable yyyy-mm-dd; anything else returned as-is. */
 function sortableDate(v: string): string {
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -112,13 +128,7 @@ export default function PublicArrivalPage() {
     return () => clearInterval(id);
   }, [load]);
 
-  let filtered = search
-    ? rows.filter((r) =>
-        [r.name, r.flight, r.carNumber, r.airport].some((v) =>
-          v.toLowerCase().includes(search.toLowerCase())
-        )
-      )
-    : rows;
+  let filtered = search ? rows.filter((r) => matchesSearch(r, search)) : rows;
 
   if (sortKey) {
     filtered = [...filtered].sort((a, b) => {
@@ -202,7 +212,7 @@ export default function PublicArrivalPage() {
         <div className="relative max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search name, flight, car..."
+            placeholder="Search any column — comma separates (EK 058, FZ 204)"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
