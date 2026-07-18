@@ -9,9 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Plus, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { Search, Plus, Trash2, Users } from 'lucide-react';
 import { EventTask } from '@/types/task';
-import { TaskAssignment, getTaskAssignments, createAssignments, updateAssignmentStatus, deleteAssignment, getUnassignedEnrollments } from '@/lib/services/task-assignments';
+import {
+  TaskAssignment,
+  ASSIGNMENT_STATUS_LABELS,
+  type AssignmentStatus,
+  getTaskAssignments,
+  createAssignments,
+  updateAssignmentStatus,
+  deleteAssignment,
+  getUnassignedEnrollments,
+  enrollAllFighters,
+} from '@/lib/services/task-assignments';
 import { getEventById } from '@/lib/services/events';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -31,6 +41,14 @@ import { getFightCardPositions, NO_POSITION, type FightCardPosition } from '@/li
 
 type SortKey = 'order' | 'corner' | 'person' | 'role' | 'status' | 'completed' | 'notes';
 
+/** Same colour language as the operations dashboard, so the two agree. */
+const ASSIGNMENT_STATUS_TONE: Record<AssignmentStatus, string> = {
+  pending: 'text-yellow-600 dark:text-yellow-400',
+  in_progress: 'text-orange-600 dark:text-orange-400',
+  completed: 'text-emerald-600 dark:text-emerald-400',
+  exempt: 'text-muted-foreground',
+};
+
 interface TaskAssignmentsSheetProps {
   task: EventTask | null;
   open: boolean;
@@ -42,6 +60,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loading, setLoading] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
+  const [isEnrollingAll, setIsEnrollingAll] = useState(false);
   const [availableEnrollments, setAvailableEnrollments] = useState<any[]>([]);
   const [selectedEnrollments, setSelectedEnrollments] = useState<string[]>([]);
   const [assignRoleFilter, setAssignRoleFilter] = useState<'all' | 'fighters' | 'staff'>('all');
@@ -138,11 +157,29 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     }
   };
 
-  const handleStatusUpdate = async (assignment: TaskAssignment, newStatus: 'pending' | 'completed') => {
+  const handleEnrollAll = async () => {
+    if (!task) return;
+    try {
+      setIsEnrollingAll(true);
+      const added = await enrollAllFighters(eventId, task.id);
+      toast.success(
+        added
+          ? `${added} fighter${added === 1 ? '' : 's'} enrolled as Requested`
+          : 'Every fighter is already on this task'
+      );
+      if (added) loadAssignments();
+    } catch {
+      toast.error('Failed to enroll fighters');
+    } finally {
+      setIsEnrollingAll(false);
+    }
+  };
+
+  const handleStatusUpdate = async (assignment: TaskAssignment, newStatus: AssignmentStatus) => {
     try {
       await updateAssignmentStatus(assignment.id, newStatus);
       // Optimistic update
-      setAssignments(prev => prev.map(a => 
+      setAssignments(prev => prev.map(a =>
         a.id === assignment.id ? { ...a, status: newStatus, completed_at: newStatus === 'completed' ? new Date().toISOString() : null } : a
       ));
       toast.success('Status updated');
@@ -270,10 +307,18 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
+              {(Object.keys(ASSIGNMENT_STATUS_LABELS) as AssignmentStatus[]).map((s) => (
+                <SelectItem key={s} value={s}>{ASSIGNMENT_STATUS_LABELS[s]}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
+          {/*
+            The intended first move on any task: put every fighter on it, then
+            mark the exceptions 'Not required'. Nobody gets left off by omission.
+          */}
+          <Button variant="outline" onClick={handleEnrollAll} disabled={isEnrollingAll}>
+            <Users className="h-4 w-4 mr-2" /> {isEnrollingAll ? 'Enrolling…' : 'Enroll all fighters'}
+          </Button>
           <Button onClick={handleOpenAssignDialog}>
             <Plus className="h-4 w-4 mr-2" /> Assign
           </Button>
@@ -331,27 +376,27 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                       <Badge variant="secondary" className="font-normal">{assignment.enrollment?.role.name}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
-                          {assignment.status === 'completed' ? (
-                              <Button 
-                                  size="sm" variant="ghost" 
-                                  className="text-green-600 hover:text-green-700 h-8 px-2"
-                                  onClick={() => handleStatusUpdate(assignment, 'pending')}
-                                >
-                                  <CheckCircle className="h-4 w-4 mr-1" />
-                                  Done
-                              </Button>
-                          ) : (
-                              <Button 
-                                  size="sm" variant="ghost" 
-                                  className="text-muted-foreground hover:text-primary h-8 px-2"
-                                  onClick={() => handleStatusUpdate(assignment, 'completed')}
-                                >
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  Pending
-                              </Button>
-                          )}
-                      </div>
+                      {/*
+                        Four states, not a Done toggle: 'Not required' is how the
+                        staff records a deliberate exception, and without it an
+                        exempt athlete stays "Requested" forever and reads as a
+                        pending job nobody is doing.
+                      */}
+                      <Select
+                        value={assignment.status}
+                        onValueChange={(v) => handleStatusUpdate(assignment, v as AssignmentStatus)}
+                      >
+                        <SelectTrigger className={`h-8 w-[150px] text-xs ${ASSIGNMENT_STATUS_TONE[assignment.status] || ''}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(Object.keys(ASSIGNMENT_STATUS_LABELS) as AssignmentStatus[]).map((s) => (
+                            <SelectItem key={s} value={s} className={ASSIGNMENT_STATUS_TONE[s]}>
+                              {ASSIGNMENT_STATUS_LABELS[s]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {assignment.completed_at ? format(new Date(assignment.completed_at), 'MMM dd, HH:mm') : '-'}
