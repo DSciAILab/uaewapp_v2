@@ -1,0 +1,2406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<title>UAE Warriors — Operations</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Geist + Geist Mono — modern, high-contrast pairing used in current design systems -->
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700;800;900&family=Geist+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+
+:root{
+  /* fluid scale — 1080p TV → 4K monitor */
+  --fs-xs:    clamp(10px, 0.55vw, 14px);
+  --fs-sm:    clamp(11px, 0.7vw, 16px);
+  --fs-base:  clamp(13px, 0.85vw, 20px);
+  --fs-md:    clamp(15px, 1.05vw, 26px);
+  --fs-lg:    clamp(18px, 1.4vw, 36px);
+  --fs-xl:    clamp(28px, 2.4vw, 60px);
+  --fs-2xl:   clamp(40px, 3.6vw, 96px);
+  --fs-mega:  clamp(56px, 5.5vw, 140px);
+
+  --pad:      clamp(14px, 1.1vw, 32px);
+  --gap:      clamp(4px, 0.3vw, 10px);
+  --row-h:    clamp(44px, 3vw, 72px);
+  --avatar:   clamp(34px, 2.4vw, 60px);
+  --tcell-w:  clamp(34px, 2.4vw, 56px);
+  --tcell-h:  clamp(28px, 2vw, 46px);
+
+  /* UAEW brand — pure black + pure white + gold #FDB913 */
+  --bg:        #000000;
+  --bg-1:      #0a0a0a;
+  --bg-2:      #121212;
+  --bg-3:      #1c1c1c;
+
+  --fg:        #ffffff;
+  --fg-2:      #d4d4d4;
+  --fg-3:      #8a8a8a;
+  --fg-4:      #545454;
+  --fg-5:      #2a2a2a;
+
+  --gold:      #FDB913;       /* UAEW signature */
+  --gold-dim:  #b88810;
+  --gold-soft: rgba(253,185,19,0.12);
+
+  --blue:      #3da9ff;       /* electric blue corner */
+  --red:       #ff3b3b;       /* electric red corner */
+
+  --done:      #00e676;       /* electric green */
+  --requested: #FDB913;       /* UAEW gold */
+  --inprog:    #ff7a1a;       /* orange — started, not finished */
+  --pending:   #ff3b3b;       /* electric red — nobody decided yet */
+  --nonreq:    #000000;       /* non-requested / dispensed */
+  --none:      transparent;
+
+  --rule:      #1f1f1f;
+  --rule-2:    #2a2a2a;
+}
+
+html,body{
+  background: var(--bg);
+  color: var(--fg);
+  font-family: 'Geist', -apple-system, system-ui, sans-serif;
+  font-size: var(--fs-base);
+  font-weight: 400;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  width: 100%;
+  min-height: 100vh;
+  overflow-x: hidden;
+  font-feature-settings: 'ss01','ss02','cv11';
+  letter-spacing: -0.005em;
+}
+
+body{
+  background:
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(253,185,19,0.06) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 50% 100%, rgba(253,185,19,0.04) 0%, transparent 50%),
+    var(--bg);
+  position: relative;
+}
+
+/* subtle scan lines for broadcast feel */
+body::before{
+  content:""; position:fixed; inset:0; pointer-events:none; z-index:1000;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0,
+    transparent 3px,
+    rgba(255,255,255,0.012) 3px,
+    rgba(255,255,255,0.012) 4px
+  );
+}
+
+/* ─── APP SHELL ─────────────────────────────────────────── */
+.app{
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--sb-w, clamp(260px, 18vw, 380px)) 1fr;
+  grid-template-rows: auto 1fr;
+  grid-template-areas:
+    "topbar topbar"
+    "side   main";
+  overflow: hidden;
+  transition: grid-template-columns .35s cubic-bezier(0.2,0.8,0.2,1);
+}
+.app.sb-collapsed{ --sb-w: 0px; }
+.app.sb-autohide{ --sb-w: clamp(20px, 1.4vw, 32px); }
+.app.sb-autohide:has(.sidebar:hover){ --sb-w: clamp(260px, 18vw, 380px); }
+
+.topbar-area{ grid-area: topbar; }
+.sidebar-area{
+  grid-area: side;
+  position: relative;
+  overflow: hidden;
+  border-right: 1px solid var(--rule);
+}
+.main-area{
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ─── SIDEBAR ───────────────────────────────────────────── */
+.sidebar{
+  height: 100%;
+  width: clamp(260px, 18vw, 380px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-1);
+  overflow: hidden;
+  position: relative;
+}
+.app.sb-autohide .sidebar{
+  position: absolute;
+  z-index: 50;
+  box-shadow: 8px 0 24px rgba(0,0,0,0.6);
+}
+/* the visible "edge" handle that triggers hover-expand in autohide mode */
+.sb-edge{
+  display: none;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  background: var(--bg-1);
+  border-right: 1px solid var(--rule);
+  z-index: 1;
+  cursor: pointer;
+}
+.app.sb-autohide .sb-edge{
+  display: flex;
+  align-items: center; justify-content: center;
+}
+.app.sb-autohide:has(.sidebar:hover) .sb-edge{ display: none; }
+.sb-edge::before{
+  content:"";
+  width: 2px; height: clamp(40px, 6vh, 80px);
+  background: var(--gold);
+  border-radius: 1px;
+}
+
+.sb-head{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: clamp(10px, 0.8vw, 18px) clamp(14px, 1.1vw, 22px);
+  border-bottom: 1px solid var(--rule);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+.sb-head .sb-title{ color: var(--fg); font-weight: 700; }
+.sb-toggle{
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  color: var(--fg-3);
+  width: clamp(22px, 1.6vw, 30px);
+  height: clamp(22px, 1.6vw, 30px);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: clamp(11px, 0.8vw, 16px);
+  font-family: inherit;
+  transition: color .15s, border-color .15s, background .15s;
+  padding: 0;
+}
+.sb-toggle:hover{ color: var(--gold); border-color: var(--gold); }
+.sb-toggle svg{ width: 60%; height: 60%; fill: currentColor; }
+
+.sb-body{
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: clamp(8px, 0.6vw, 14px) 0;
+}
+.sb-body::-webkit-scrollbar{ width: 6px; }
+.sb-body::-webkit-scrollbar-track{ background: transparent; }
+.sb-body::-webkit-scrollbar-thumb{ background: var(--rule-2); }
+.sb-body::-webkit-scrollbar-thumb:hover{ background: var(--gold); }
+
+.sb-section{
+  padding: clamp(10px, 0.7vw, 16px) clamp(14px, 1.1vw, 22px);
+  border-bottom: 1px solid var(--rule);
+}
+.sb-section:last-child{ border-bottom: none; }
+.sb-eyebrow{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  font-weight: 500;
+  margin-bottom: clamp(6px, 0.5vw, 12px);
+  display: block;
+}
+
+/* overall % big */
+.sb-overall{
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 8px;
+  margin-bottom: clamp(6px, 0.5vw, 10px);
+}
+.sb-overall .num{
+  font-family: 'Geist', sans-serif;
+  font-weight: 800;
+  font-size: var(--fs-xl);
+  letter-spacing: -0.05em;
+  line-height: 1;
+  color: var(--gold);
+}
+.sb-overall .den{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.05em;
+  color: var(--fg-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+}
+.sb-overall .den .strong{ color: var(--fg); font-weight: 600; display: block; font-size: 1.15em; }
+.sb-bar{
+  height: 4px; background: var(--bg-3); position: relative; overflow: hidden;
+}
+.sb-bar-fill{
+  height: 100%;
+  background: var(--gold);
+  transition: width 1.2s cubic-bezier(0.2,0.8,0.2,1);
+}
+.sb-bar-fill.complete{ background: var(--done); }
+
+/* per-task list */
+.sb-tasks{ display: flex; flex-direction: column; gap: clamp(6px, 0.5vw, 10px); }
+.sb-task{
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(6px, 0.5vw, 10px);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-2);
+  font-weight: 500;
+}
+.sb-task svg{ width: 14px; height: 14px; fill: var(--fg-3); }
+.sb-task .name{ color: var(--fg-2); }
+.sb-task .vals{
+  font-variant-numeric: tabular-nums;
+  display: inline-flex; gap: 8px; align-items: baseline;
+}
+.sb-task .vals .done-n{ color: var(--fg); font-weight: 700; font-size: 1.1em; }
+.sb-task .vals .total-n{ color: var(--fg-4); font-size: 0.9em; }
+.sb-task .vals .pending-n{ color: var(--pending); font-weight: 700; }
+.sb-task .vals .req-n{ color: var(--requested); font-weight: 700; }
+.sb-task-bar{
+  grid-column: 1 / -1;
+  height: 2px; background: var(--bg-3); margin-top: 2px;
+}
+.sb-task-bar-fill{
+  height: 100%;
+  background: var(--gold);
+  transition: width 1.2s cubic-bezier(0.2,0.8,0.2,1);
+}
+.sb-task-bar-fill.complete{ background: var(--done); }
+
+/* sidebar filter buttons */
+.sb-filters{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+}
+.sb-filter{
+  padding: 6px 10px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--fg-3);
+  cursor: pointer;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: color .15s, border-color .15s, background .15s;
+  text-align: left;
+  display: flex; align-items: center; gap: 6px;
+}
+.sb-filter::before{
+  content:""; width: 8px; height: 8px; background: var(--bg-3);
+}
+.sb-filter[data-filter="pending"]::before{ background: var(--pending); }
+.sb-filter[data-filter="requested"]::before{ background: var(--requested); }
+.sb-filter[data-filter="done"]::before{ background: var(--done); }
+.sb-filter[data-filter="nonreq"]::before{ background: var(--nonreq); border: 1px solid var(--rule-2); }
+.sb-filter[data-filter="all"]::before{ background: var(--gold); }
+.sb-filter:hover{ color: var(--fg); border-color: var(--rule-2); }
+.sb-filter.active{
+  color: var(--fg); border-color: var(--fg);
+  background: rgba(255,255,255,0.04);
+}
+
+/* per-task scope selector */
+.sb-scope{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.sb-scope-btn{
+  padding: 5px 8px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--fg-3);
+  cursor: pointer;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.sb-scope-btn:hover{ color: var(--fg); border-color: var(--rule-2); }
+.sb-scope-btn.active{
+  color: var(--gold); border-color: var(--gold);
+  background: rgba(253,185,19,0.06);
+}
+
+/* task toggles (pick which tasks the dashboard tracks) */
+.sb-task-toggles{
+  display: flex; flex-wrap: wrap; gap: 4px;
+}
+.sb-task-toggle{
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 8px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--fg-4);
+  cursor: pointer;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 500;
+  transition: color .15s, border-color .15s, background .15s, opacity .15s;
+  opacity: 0.55;
+}
+.sb-task-toggle svg{ width: 12px; height: 12px; }
+.sb-task-toggle:hover{ color: var(--fg-2); border-color: var(--rule-2); opacity: 0.85; }
+.sb-task-toggle.active{
+  color: var(--fg); border-color: var(--gold);
+  background: rgba(253,185,19,0.06);
+  opacity: 1;
+}
+
+/* rotation speed control */
+.sb-rotctl{
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: stretch;
+  gap: 6px;
+}
+.sb-step{
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  color: var(--fg-2);
+  cursor: pointer;
+  font-family: 'Geist', sans-serif;
+  font-size: var(--fs-md);
+  font-weight: 700;
+  line-height: 1;
+  width: clamp(28px, 2vw, 38px);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: color .15s, border-color .15s, background .15s;
+  padding: 0;
+}
+.sb-step:hover{ color: var(--gold); border-color: var(--gold); }
+.sb-step:active{ background: rgba(253,185,19,0.08); }
+.sb-step:disabled{ color: var(--fg-5); border-color: var(--rule); cursor: not-allowed; background: transparent; }
+.sb-rotval{
+  display: flex; align-items: baseline; justify-content: center; gap: 2px;
+  border: 1px solid var(--rule);
+  background: var(--bg-2);
+  font-variant-numeric: tabular-nums;
+}
+.sb-rotval .rotnum{
+  font-family: 'Geist', sans-serif;
+  font-weight: 700;
+  font-size: var(--fs-md);
+  color: var(--gold);
+  letter-spacing: -0.04em;
+}
+input.rotnum{
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+  text-align: right;
+  width: 2.4em;
+  font-variant-numeric: tabular-nums;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  caret-color: var(--gold);
+}
+input.rotnum::-webkit-outer-spin-button,
+input.rotnum::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+input.rotnum:focus{ background: rgba(253,185,19,0.08); }
+.sb-rotval .rotunit{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  color: var(--fg-3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.sb-rothelp{
+  margin-top: 6px;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  font-weight: 500;
+}
+.sb-rothelp.paused{ color: var(--fg-3); }
+
+/* legend in sidebar footer */
+.sb-legend{
+  display: flex; flex-direction: column; gap: 6px;
+}
+.sb-legend .lg{
+  display: flex; align-items: center; gap: 8px;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 500;
+}
+.sb-legend .lg .sq{
+  width: 12px; height: 12px;
+}
+.sb-legend .lg .sq.done{ background: var(--done); }
+.sb-legend .lg .sq.requested{ background: var(--requested); }
+.sb-legend .lg .sq.inprog{ background: var(--inprog); }
+.sb-legend .lg .sq.pending{ background: var(--pending); }
+.sb-legend .lg .sq.nonreq{ background: var(--nonreq); border: 1px solid var(--rule); }
+.sb-legend .lg .sq.none{ background: #050505; border: 1px solid #0e0e0e; }
+
+/* hide old top stat strip / old filter bar / old footer when sidebar is in use */
+.stats, .filters, .footer{ display: none; }
+.hero{ display: none; }
+
+/* ─── TOP BAR ───────────────────────────────────────────── */
+.topbar{
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  padding: clamp(12px, 0.9vw, 22px) var(--pad);
+  gap: var(--pad);
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+  z-index: 100;
+  min-height: clamp(52px, 3.6vw, 76px);
+}
+.topbar .logo-group{
+  display: flex; align-items: center; gap: clamp(8px, 0.6vw, 14px);
+}
+.tb-burger{
+  background: transparent;
+  border: 1px solid var(--rule-2);
+  color: var(--fg-2);
+  width: clamp(28px, 2.2vw, 40px);
+  height: clamp(28px, 2.2vw, 40px);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.tb-burger:hover{ color: var(--gold); border-color: var(--gold); }
+.tb-burger svg{ width: 50%; height: 50%; fill: currentColor; }
+
+/* logo — wordmark */
+.logo{
+  display: flex; align-items: baseline; gap: clamp(8px, 0.6vw, 14px);
+  font-weight: 800;
+  font-size: var(--fs-md);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.logo .mark{
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: clamp(28px, 2.2vw, 48px);
+  height: clamp(28px, 2.2vw, 48px);
+  background: var(--gold);
+  color: var(--bg);
+  font-weight: 900;
+  font-size: clamp(14px, 1.1vw, 24px);
+  letter-spacing: -0.05em;
+  border-radius: 0;
+  flex-shrink: 0;
+  position: relative;
+}
+.logo .mark::after{
+  /* small notch for personality */
+  content:""; position: absolute; right: 0; bottom: 0;
+  width: 30%; height: 30%;
+  background: var(--bg);
+  clip-path: polygon(100% 0, 100% 100%, 0 100%);
+}
+.logo .word{ color: var(--fg); }
+.logo .word .by{ color: var(--fg-3); font-weight: 400; margin-left: 6px; font-size: 0.7em; }
+
+.center-tabs{
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.tab{
+  padding: clamp(8px, 0.6vw, 14px) clamp(16px, 1.2vw, 28px);
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--fg-3);
+  cursor: pointer;
+  transition: color .2s, background .2s, border-color .2s;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  margin-left: -1px;
+}
+.tab:first-child{ margin-left: 0; }
+.tab:hover{ color: var(--fg); border-color: var(--rule-2); z-index: 1; position: relative; }
+.tab.active{
+  background: var(--gold);
+  color: var(--bg);
+  border-color: var(--gold);
+  font-weight: 700;
+  z-index: 2; position: relative;
+}
+.tab.rotating:not(.active){
+  color: var(--gold);
+  border-color: var(--gold-dim);
+  background: rgba(253,185,19,0.06);
+}
+
+/* sidebar variant: stack tabs vertically */
+.sb-tabs{
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: var(--fs-xs);
+}
+.sb-tabs .tab{
+  padding: 8px 12px;
+  margin-left: 0;
+  text-align: center;
+  border-radius: 0;
+}
+
+/* topbar title — centralized, replaces tabs slot */
+.topbar-title{
+  font-family: 'Geist', sans-serif;
+  font-weight: 900;
+  font-size: clamp(18px, 1.6vw, 32px);
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg);
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-title .tt-evt{ color: var(--gold); font-weight: 900; }
+.topbar-title .tt-sep{ color: var(--fg-5); margin: 0 0.5em; font-weight: 400; }
+.topbar-title .tt-tag{ color: var(--fg-2); font-weight: 800; }
+
+.status{
+  display: flex; align-items: center; gap: clamp(10px, 0.8vw, 18px);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.status .live-pill{
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 10px;
+  background: rgba(0,230,118,0.08);
+  border: 1px solid rgba(0,230,118,0.25);
+  color: var(--done);
+  font-weight: 600;
+}
+.live-dot{
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--done);
+  box-shadow: 0 0 0 0 rgba(0,230,118,0.6);
+  animation: livepulse 2s ease-out infinite;
+}
+@keyframes livepulse{
+  0%   { box-shadow: 0 0 0 0 rgba(0,230,118,0.5); }
+  70%  { box-shadow: 0 0 0 8px rgba(0,230,118,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,230,118,0); }
+}
+.status .ts{ color: var(--fg-2); font-weight: 500; }
+.status .countdown{ color: var(--fg-4); }
+
+/* ─── HERO STRIP — single line ─────────────────────────── */
+.hero{
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: clamp(12px, 1vw, 28px);
+  padding: clamp(8px, 0.6vw, 16px) var(--pad);
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+  overflow: hidden;
+}
+.hero::before{
+  content:""; position: absolute; bottom: -1px; left: var(--pad); width: clamp(40px, 3.5vw, 80px);
+  height: 2px; background: var(--gold);
+}
+.hero-title{
+  font-weight: 900;
+  font-size: var(--fs-lg);
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.hero-title .accent{
+  color: var(--gold);
+  font-style: normal;
+  display: inline;
+}
+.hero-sub{
+  display: flex; align-items: center; gap: clamp(8px, 0.6vw, 14px);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.hero-sub .value{ color: var(--fg); font-weight: 500; }
+
+.hero-meta{
+  display: flex; align-items: baseline; gap: clamp(10px, 0.8vw, 18px);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  text-align: right;
+}
+.hero-meta .big{
+  font-family: 'Geist', sans-serif;
+  font-size: var(--fs-lg);
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  font-weight: 800;
+  line-height: 1;
+}
+.hero-meta .big .pct{ color: var(--gold); }
+
+/* ─── STAT GRID ─────────────────────────────────────────── */
+.stats{
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+.stat{
+  padding: clamp(8px, 0.6vw, 16px) clamp(12px, 0.9vw, 22px) clamp(8px, 0.6vw, 14px);
+  border-right: 1px solid var(--rule);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-rows: auto auto;
+  align-items: center;
+  column-gap: clamp(8px, 0.6vw, 14px);
+  row-gap: clamp(2px, 0.2vw, 6px);
+  position: relative;
+  cursor: default;
+  transition: background .2s;
+}
+.stat:hover{ background: var(--bg-1); }
+.stat:last-child{ border-right: none; }
+.stat-label{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.stat-label svg{ width: 12px; height: 12px; fill: var(--fg-4); }
+.stat-num{
+  font-family: 'Geist', sans-serif;
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  display: flex; align-items: baseline; gap: 4px;
+  font-variant-numeric: tabular-nums;
+  grid-row: 1;
+  grid-column: 2;
+  justify-self: end;
+}
+.stat-num .of{
+  font-size: 0.5em;
+  color: var(--fg-4);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+}
+.stat-label{
+  grid-row: 1;
+  grid-column: 1;
+}
+.stat-bar{
+  grid-row: 2;
+  grid-column: 1 / -1;
+  height: 2px;
+  background: var(--bg-3);
+  position: relative; overflow: hidden;
+  margin-top: 0;
+}
+.stat-bar-fill{
+  height: 100%;
+  background: var(--gold);
+  transition: width 1.4s cubic-bezier(0.2,0.8,0.2,1);
+}
+.stat-bar-fill.complete{ background: var(--done); }
+.stat-meta{
+  grid-row: 2;
+  grid-column: 1 / -1;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.05em;
+  color: var(--fg-4);
+  display: flex; gap: clamp(6px, 0.5vw, 12px);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.stat-meta .pending-dot{ color: var(--pending); font-weight: 600; }
+.stat-meta .req-dot{ color: var(--requested); font-weight: 600; }
+/* hide stat-bar — meta strip already conveys progress, saves vertical room */
+.stat-bar{ display: none; }
+
+/* ─── FILTER BAR ────────────────────────────────────────── */
+.filters{
+  display: flex; align-items: center;
+  gap: clamp(4px, 0.3vw, 10px);
+  padding: clamp(6px, 0.4vw, 12px) var(--pad);
+  border-bottom: 1px solid var(--rule);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.filters .label{ color: var(--fg-4); margin-right: 8px; }
+.filter-btn{
+  padding: 4px 12px;
+  background: transparent;
+  border: 1px solid var(--rule);
+  color: var(--fg-3);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  font-weight: 500;
+  transition: color .2s, border-color .2s, background .2s;
+}
+.filter-btn:hover{ color: var(--fg); border-color: var(--rule-2); }
+.filter-btn.active{
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+  font-weight: 700;
+}
+.filter-btn[data-filter="pending"].active{ background: var(--pending); border-color: var(--pending); color: var(--fg); }
+.filter-btn[data-filter="requested"].active{ background: var(--requested); border-color: var(--requested); color: var(--bg); }
+.filter-btn[data-filter="done"].active{ background: var(--done); border-color: var(--done); color: var(--bg); }
+
+/* ─── CARD WRAPPER — single-event view, auto-rotates ────── */
+.main{
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.wrap{
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  padding: 0 var(--pad) clamp(8px, 0.6vw, 16px);
+}
+.wrap::-webkit-scrollbar{ width: 6px; }
+.wrap::-webkit-scrollbar-track{ background: transparent; }
+.wrap::-webkit-scrollbar-thumb{ background: var(--rule-2); }
+.wrap::-webkit-scrollbar-thumb:hover{ background: var(--gold); }
+
+/* fade between events */
+.wrap.fading{ opacity: 0; }
+.wrap{
+  transition: opacity .4s ease;
+}
+
+/* rotation indicator — thin gold bar progress */
+.rotation-bar{
+  position: absolute;
+  top: 0; left: 0; height: 2px;
+  background: var(--gold);
+  z-index: 20;
+  pointer-events: none;
+  transition: width linear;
+  opacity: 0.85;
+}
+.rotation-bar.paused{ background: var(--fg-4); opacity: 0.3; }
+
+/* section header */
+.section{
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--pad);
+  padding: clamp(10px, 0.8vw, 20px) 0 clamp(6px, 0.4vw, 12px);
+  border-bottom: 1px solid var(--rule);
+  margin-bottom: clamp(2px, 0.2vw, 6px);
+}
+.section.section-compact{
+  grid-template-columns: 1fr;
+  justify-items: end;
+  padding: clamp(4px, 0.3vw, 8px) clamp(8px, 0.6vw, 16px);
+}
+.section-num{
+  font-family: 'Geist', sans-serif;
+  font-weight: 900;
+  font-size: var(--fs-xl);
+  line-height: 0.85;
+  letter-spacing: -0.06em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.section-info{
+  display: flex; flex-direction: column; gap: 2px;
+}
+.section-eyebrow{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  font-weight: 500;
+}
+.section-title{
+  font-family: 'Geist', sans-serif;
+  font-weight: 800;
+  font-size: var(--fs-lg);
+  letter-spacing: -0.03em;
+  color: var(--fg);
+  text-transform: uppercase;
+  line-height: 1;
+}
+.section-stats{
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.section-stats .pct{
+  font-family: 'Geist', sans-serif;
+  font-size: var(--fs-md);
+  letter-spacing: -0.04em;
+  color: var(--fg);
+  font-weight: 700;
+}
+.section-stats .pct.hot{ color: var(--gold); }
+.section-stats .pct.complete{ color: var(--done); }
+
+/* column header */
+.col-head{
+  display: grid;
+  grid-template-columns: 1fr clamp(120px, 9vw, 200px) 1fr;
+  padding: clamp(4px, 0.3vw, 10px) 0;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  border-bottom: 1px solid var(--rule);
+  font-weight: 500;
+}
+.col-head .blue-side{
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 2px; padding-right: clamp(10px, 0.8vw, 20px);
+  color: var(--blue);
+}
+.col-head .red-side{
+  display: flex; align-items: center; flex-direction: row-reverse; justify-content: flex-end;
+  gap: 2px; padding-left: clamp(10px, 0.8vw, 20px);
+  color: var(--red);
+}
+.col-head .center{ text-align: center; align-self: center; color: var(--fg-4); }
+.task-h{
+  width: var(--tcell-w);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+}
+.task-h svg{
+  width: clamp(11px, 0.85vw, 18px);
+  height: clamp(11px, 0.85vw, 18px);
+  fill: var(--fg-4);
+}
+.task-h .lbl{
+  font-size: 0.85em;
+  color: var(--fg-4);
+  font-weight: 500;
+}
+.col-head .blue-side .task-h .lbl,
+.col-head .blue-side .task-h svg{ color: var(--fg-4); }
+
+/* ─── FIGHT ROW ─────────────────────────────────────────── */
+.fight{
+  display: grid;
+  grid-template-columns: 1fr clamp(120px, 9vw, 200px) 1fr;
+  min-height: var(--row-h);
+  border-bottom: 1px solid var(--rule);
+  position: relative;
+  transition: background .15s;
+}
+.fight:hover{ background: var(--bg-1); }
+.fight.title-fight{
+  background:
+    linear-gradient(90deg, rgba(253,185,19,0.07), transparent 22%, transparent 78%, rgba(253,185,19,0.07));
+  border-top: 1px solid var(--gold-dim);
+  border-bottom: 1px solid var(--gold-dim);
+}
+.fight.title-fight::before{
+  content:""; position: absolute; left: 0; right: 0; top: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent);
+}
+.fight.title-fight::after{
+  content:""; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--gold) 50%, transparent);
+}
+
+.corner{
+  display: flex; align-items: center;
+  padding: clamp(6px, 0.4vw, 14px) clamp(10px, 0.8vw, 22px);
+  gap: clamp(10px, 0.8vw, 18px);
+  position: relative;
+  min-width: 0;
+}
+.corner-red{ flex-direction: row-reverse; }
+
+.fblock{
+  display: flex; flex-direction: column;
+  min-width: 0;
+  gap: clamp(2px, 0.2vw, 6px);
+}
+.corner-blue .fblock{ align-items: flex-end;   text-align: right; margin-left: auto; }
+.corner-red  .fblock{ align-items: flex-start; text-align: left;  margin-right: auto; }
+
+.fname{
+  font-family: 'Geist', sans-serif;
+  font-weight: 800;
+  font-size: var(--fs-md);
+  letter-spacing: -0.03em;
+  color: var(--fg);
+  line-height: 1.05;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.fname.ready{ color: var(--done); }
+.fmeta{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.05em;
+  color: var(--fg-3);
+  display: flex; gap: clamp(8px, 0.6vw, 16px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+.corner-red .fmeta{ flex-direction: row-reverse; }
+.fmeta .fid{ color: var(--fg-4); }
+.fmeta .rec{ color: var(--fg-2); font-weight: 600; }
+.fmeta .ctry{
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+/* avatar — sharp rectangle, no rounding */
+.avatar{
+  width: var(--avatar);
+  height: var(--avatar);
+  flex-shrink: 0;
+  background: var(--bg-2);
+  position: relative;
+  overflow: hidden;
+  border-radius: 50%;
+}
+.corner-blue .avatar{ box-shadow: 0 0 0 3px var(--blue); }
+.corner-red  .avatar{ box-shadow: 0 0 0 3px var(--red); }
+.avatar img{
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  display: block;
+  filter: contrast(1.05) brightness(1.02);
+}
+.avatar-fallback{
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Geist', sans-serif;
+  font-weight: 900;
+  font-size: clamp(20px, 1.6vw, 38px);
+  color: var(--fg-4);
+  letter-spacing: -0.04em;
+}
+
+/* tasks — sharp squares */
+.tasks{
+  display: flex; gap: 2px; align-items: center; flex-shrink: 0;
+}
+.corner-red .tasks{ flex-direction: row-reverse; }
+.tcell{
+  width: var(--tcell-w);
+  height: var(--tcell-h);
+  background: var(--bg-2);
+  position: relative;
+  cursor: pointer;
+  transition: transform .12s, filter .15s;
+  border: 1px solid var(--rule-2);
+  display: flex; align-items: center; justify-content: center;
+}
+.tcell:hover{ transform: scale(1.1); z-index: 5; filter: brightness(1.2); }
+.tcell.done{
+  background: var(--done);
+  border-color: var(--done);
+}
+.tcell.requested{
+  background: var(--requested);
+  border-color: var(--requested);
+}
+.tcell.inprog{
+  background: var(--inprog);
+  border-color: var(--inprog);
+}
+.tcell.nonreq{
+  background: var(--nonreq);
+  border-color: var(--rule);
+}
+.tcell.pending{
+  background: var(--pending);
+  border-color: var(--pending);
+  animation: pendingPulse 2.4s ease-in-out infinite;
+}
+@keyframes pendingPulse{
+  0%, 100% { box-shadow: inset 0 0 0 0 rgba(0,0,0,0); opacity: 1; }
+  50%      { box-shadow: inset 0 0 0 2px rgba(0,0,0,0.3); opacity: 0.85; }
+}
+.tcell.none{
+  background: #050505;
+  border-color: #0e0e0e;
+}
+
+/* bout center */
+.bout{
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: clamp(6px, 0.5vw, 14px) clamp(10px, 0.8vw, 22px);
+  position: relative;
+  border-left: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  background: var(--bg-1);
+  gap: clamp(2px, 0.2vw, 6px);
+}
+.bout-num{
+  font-family: 'Geist', sans-serif;
+  font-weight: 900;
+  font-size: var(--fs-xl);
+  color: var(--fg);
+  line-height: 0.85;
+  letter-spacing: -0.06em;
+  font-variant-numeric: tabular-nums;
+}
+.bout-num .hash{
+  color: var(--fg-4);
+  font-weight: 400;
+  margin-right: 2px;
+}
+.bout-weight{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  color: var(--fg-2);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
+  line-height: 1.2;
+  font-weight: 500;
+}
+.bout-event{
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  color: var(--fg-4);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.title-fight .bout-num{ color: var(--gold); }
+.title-fight .bout-event{
+  color: var(--gold);
+  font-weight: 700;
+}
+
+/* readiness dots — hidden, redundant with task squares */
+.readiness{ display: none; }
+
+/* ─── TOOLTIP ───────────────────────────────────────────── */
+/* ─── TICKER (rodapé scrolling) ────────────────────────── */
+.ticker{
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  height: 30px;
+  background: var(--bg-2);
+  border-top: 1px solid var(--rule-2);
+  overflow: hidden;
+  z-index: 800;
+  display: flex; align-items: center;
+}
+.ticker-track{
+  display: inline-flex;
+  gap: 0;
+  white-space: nowrap;
+  font-family: 'Geist Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  font-weight: 500;
+  animation: ticker-scroll linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover{ animation-play-state: paused; }
+.ticker-item{
+  padding: 0 28px;
+  display: inline-flex; align-items: center; gap: 8px;
+}
+.ticker-item .tk-evt{ color: var(--gold); font-weight: 700; }
+.ticker-item .tk-task{ color: var(--fg-2); font-weight: 600; }
+.ticker-item .tk-done{ color: var(--done); font-weight: 700; }
+.ticker-item .tk-pending{ color: var(--pending); font-weight: 700; }
+.ticker-item .tk-requested{ color: var(--requested); font-weight: 700; }
+.ticker-item .tk-sep{ color: var(--fg-5); padding: 0 4px; }
+@keyframes ticker-scroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+/* push the bottom of the layout above the ticker so nothing is hidden */
+body{ padding-bottom: 30px; }
+
+.tooltip{
+  position: fixed;
+  padding: 10px 14px;
+  background: var(--fg);
+  color: var(--bg);
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(11px, 0.75vw, 15px);
+  letter-spacing: 0.02em;
+  pointer-events: none;
+  z-index: 1500;
+  opacity: 0;
+  transition: opacity .12s;
+  max-width: 320px;
+  line-height: 1.4;
+  font-weight: 500;
+  border: 1px solid var(--gold);
+}
+.tooltip.show{ opacity: 1; }
+.tooltip strong{ font-weight: 700; }
+.tooltip .tt-status{
+  display: inline-block;
+  padding: 2px 8px;
+  margin-left: 6px;
+  text-transform: uppercase;
+  font-size: 0.85em;
+  letter-spacing: 0.12em;
+  font-weight: 700;
+}
+.tooltip .tt-status.done{ background: var(--done); color: var(--bg); }
+.tooltip .tt-status.requested{ background: var(--requested); color: var(--bg); }
+.tooltip .tt-status.inprog{ background: var(--inprog); color: var(--bg); }
+.tooltip .tt-status.pending{ background: var(--pending); color: var(--fg); }
+.tooltip .tt-status.nonreq{ background: var(--nonreq); color: var(--fg-3); border: 1px solid var(--rule-2); }
+.tooltip .tt-status.none{ background: var(--bg-3); color: var(--fg-3); }
+
+/* ─── FOOTER ────────────────────────────────────────────── */
+.footer{
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: clamp(6px, 0.4vw, 14px) var(--pad);
+  border-top: 1px solid var(--rule);
+  margin-top: auto;
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-xs);
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--fg-4);
+  background: var(--bg);
+  position: sticky; bottom: 0;
+  z-index: 50;
+  font-weight: 500;
+}
+.legend{ display: flex; gap: clamp(14px, 1.2vw, 28px); justify-content: center; }
+.lg-item{ display: flex; align-items: center; gap: 8px; color: var(--fg-3); }
+.lg-sq{
+  width: clamp(11px, 0.8vw, 16px);
+  height: clamp(11px, 0.8vw, 16px);
+  display: flex; align-items: center; justify-content: center;
+}
+.lg-sq.done{ background: var(--done); }
+.lg-sq.requested{ background: var(--requested); }
+.lg-sq.inprog{ background: var(--inprog); }
+.lg-sq.pending{ background: var(--pending); }
+.lg-sq.none{ background: transparent; border: 1px solid var(--rule-2); }
+.footer .left{ text-align: left; color: var(--fg-3); }
+.footer .right{ text-align: right; color: var(--fg-4); }
+
+/* page entrance */
+@keyframes rise{
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.topbar, .hero, .stats, .filters{ animation: rise .5s ease-out both; }
+.hero    { animation-delay: .08s; }
+.stats   { animation-delay: .16s; }
+.filters { animation-delay: .24s; }
+.section { animation: rise .4s ease-out both; animation-delay: .3s; }
+.fight{
+  animation: rise .4s ease-out both;
+  animation-delay: calc(0.35s + var(--i, 0) * 0.022s);
+}
+
+/* ─── MOBILE (≤900px) ────────────────────────────────────
+   Sidebar becomes an overlay drawer (off-canvas), toggled by burger.
+   Topbar collapses status into a single condensed row, tabs full width.
+*/
+@media (max-width: 900px){
+  .app{
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "topbar"
+      "main";
+  }
+  .sidebar-area{
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: min(86vw, 340px);
+    z-index: 1200;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    background: var(--bg);
+    border-right: 1px solid var(--rule-2);
+    box-shadow: 0 0 40px rgba(0,0,0,0.6);
+  }
+  .app.sb-mobile-open .sidebar-area{ transform: translateX(0); }
+  .app.sb-autohide .sidebar-area,
+  .app.sb-collapsed .sidebar-area{ transform: translateX(-100%); }
+  .sb-edge{ display: none; }
+  .sidebar{ position: relative; height: 100%; overflow-y: auto; }
+  .mobile-backdrop{
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1100;
+    opacity: 0; pointer-events: none;
+    transition: opacity .25s ease;
+  }
+  .app.sb-mobile-open .mobile-backdrop{ opacity: 1; pointer-events: auto; }
+
+  .topbar{
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 6px 10px;
+    padding: 8px 10px;
+  }
+  .topbar .logo-group{ grid-column: 1; grid-row: 1; }
+  .topbar .center-tabs{
+    grid-column: 1 / -1; grid-row: 2;
+    display: flex; gap: 4px; flex-wrap: wrap;
+  }
+  .topbar .status{
+    grid-column: 2; grid-row: 1;
+    justify-self: end;
+    display: flex; gap: 6px; align-items: center;
+    font-size: 10px;
+  }
+  .status .ts{ display: none; }
+  .tab{ padding: 6px 10px; font-size: 11px; flex: 1; min-width: 0; text-align: center; }
+
+  .col-head{ display: none; }
+
+  .fight{ grid-template-columns: 1fr clamp(70px, 16vw, 110px) 1fr; }
+  .corner{ padding: 6px 8px; gap: 6px; }
+  .fname{ font-size: clamp(11px, 2.6vw, 14px); }
+  .fmeta{ font-size: 9px; gap: 6px; }
+  .bout-num{ font-size: clamp(14px, 4vw, 20px); }
+  .bout-weight{ font-size: 9px; }
+  .bout-event{ font-size: 8px; }
+  .readiness .rd{ width: 4px; height: 4px; }
+  :root{
+    --avatar: clamp(28px, 8vw, 42px);
+    --tcell-w: clamp(14px, 3.4vw, 22px);
+    --tcell-h: clamp(14px, 3.4vw, 22px);
+  }
+  .ticker{ height: 26px; }
+  .ticker-track{ font-size: 10px; }
+  .ticker-item{ padding: 0 18px; }
+  body{ padding-bottom: 26px; }
+}
+
+/* ─── MOBILE STRICT (≤520px) ─────────────────────────────
+   Stack each fight: blue corner → bout (mini) → red corner vertically.
+*/
+html, body{ overflow-x: hidden; max-width: 100vw; }
+@media (max-width: 520px){
+  html, body{ overflow-x: hidden; }
+  .fight{
+    display: flex !important;
+    flex-direction: column !important;
+    grid-template-columns: none !important;
+    border-bottom: 2px solid var(--rule-2);
+    padding: 6px 0;
+    min-height: 0 !important;
+    height: auto !important;
+  }
+  .corner{
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 8px 10px !important;
+    gap: 10px !important;
+    display: flex !important;
+    border-radius: 0;
+    box-sizing: border-box;
+  }
+  .corner-blue{ order: 1; flex-direction: row !important; border-left: 0 !important; }
+  .bout{ order: 2; width: 100% !important; box-sizing: border-box; }
+  .corner-red{ order: 3; flex-direction: row-reverse !important; border-right: 0 !important; }
+  .corner-blue .fblock{ align-items: flex-end; text-align: right; }
+  .corner-red  .fblock{ align-items: flex-start; text-align: left; }
+  .bout{
+    flex-direction: row; justify-content: center; align-items: center;
+    gap: 12px;
+    padding: 4px 10px;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .bout .readiness{ display: none; }
+  .tasks{ flex-shrink: 1; }
+  :root{
+    --avatar: 44px;
+    --tcell-w: 18px;
+    --tcell-h: 18px;
+  }
+  .fname{ font-size: 13px; max-width: 50vw; }
+  .fmeta{ font-size: 9px; }
+  .topbar .center-tabs .tab{ font-size: 10px; padding: 5px 6px; }
+}
+
+/* ultrawide / 4K */
+@media (min-width: 2560px){
+  .topbar, .hero, .stats, .filters, .wrap, .footer{
+    max-width: 2560px; margin-left: auto; margin-right: auto;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- HIDDEN SVG SPRITE -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="ico-blood" viewBox="0 0 24 24"><path d="M12 2c0 0-7 8.2-7 12.5C5 18.64 8.13 22 12 22s7-3.36 7-7.5C19 10.2 12 2 12 2zm0 18c-2.76 0-5-2.49-5-5.5 0-2.56 3.17-7.13 5-9.64 1.83 2.51 5 7.08 5 9.64 0 3.01-2.24 5.5-5 5.5z"/></symbol>
+  <symbol id="ico-photo" viewBox="0 0 24 24"><path d="M12 12m-3.2 0a3.2 3.2 0 1 0 6.4 0 3.2 3.2 0 1 0-6.4 0M9 2L7.17 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2h-3.17L15 2H9zm3 15c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5z"/></symbol>
+  <symbol id="ico-film" viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4h-4z"/></symbol>
+  <symbol id="ico-music" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></symbol>
+  <symbol id="ico-stats" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></symbol>
+  <symbol id="ico-video" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></symbol>
+</svg>
+
+<div class="app" id="app">
+
+<!-- ─── TOP BAR (full width) ─────────────────────────────── -->
+<header class="topbar topbar-area">
+  <div class="logo-group">
+    <button class="tb-burger" id="sb-cycle" title="Cycle sidebar (fixed → autohide → hidden)" aria-label="Toggle sidebar">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </button>
+    <button class="tb-burger" id="fs-toggle" title="Toggle fullscreen (F)" aria-label="Toggle fullscreen">
+      <svg viewBox="0 0 24 24" id="fs-icon"><path d="M5 5h5V3H3v7h2V5zm9-2v2h5v5h2V3h-7zm5 16h-5v2h7v-7h-2v5zM5 14H3v7h7v-2H5v-5z"/></svg>
+    </button>
+    <div class="logo">
+      <span class="mark">U</span>
+    </div>
+  </div>
+  <h1 class="topbar-title" id="topbar-title"><span class="tt-tag">Dashboard</span></h1>
+  <div class="status">
+    <span class="live-pill"><span class="live-dot"></span><span id="live-text">Live</span></span>
+    <span class="ts" id="ts">—</span>
+    <span class="countdown" id="cd">—</span>
+  </div>
+</header>
+
+<!-- ─── SIDEBAR ──────────────────────────────────────────── -->
+<aside class="sidebar-area">
+  <div class="sb-edge" id="sb-edge" title="Hover to expand"></div>
+  <nav class="sidebar" id="sidebar">
+    <div class="sb-head">
+      <span class="sb-title">Readiness</span>
+      <span id="sb-evt-label">—</span>
+    </div>
+    <div class="sb-body">
+      <div class="sb-section">
+        <span class="sb-eyebrow">Event</span>
+        <div class="center-tabs sb-tabs">
+          <button class="tab active" data-event="all">All Events</button>
+          <button class="tab" data-event="UAEW70">UAEW 70</button>
+          <button class="tab" data-event="UAEW71">UAEW 71</button>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow" id="sb-date">—</span>
+        <div class="sb-overall">
+          <span class="num" id="sb-pct">—</span>
+          <span class="den">
+            <span class="strong" id="sb-ratio">—</span>
+            <span id="sb-meta">—</span>
+          </span>
+        </div>
+        <div class="sb-bar"><div class="sb-bar-fill" id="sb-bar-fill" style="width:0%"></div></div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow">Tasks Monitored</span>
+        <div class="sb-task-toggles" id="sb-task-toggles"></div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow">Per Task</span>
+        <div class="sb-scope">
+          <button class="sb-scope-btn active" data-scope="current">Current</button>
+          <button class="sb-scope-btn" data-scope="all">Overall</button>
+          <button class="sb-scope-btn" data-scope="UAEW70">UAEW 70</button>
+          <button class="sb-scope-btn" data-scope="UAEW71">UAEW 71</button>
+        </div>
+        <div class="sb-tasks" id="sb-tasks"></div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow">Filter Bouts</span>
+        <div class="sb-filters">
+          <button class="sb-filter active" data-filter="all">All</button>
+          <button class="sb-filter" data-filter="pending">No status</button>
+          <button class="sb-filter" data-filter="requested">Requested</button>
+          <button class="sb-filter" data-filter="inprog">In Progress</button>
+          <button class="sb-filter" data-filter="done">Done</button>
+          <button class="sb-filter" data-filter="nonreq">Non-req</button>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow">Rotation Speed</span>
+        <div class="sb-rotctl">
+          <button class="sb-step" id="rot-down" title="Slower (−2s)" aria-label="Slower">−</button>
+          <div class="sb-rotval">
+            <input class="rotnum" id="rot-val" type="number" min="0" max="60" step="1" value="12" inputmode="numeric"><span class="rotunit">s</span>
+          </div>
+          <button class="sb-step" id="rot-up" title="Faster (+2s)" aria-label="Faster">+</button>
+        </div>
+        <div class="sb-rothelp" id="rot-help">Auto-cycles between events</div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow">Legend</span>
+        <div class="sb-legend">
+          <span class="lg"><span class="sq done"></span>Done</span>
+          <span class="lg"><span class="sq requested"></span>Requested</span>
+          <span class="lg"><span class="sq inprog"></span>In Progress</span>
+          <span class="lg"><span class="sq pending"></span>No status</span>
+          <span class="lg"><span class="sq nonreq"></span>Non-requested</span>
+        </div>
+      </div>
+
+      <div class="sb-section">
+        <span class="sb-eyebrow">Card</span>
+        <div style="font-family:'Geist Mono',monospace;font-size:var(--fs-xs);color:var(--fg-3);letter-spacing:0.1em;text-transform:uppercase;line-height:1.6">
+          <div id="sb-card-line">— bouts</div>
+          <div id="sb-edition" style="color:var(--fg-4);margin-top:4px">—</div>
+        </div>
+      </div>
+    </div>
+  </nav>
+</aside>
+
+<!-- ─── MAIN ─────────────────────────────────────────────── -->
+<main class="main main-area">
+  <div class="wrap" id="wrap"></div>
+</main>
+
+</div>
+
+<!-- ─── TICKER ───────────────────────────────────────────── -->
+<div class="ticker" id="ticker" aria-hidden="true">
+  <div class="ticker-track" id="ticker-track"></div>
+</div>
+
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const CONFIG = {
+  attendanceSheetId: '1_JIQmKWytwwkmjTYoxVFoxayk8lCv75hrfqKlEjdh58',
+  attendanceSheet: 'Attendance',
+  hubSheetId: '1Y5dKGGBBeR_j3UPktsZcMAqJq816FUouABIvWZeDyKo',
+  fightCardSheet: '[df] FightCard',
+  refreshInterval: 60000,
+  fightCardRefreshInterval: 300000,
+  photoBaseUrl: 'https://appadmin.uaewarriors.com/imagecdn/FighterDP?fighterId=',
+};
+
+const TASKS = [
+  { key: 'Blood Test',         iconId: 'ico-blood', short: 'Blood'   },
+  { key: 'Photoshoot',         iconId: 'ico-photo', short: 'Photo'   },
+  { key: 'Black Screen Video', iconId: 'ico-film',  short: 'BSV'     },
+  { key: 'Walkout Music',      iconId: 'ico-music', short: 'Music'   },
+  { key: 'Stats',              iconId: 'ico-stats', short: 'Stats'   },
+  { key: 'Video Shooting',     iconId: 'ico-video', short: 'Video'   },
+];
+
+let visibleTaskKeys = (() => {
+  try {
+    const raw = localStorage.getItem('uaew-visible-tasks');
+    if (!raw) return TASKS.map(t => t.key);
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || !arr.length) return TASKS.map(t => t.key);
+    return arr.filter(k => TASKS.some(t => t.key === k));
+  } catch(e){ return TASKS.map(t => t.key); }
+})();
+function getVisibleTasks(){
+  const visible = TASKS.filter(t => visibleTaskKeys.includes(t.key));
+  return visible.length ? visible : TASKS; // never render zero tasks
+}
+
+function svgIcon(id, cls) {
+  return `<svg class="${cls || ''}"><use href="#${id}"/></svg>`;
+}
+
+const PHOTO_URL = {}; // populated from FightCard sheet (id -> full image URL)
+function photoUrl(internalId) {
+  return PHOTO_URL[String(internalId)] || '';
+}
+
+let FIGHTS = []; // populated from FightCard sheet
+
+let attendance = {};
+let activeEvent = (() => {
+  try { return localStorage.getItem('uaew-active-event') || 'all'; } catch(e){ return 'all'; }
+})();
+let activeFilter = (() => {
+  try {
+    const v = localStorage.getItem('uaew-active-filter') || 'all';
+    return v === 'none' ? 'all' : v; // migrate legacy "Untouched" → "All"
+  } catch(e){ return 'all'; }
+})();
+let statsScope = (() => {
+  try { return localStorage.getItem('uaew-stats-scope') || 'current'; } catch(e){ return 'current'; }
+})();
+let lastUpdate = null;
+
+let lastAttendanceTable = null;
+let lastFetchAt = 0;
+
+/**
+ * Data source: our own database, via /api/dashboard/war-room.
+ *
+ * This screen was built to read two Google Sheets over gviz JSONP. The API
+ * returns both tables in that same shape, so every parser and renderer below
+ * is untouched — only where the bytes come from changed.
+ *
+ * The venue network is slow and drops, so a failed refresh keeps the last good
+ * screen on display instead of blanking it; we only say "Offline" if we have
+ * never managed to load at all.
+ */
+async function fetchWarRoom() {
+  const now = Date.now();
+  if (now - lastFetchAt < 2000) return; // collapse the paired startup calls
+  lastFetchAt = now;
+  try {
+    const res = await fetch('/api/dashboard/war-room', { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    lastAttendanceTable = data.attendance;
+    parseFightCard(data.fightCard);
+    rebuildRotationEvents();
+    parseAttendance(data.attendance);
+    lastUpdate = new Date();
+    render();
+  } catch (e) {
+    console.warn('War-room fetch failed:', e.message);
+    if (!lastUpdate) document.getElementById('live-text').textContent = 'Offline';
+  }
+}
+
+const fetchAttendance = fetchWarRoom;
+const fetchFightCard = fetchWarRoom;
+
+const COUNTRY_CODE = {
+  'russia':'RUS','tajikistan':'TJK','turkmenistan':'TKM','uzbekistan':'UZB','turkey':'TUR',
+  'serbia':'SRB','brazil':'BRA','kazakhstan':'KAZ','egypt':'EGY','zimbabwe':'ZWE',
+  'morocco':'MAR','belarus':'BLR','albania':'ALB','philippines':'PHL','south africa':'ZAF',
+  'cameroon':'CMR','italy':'ITA','south korea':'KOR','korea':'KOR','armenia':'ARM',
+  'ukraine':'UKR','pakistan':'PAK','tunisia':'TUN','algeria':'DZA','iran':'IRN',
+  'iraq':'IRQ','syria':'SYR','jordan':'JOR','lebanon':'LBN','saudi arabia':'SAU',
+  'uae':'ARE','united arab emirates':'ARE','france':'FRA','spain':'ESP','germany':'DEU',
+  'usa':'USA','united states':'USA','canada':'CAN','mexico':'MEX','argentina':'ARG',
+  'colombia':'COL','peru':'PER','chile':'CHL','ireland':'IRL','england':'ENG',
+  'united kingdom':'GBR','scotland':'SCO','wales':'WAL','poland':'POL','romania':'ROU',
+  'azerbaijan':'AZE','georgia':'GEO','kyrgyzstan':'KGZ','dagestan':'RUS','chechnya':'RUS',
+};
+function countryCode(name){
+  if (!name) return '';
+  const k = String(name).trim().toLowerCase();
+  return COUNTRY_CODE[k] || String(name).slice(0,3).toUpperCase();
+}
+
+function parseFightCard(table) {
+  const cols = table.cols.map(c => (c.label || '').trim().toLowerCase());
+  const ix = (label, fallback) => {
+    const i = cols.findIndex(c => c === label);
+    return i < 0 ? fallback : i;
+  };
+  const iBout = ix('#', 0);
+  const iEvent = ix('event', 1);
+  const iCorner = ix('corner', 2);
+  const iWeight = ix('division', 3);
+  const iName = ix('name', 4);
+  const iRec = ix('record', 6);
+  const iCountry = ix('nationality', 7);
+  const iPhoto = ix('app id', 9);
+  const iAthleteId = cols.indexOf('event id'); // internal numeric ID
+
+  const grouped = {}; // key: event|bout -> { bout, event, weight, blue, red }
+  Object.keys(PHOTO_URL).forEach(k => delete PHOTO_URL[k]);
+
+  for (const row of table.rows) {
+    if (!row.c) continue;
+    const c = row.c;
+    const rawBout = (c[iBout] || {}).v;
+    const rawEvent = (c[iEvent] || {}).v;
+    const rawCorner = (c[iCorner] || {}).v;
+    const rawName = (c[iName] || {}).v;
+    if (!rawBout || !rawEvent || !rawCorner || !rawName) continue;
+
+    const bout = Number(rawBout);
+    const event = String(rawEvent).trim();
+    const corner = String(rawCorner).trim().toLowerCase();
+    if (corner !== 'red' && corner !== 'blue') continue;
+
+    const id = iAthleteId >= 0 ? String((c[iAthleteId] || {}).v || '').replace(/\.0$/,'') : '';
+    const name = String(rawName).trim();
+    const rec = String((c[iRec] || {}).v || '').trim();
+    const country = countryCode((c[iCountry] || {}).v);
+    const photo = String((c[iPhoto] || {}).v || '').trim();
+    if (id && photo) PHOTO_URL[id] = photo;
+
+    const key = event + '|' + bout;
+    if (!grouped[key]) grouped[key] = { bout, event, weight: String((c[iWeight] || {}).v || '').trim(), blue: null, red: null };
+    grouped[key][corner] = { id, name, rec, country };
+  }
+
+  FIGHTS = Object.values(grouped)
+    .filter(f => f.blue && f.red)
+    .sort((a, b) => a.event.localeCompare(b.event) || a.bout - b.bout);
+}
+
+function rebuildRotationEvents(){
+  const events = [...new Set(FIGHTS.map(f => f.event))];
+  if (events.length){
+    rotationEvents = events;
+    if (rotationIdx >= events.length) rotationIdx = 0;
+  }
+  // hide tabs that don't exist on current card
+  document.querySelectorAll('.tab').forEach(t => {
+    const evt = t.dataset.event;
+    if (evt === 'all') return;
+    t.style.display = events.includes(evt) ? '' : 'none';
+  });
+}
+
+const TASK_ALIASES = {
+  'music': 'Walkout Music', 'walkout music': 'Walkout Music',
+  'blood test': 'Blood Test', 'blood': 'Blood Test',
+  'photoshoot': 'Photoshoot', 'photo': 'Photoshoot',
+  'black screen video': 'Black Screen Video', 'black screen': 'Black Screen Video', 'bsv': 'Black Screen Video',
+  'stats': 'Stats',
+  'video shooting': 'Video Shooting', 'video': 'Video Shooting',
+};
+function normalizeTask(raw) {
+  if (!raw) return '';
+  return TASK_ALIASES[raw.trim().toLowerCase()] || raw.trim();
+}
+function parseAttendance(table) {
+  attendance = {};
+  const cols = table.cols.map(c => (c.label || '').trim().toLowerCase());
+  let iSeq = cols.findIndex(c => c === '#');
+  let iEvent = cols.findIndex(c => c === 'event');
+  let iId = cols.findIndex(c => c === 'id' || c === 'athlete id');
+  let iTask = cols.findIndex(c => c === 'task');
+  let iStatus = cols.findIndex(c => c === 'status');
+  if (iSeq < 0) iSeq = 0;
+  if (iEvent < 0) iEvent = 1;
+  if (iId < 0) iId = 2;
+  if (iTask < 0) iTask = 4;
+  if (iStatus < 0) iStatus = 5;
+
+  // active fighters on the dashboard — match by athlete id (events may shift)
+  const ACTIVE_IDS = new Set(FIGHTS.flatMap(f => [String(f.blue?.id), String(f.red?.id)]).filter(Boolean));
+
+  // last-write-wins by sequence number (col #) which is monotonically increasing
+  const latest = {}; // key: "id|task" → { seq, status }
+
+  for (const row of table.rows) {
+    if (!row.c) continue;
+    const c = row.c;
+    const rawId = (c[iId] || {}).v;
+    const rawTask = (c[iTask] || {}).v;
+    const rawStatus = (c[iStatus] || {}).v;
+    const rawSeq = (c[iSeq] || {}).v;
+    if (!rawId || !rawTask) continue;
+    const id = String(rawId).replace(/\.0$/, '');
+    if (ACTIVE_IDS.size && !ACTIVE_IDS.has(id)) continue;
+    const task = normalizeTask(String(rawTask));
+    const status = rawStatus ? String(rawStatus) : '---';
+    const seq = (typeof rawSeq === 'number') ? rawSeq : Number(rawSeq) || 0;
+
+    const key = id + '|' + task;
+    const prev = latest[key];
+    if (!prev || seq >= prev.seq) {
+      latest[key] = { seq, status };
+    }
+  }
+
+  for (const key of Object.keys(latest)) {
+    const [id, task] = key.split('|');
+    if (!attendance[id]) attendance[id] = {};
+    attendance[id][task] = latest[key].status;
+  }
+}
+
+function statusClass(s) {
+  if (!s) return 'pending';
+  const l = s.toLowerCase();
+  if (l === 'done') return 'done';
+  if (l === 'in progress') return 'inprog';
+  if (l === 'requested') return 'requested';
+  if (s === '---') return 'nonreq';
+  return 'pending';
+}
+function taskStatus(fid, key) {
+  const f = attendance[String(fid)];
+  if (!f || !(key in f)) return '__missing__';
+  return f[key];
+}
+function readinessCount(fid){
+  let done = 0;
+  getVisibleTasks().forEach(t => { if (statusClass(taskStatus(fid, t.key)) === 'done') done++; });
+  return done;
+}
+function isFighterReady(fid){
+  return getVisibleTasks().every(t => {
+    const c = statusClass(taskStatus(fid, t.key));
+    return c === 'done' || c === 'nonreq';
+  });
+}
+
+function avatarHtml(fid, name) {
+  const url = photoUrl(fid);
+  const initial = (name || '?').trim().charAt(0).toUpperCase();
+  if (url) {
+    return `<div class="avatar"><img src="${url}" alt="" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'avatar-fallback\\'>${initial}</div>'"></div>`;
+  }
+  return `<div class="avatar"><div class="avatar-fallback">${initial}</div></div>`;
+}
+function taskCells(fid) {
+  return getVisibleTasks().map(t => {
+    const s = taskStatus(fid, t.key);
+    const cls = statusClass(s);
+    return `<div class="tcell ${cls}" data-task="${t.key}" data-status="${s}" data-fighter="${fid}"></div>`;
+  }).join('');
+}
+
+function buildColHead(){
+  const cells = getVisibleTasks().map(t =>
+    `<div class="task-h">${svgIcon(t.iconId,'')}<span class="lbl">${t.short}</span></div>`
+  ).join('');
+  return `
+    <div class="col-head">
+      <div class="blue-side">${cells}</div>
+      <div class="center">Bout / Division</div>
+      <div class="red-side">${cells}</div>
+    </div>
+  `;
+}
+
+function fightMatchesFilter(f){
+  if (activeFilter === 'all') return true;
+  return getVisibleTasks().some(t =>
+    statusClass(taskStatus(f.blue.id, t.key)) === activeFilter
+    || statusClass(taskStatus(f.red.id, t.key)) === activeFilter
+  );
+}
+
+function renderFightRow(f, idx){
+  const vTasks = getVisibleTasks();
+  const blueReady = readinessCount(f.blue.id);
+  const redReady  = readinessCount(f.red.id);
+  const totalReady = blueReady + redReady;
+  const totalTasks = vTasks.length * 2;
+  const onCount = Math.round((totalReady/totalTasks)*vTasks.length);
+  const dots = Array.from({length: vTasks.length}, (_,i) =>
+    `<span class="rd ${i < onCount ? 'on' : ''}"></span>`
+  ).join('');
+
+  return `
+    <div class="fight ${f.title ? 'title-fight' : ''}" data-event="${f.event}" style="--i:${idx}">
+      <div class="corner corner-blue">
+        ${avatarHtml(f.blue.id, f.blue.name)}
+        <div class="fblock">
+          <span class="fname ${isFighterReady(f.blue.id) ? 'ready' : ''}">${f.blue.name}</span>
+          <span class="fmeta">
+            <span class="fid">F.${f.blue.id}</span>
+            <span class="rec">${f.blue.rec || '—'}</span>
+            <span class="ctry">${f.blue.country}</span>
+          </span>
+        </div>
+        <div class="tasks">${taskCells(f.blue.id)}</div>
+      </div>
+      <div class="bout">
+        <span class="bout-num"><span class="hash">#</span>${f.bout}</span>
+        <span class="bout-weight">${f.weight}</span>
+        ${f.title ? '<span class="bout-event">★ Title Fight</span>' : ''}
+        <div class="readiness" title="${totalReady}/${totalTasks} tasks done">${dots}</div>
+      </div>
+      <div class="corner corner-red">
+        ${avatarHtml(f.red.id, f.red.name)}
+        <div class="fblock">
+          <span class="fname ${isFighterReady(f.red.id) ? 'ready' : ''}">${f.red.name}</span>
+          <span class="fmeta">
+            <span class="ctry">${f.red.country}</span>
+            <span class="rec">${f.red.rec || '—'}</span>
+            <span class="fid">F.${f.red.id}</span>
+          </span>
+        </div>
+        <div class="tasks">${taskCells(f.red.id)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderSection(eventCode, fights){
+  if (!fights.length) return '';
+  const totalTasks = fights.length * 2 * getVisibleTasks().length;
+  let done = 0;
+  fights.forEach(f => { done += readinessCount(f.blue.id) + readinessCount(f.red.id); });
+  const pct = totalTasks ? Math.round((done/totalTasks)*100) : 0;
+  const pctCls = pct >= 90 ? 'complete' : (pct >= 50 ? 'hot' : '');
+
+  return `
+    <div class="section section-compact" data-event="${eventCode}">
+      <div class="section-stats">
+        <span>${fights.length} bouts · ${done}/${totalTasks} tasks</span>
+        <span class="pct ${pctCls}">${pct}%</span>
+      </div>
+    </div>
+    ${buildColHead()}
+    ${fights.map((f,i) => renderFightRow(f, i)).join('')}
+  `;
+}
+
+// ─── EVENT ROTATION ───────────────────────────────────────
+const ROT_MIN_S = 0; // 0 = paused / static
+const ROT_MAX_S = 60;
+const ROT_STEP_S = 2;
+const ROT_DEFAULT_S = 12;
+let ROTATION_MS = (() => {
+  try {
+    const v = parseInt(localStorage.getItem('uaew-rot-s'), 10);
+    if (!isNaN(v) && v >= ROT_MIN_S && v <= ROT_MAX_S) return v * 1000;
+  } catch(e){}
+  return ROT_DEFAULT_S * 1000;
+})();
+const FADE_MS = 400;
+let rotationEvents = [];
+let rotationIdx = 0;
+let rotationTimer = null;
+let rotationStartTs = 0;
+let rotationFrame = null;
+
+function currentDisplayEvent(){
+  if (activeEvent !== 'all') return activeEvent;
+  return rotationEvents[rotationIdx] || rotationEvents[0] || '';
+}
+
+function render() {
+  const evt = currentDisplayEvent();
+  updateTopbarTitle();
+  let fights = FIGHTS.filter(f => f.event === evt).filter(fightMatchesFilter);
+
+  const wrapper = document.getElementById('wrap');
+  wrapper.innerHTML = renderSection(evt, fights);
+  // rotation bar always re-created so width animation restarts cleanly
+  const newBar = document.createElement('div');
+  newBar.className = 'rotation-bar';
+  wrapper.appendChild(newBar);
+  updateRotationBar();
+
+  // visually highlight which event is on screen, even during auto-rotation
+  if (activeEvent === 'all'){
+    document.querySelectorAll('.tab').forEach(t => {
+      t.classList.toggle('rotating', t.dataset.event === evt);
+      t.classList.toggle('active', t.dataset.event === 'all');
+    });
+  }
+
+  renderStats(evt);
+  renderMeta();
+}
+
+function updateRotationBar(){
+  const bar = document.querySelector('.rotation-bar');
+  if (!bar) return;
+  if (activeEvent !== 'all' || ROTATION_MS <= 0){
+    bar.classList.add('paused');
+    bar.style.width = ROTATION_MS <= 0 ? '0%' : '100%';
+    return;
+  }
+  bar.classList.remove('paused');
+  if (rotationFrame) cancelAnimationFrame(rotationFrame);
+  const start = performance.now();
+  rotationStartTs = start;
+  bar.style.transition = 'none';
+  bar.style.width = '0%';
+  // force reflow
+  void bar.offsetWidth;
+  bar.style.transition = `width ${ROTATION_MS}ms linear`;
+  bar.style.width = '100%';
+}
+
+function nextEvent(){
+  if (activeEvent !== 'all') return;
+  rotationIdx = (rotationIdx + 1) % rotationEvents.length;
+  const wrapper = document.getElementById('wrap');
+  wrapper.classList.add('fading');
+  setTimeout(() => {
+    render();
+    requestAnimationFrame(() => wrapper.classList.remove('fading'));
+  }, FADE_MS);
+}
+
+function startRotation(){
+  stopRotation();
+  if (activeEvent !== 'all') return;
+  if (ROTATION_MS <= 0) return; // 0 = paused
+  rotationTimer = setInterval(nextEvent, ROTATION_MS);
+}
+function stopRotation(){
+  if (rotationTimer){ clearInterval(rotationTimer); rotationTimer = null; }
+}
+
+function renderStats(displayEvent){
+  const evt = displayEvent || currentDisplayEvent();
+  let scopeEvts;
+  if (statsScope === 'current') scopeEvts = [evt];
+  else if (statsScope === 'all') scopeEvts = [...new Set(FIGHTS.map(f => f.event))];
+  else scopeEvts = [statsScope];
+  const visible = FIGHTS.filter(f => scopeEvts.includes(f.event));
+  const allIds = visible.flatMap(f => [f.blue.id, f.red.id]);
+
+  // per-task list inside sidebar
+  const tasksEl = document.getElementById('sb-tasks');
+  if (tasksEl){
+    tasksEl.innerHTML = getVisibleTasks().map(t => {
+      let done = 0, requested = 0, pending = 0;
+      allIds.forEach(id => {
+        const c = statusClass(taskStatus(id, t.key));
+        if (c === 'done') done++;
+        else if (c === 'requested') requested++;
+        else if (c === 'pending') pending++;
+      });
+      const pct = allIds.length ? (done / allIds.length) * 100 : 0;
+      const fillCls = pct >= 100 ? 'complete' : '';
+      const valParts = [`<span class="done-n">${done}</span><span class="total-n">/${allIds.length}</span>`];
+      if (pending) valParts.push(`<span class="pending-n">${pending}!</span>`);
+      else if (requested) valParts.push(`<span class="req-n">${requested}·</span>`);
+      return `
+        <div class="sb-task">
+          ${svgIcon(t.iconId,'')}
+          <span class="name">${t.key}</span>
+          <span class="vals">${valParts.join(' ')}</span>
+          <div class="sb-task-bar"><div class="sb-task-bar-fill ${fillCls}" style="width:${pct}%"></div></div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // overall block
+  const totalTasks = allIds.length * getVisibleTasks().length;
+  let totalDone = 0;
+  allIds.forEach(id => { totalDone += readinessCount(id); });
+  const overallPct = totalTasks ? Math.round((totalDone/totalTasks)*100) : 0;
+
+  setText('sb-pct', overallPct + '%');
+  setText('sb-ratio', `${totalDone}/${totalTasks}`);
+  setText('sb-meta', `${visible.length} bouts · ${allIds.length} fighters`);
+  const scopeLabel = statsScope === 'current'
+    ? evt.replace('UAEW','UAEW ')
+    : statsScope === 'all'
+      ? 'All Events'
+      : statsScope.replace('UAEW','UAEW ');
+  setText('sb-evt-label', scopeLabel);
+  setText('sb-card-line', `${visible.length} bouts on card`);
+  const fill = document.getElementById('sb-bar-fill');
+  if (fill){
+    fill.style.width = overallPct + '%';
+    fill.classList.toggle('complete', overallPct >= 100);
+  }
+
+  renderTicker();
+}
+
+function renderTicker(){
+  const track = document.getElementById('ticker-track');
+  if (!track) return;
+
+  // build per-task summary for ALL events on the card (not just current display)
+  const events = [...new Set(FIGHTS.map(f => f.event))];
+  const items = [];
+  events.forEach(evt => {
+    const ids = FIGHTS.filter(f => f.event === evt).flatMap(f => [f.blue.id, f.red.id]);
+    const evtLabel = evt.replace('UAEW','UAEW ');
+    getVisibleTasks().forEach(t => {
+      let done = 0, requested = 0, pending = 0;
+      ids.forEach(id => {
+        const c = statusClass(taskStatus(id, t.key));
+        if (c === 'done') done++;
+        else if (c === 'requested') requested++;
+        else if (c === 'pending') pending++;
+      });
+      const parts = [
+        `<span class="tk-evt">${evtLabel}</span>`,
+        `<span class="tk-task">${t.key}</span>`,
+        `<span class="tk-done">${done}/${ids.length} done</span>`,
+      ];
+      if (requested) parts.push(`<span class="tk-sep">·</span><span class="tk-requested">${requested} req</span>`);
+      if (pending)   parts.push(`<span class="tk-sep">·</span><span class="tk-pending">${pending} pending</span>`);
+      items.push(`<span class="ticker-item">${parts.join(' ')}</span>`);
+    });
+  });
+
+  // duplicate the sequence so the -50% translateX loop is seamless
+  const seq = items.join('');
+  track.innerHTML = seq + seq;
+
+  // pace: ~80px per second baseline → measure single-sequence width and time it
+  requestAnimationFrame(() => {
+    const fullW = track.scrollWidth;
+    const seqW = fullW / 2;
+    const speedPxSec = 80;
+    const duration = Math.max(20, Math.round(seqW / speedPxSec));
+    track.style.animationDuration = duration + 's';
+  });
+}
+
+function setText(id, val){
+  const el = document.getElementById(id);
+  if (el) el.textContent = val;
+}
+
+function updateTopbarTitle(){
+  const el = document.getElementById('topbar-title');
+  if (!el) return;
+  const evt = currentDisplayEvent();
+  if (!evt){
+    el.innerHTML = `<span class="tt-tag">Dashboard</span>`;
+    return;
+  }
+  const num = evt.replace('UAEW','');
+  el.innerHTML = `<span class="tt-evt">UAEW ${num}</span><span class="tt-sep">·</span><span class="tt-tag">Dashboard</span>`;
+}
+
+function renderMeta(){
+  const today = new Date();
+  const opts = { weekday:'long', day:'numeric', month:'long', year:'numeric' };
+  const timeOpts = { hour:'2-digit', minute:'2-digit' };
+  const dateStr = today.toLocaleDateString('en-GB', opts);
+  const timeStr = today.toLocaleTimeString('en-GB', timeOpts);
+  setText('sb-date', `${dateStr} · ${timeStr}`);
+  updateTopbarTitle();
+
+  const counts = {
+    UAEW70: FIGHTS.filter(f => f.event === 'UAEW70').length,
+    UAEW71: FIGHTS.filter(f => f.event === 'UAEW71').length,
+  };
+  setText('sb-edition', `UAEW 70 · ${counts.UAEW70} bouts  /  UAEW 71 · ${counts.UAEW71} bouts`);
+
+  if (lastUpdate) {
+    const t = lastUpdate.toLocaleTimeString('en-GB', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+    setText('ts', `Updated ${t}`);
+  }
+}
+
+const tooltip = document.getElementById('tooltip');
+document.addEventListener('mouseover', e => {
+  const sq = e.target.closest('.tcell');
+  if (sq) {
+    const raw = sq.dataset.status;
+    const status = raw === '__missing__' ? 'pending (no entry)'
+                 : raw === '---' ? 'non-requested'
+                 : raw.toLowerCase();
+    const cls = statusClass(sq.dataset.status);
+    tooltip.innerHTML = `
+      <div><strong>F.${sq.dataset.fighter}</strong> · ${sq.dataset.task}</div>
+      <div style="margin-top:6px;opacity:.8;">Status <span class="tt-status ${cls}">${status}</span></div>
+    `;
+    tooltip.classList.add('show');
+  }
+});
+document.addEventListener('mousemove', e => {
+  tooltip.style.left = Math.min(e.clientX + 14, window.innerWidth - 320) + 'px';
+  tooltip.style.top  = Math.max(e.clientY - 60, 8) + 'px';
+});
+document.addEventListener('mouseout', e => {
+  if (e.target.closest('.tcell')) tooltip.classList.remove('show');
+});
+
+function setActiveTab(eventCode){
+  document.querySelectorAll('.tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.event === eventCode);
+  });
+}
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    activeEvent = tab.dataset.event;
+    try { localStorage.setItem('uaew-active-event', activeEvent); } catch(e){}
+    setActiveTab(activeEvent);
+    if (activeEvent === 'all'){
+      render();
+      startRotation();
+    } else {
+      stopRotation();
+      render();
+    }
+    syncRotationUI();
+  });
+});
+document.querySelectorAll('.sb-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sb-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    activeFilter = btn.dataset.filter;
+    try { localStorage.setItem('uaew-active-filter', activeFilter); } catch(e){}
+    render();
+  });
+});
+document.querySelectorAll('.sb-scope-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.sb-scope-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    statsScope = btn.dataset.scope;
+    try { localStorage.setItem('uaew-stats-scope', statsScope); } catch(e){}
+    renderStats();
+  });
+});
+
+// apply persisted UI state on boot
+setActiveTab(activeEvent);
+document.querySelectorAll('.sb-filter').forEach(b => {
+  b.classList.toggle('active', b.dataset.filter === activeFilter);
+});
+document.querySelectorAll('.sb-scope-btn').forEach(b => {
+  b.classList.toggle('active', b.dataset.scope === statsScope);
+});
+if (activeEvent !== 'all') stopRotation();
+
+// task toggles — render chips + wire clicks
+function renderTaskToggles(){
+  const host = document.getElementById('sb-task-toggles');
+  if (!host) return;
+  host.innerHTML = TASKS.map(t => {
+    const active = visibleTaskKeys.includes(t.key);
+    return `<button class="sb-task-toggle ${active ? 'active' : ''}" data-task="${t.key}" title="${t.key}">${svgIcon(t.iconId,'')}<span>${t.short}</span></button>`;
+  }).join('');
+  host.querySelectorAll('.sb-task-toggle').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.task;
+      const idx = visibleTaskKeys.indexOf(key);
+      if (idx >= 0){
+        if (visibleTaskKeys.length === 1) return; // never empty
+        visibleTaskKeys.splice(idx, 1);
+      } else {
+        visibleTaskKeys.push(key);
+      }
+      try { localStorage.setItem('uaew-visible-tasks', JSON.stringify(visibleTaskKeys)); } catch(e){}
+      btn.classList.toggle('active');
+      render();
+    });
+  });
+}
+renderTaskToggles();
+
+// sidebar mode cycle: fixed → autohide → collapsed → fixed
+const SB_MODES = ['fixed', 'autohide', 'collapsed'];
+let sbModeIdx = 0;
+function applySbMode(){
+  const app = document.getElementById('app');
+  app.classList.remove('sb-autohide', 'sb-collapsed');
+  const mode = SB_MODES[sbModeIdx];
+  if (mode === 'autohide') app.classList.add('sb-autohide');
+  else if (mode === 'collapsed') app.classList.add('sb-collapsed');
+  try { localStorage.setItem('uaew-sb-mode', String(sbModeIdx)); } catch(e){}
+}
+const savedSb = (() => { try { return parseInt(localStorage.getItem('uaew-sb-mode'), 10); } catch(e){ return NaN; } })();
+if (!isNaN(savedSb) && savedSb >= 0 && savedSb < SB_MODES.length) sbModeIdx = savedSb;
+applySbMode();
+document.getElementById('sb-cycle').addEventListener('click', () => {
+  if (window.matchMedia('(max-width: 900px)').matches){
+    document.getElementById('app').classList.toggle('sb-mobile-open');
+    return;
+  }
+  sbModeIdx = (sbModeIdx + 1) % SB_MODES.length;
+  applySbMode();
+});
+
+// inject mobile backdrop + close handlers
+(() => {
+  const app = document.getElementById('app');
+  const bd = document.createElement('div');
+  bd.className = 'mobile-backdrop';
+  bd.addEventListener('click', () => app.classList.remove('sb-mobile-open'));
+  app.appendChild(bd);
+  // tapping inside the drawer on a tab/scope/filter should also close it
+  document.querySelectorAll('.tab, .sb-filter, .sb-scope-btn').forEach(el => {
+    el.addEventListener('click', () => {
+      if (window.matchMedia('(max-width: 900px)').matches){
+        app.classList.remove('sb-mobile-open');
+      }
+    });
+  });
+})();
+
+// rotation speed
+function syncRotationUI(){
+  const valEl = document.getElementById('rot-val');
+  const downEl = document.getElementById('rot-down');
+  const upEl = document.getElementById('rot-up');
+  const helpEl = document.getElementById('rot-help');
+  const s = Math.round(ROTATION_MS / 1000);
+  if (valEl && document.activeElement !== valEl) valEl.value = s;
+  if (downEl) downEl.disabled = (s <= ROT_MIN_S);
+  if (upEl)   upEl.disabled   = (s >= ROT_MAX_S);
+  if (helpEl){
+    if (activeEvent !== 'all'){
+      helpEl.textContent = 'Paused — single event view';
+      helpEl.classList.add('paused');
+    } else if (s <= 0){
+      helpEl.textContent = 'Static — rotation off';
+      helpEl.classList.add('paused');
+    } else {
+      helpEl.textContent = `Switching every ${s}s`;
+      helpEl.classList.remove('paused');
+    }
+  }
+}
+function setRotationSeconds(s){
+  s = Math.max(ROT_MIN_S, Math.min(ROT_MAX_S, s));
+  ROTATION_MS = s * 1000;
+  try { localStorage.setItem('uaew-rot-s', String(s)); } catch(e){}
+  syncRotationUI();
+  if (activeEvent === 'all'){
+    startRotation();        // restart timer with new interval
+    updateRotationBar();    // restart progress bar
+  }
+}
+document.getElementById('rot-down').addEventListener('click', () => {
+  setRotationSeconds(Math.round(ROTATION_MS / 1000) - ROT_STEP_S);
+});
+document.getElementById('rot-up').addEventListener('click', () => {
+  setRotationSeconds(Math.round(ROTATION_MS / 1000) + ROT_STEP_S);
+});
+const rotInput = document.getElementById('rot-val');
+rotInput.addEventListener('focus', () => rotInput.select());
+rotInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); rotInput.blur(); }
+  if (e.key === 'Escape') { rotInput.value = Math.round(ROTATION_MS / 1000); rotInput.blur(); }
+});
+rotInput.addEventListener('change', () => {
+  const v = parseInt(rotInput.value, 10);
+  if (isNaN(v)) { rotInput.value = Math.round(ROTATION_MS / 1000); return; }
+  setRotationSeconds(v);
+});
+
+// fullscreen
+const FS_ICON_ENTER = '<path d="M5 5h5V3H3v7h2V5zm9-2v2h5v5h2V3h-7zm5 16h-5v2h7v-7h-2v5zM5 14H3v7h7v-2H5v-5z"/>';
+const FS_ICON_EXIT  = '<path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/>';
+function updateFsIcon(){
+  const ico = document.getElementById('fs-icon');
+  if (!ico) return;
+  ico.innerHTML = document.fullscreenElement ? FS_ICON_EXIT : FS_ICON_ENTER;
+}
+document.getElementById('fs-toggle').addEventListener('click', () => {
+  if (!document.fullscreenElement){
+    (document.documentElement.requestFullscreen
+      || document.documentElement.webkitRequestFullscreen)
+      ?.call(document.documentElement)
+      ?.catch(() => {});
+  } else {
+    (document.exitFullscreen || document.webkitExitFullscreen)?.call(document)?.catch(() => {});
+  }
+});
+document.addEventListener('fullscreenchange', updateFsIcon);
+document.addEventListener('webkitfullscreenchange', updateFsIcon);
+document.addEventListener('keydown', e => {
+  if (e.key === 'f' && !e.metaKey && !e.ctrlKey && !e.altKey
+      && !['INPUT','TEXTAREA'].includes(document.activeElement?.tagName)){
+    document.getElementById('fs-toggle').click();
+  }
+});
+
+let countdown = CONFIG.refreshInterval / 1000;
+function tick() {
+  countdown--;
+  if (countdown <= 0) { countdown = CONFIG.refreshInterval / 1000; fetchAttendance(); }
+  document.getElementById('cd').textContent = `↻ ${countdown}s`;
+  renderMeta();
+}
+
+render();
+fetchFightCard();
+fetchAttendance();
+setInterval(tick, 1000);
+setInterval(fetchFightCard, CONFIG.fightCardRefreshInterval);
+startRotation();
+syncRotationUI();
+</script>
+</body>
+</html>

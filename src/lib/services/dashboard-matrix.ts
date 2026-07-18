@@ -13,6 +13,9 @@ import { TASK_CATALOG, normalizeAssignmentStatus, type TaskStatus } from '@/lib/
  * reflects the real collection state without a second manual step.
  */
 
+/** Either Supabase client — the browser one or the cookie-aware server one. */
+type SupabaseLike = ReturnType<typeof createClient>;
+
 export interface MatrixCell {
   taskName: string;
   status: TaskStatus;
@@ -26,6 +29,9 @@ export interface MatrixRow {
   photoUrl: string;
   corner: 'RED' | 'BLUE' | null;
   fightOrder: number | null;
+  /** Display-only fields the war-room grid shows under the name. */
+  division: string | null;
+  nationality: string | null;
   cells: Record<string, MatrixCell>;
 }
 
@@ -35,14 +41,22 @@ export interface DashboardMatrix {
   rows: MatrixRow[];
 }
 
-export async function getDashboardMatrix(eventId: string): Promise<DashboardMatrix> {
-  const supabase = createClient();
+/**
+ * @param client Pass a server-side Supabase client when calling from a route
+ * handler. RLS denies the anonymous role, so the default browser client only
+ * returns rows when it carries the signed-in user's session.
+ */
+export async function getDashboardMatrix(
+  eventId: string,
+  client?: SupabaseLike
+): Promise<DashboardMatrix> {
+  const supabase = client ?? createClient();
 
   const [{ data: event }, { data: enrollments }] = await Promise.all([
     supabase.from('mma_events').select('name').eq('id', eventId).maybeSingle(),
     supabase
       .from('mma_enrollments')
-      .select('id, person_id, person:mma_people(id, compiled_name, event_name, appadmin_fighter_id), role:mma_roles!inner(code)')
+      .select('id, person_id, person:mma_people(id, compiled_name, event_name, appadmin_fighter_id, nationality), role:mma_roles!inner(code)')
       .eq('event_id', eventId)
       .eq('status', 'active')
       .eq('role.code', 'F'),
@@ -56,6 +70,7 @@ export async function getDashboardMatrix(eventId: string): Promise<DashboardMatr
       compiled: (p?.compiled_name as string) || '',
       ring: (p?.event_name as string) || null,
       fighterId: (p?.appadmin_fighter_id as string) || null,
+      nationality: (p?.nationality as string) || null,
     };
   });
   const enrollmentIds = roster.map((r) => r.enrollmentId);
@@ -65,7 +80,8 @@ export async function getDashboardMatrix(eventId: string): Promise<DashboardMatr
   const [positions, tasksRes, assignmentsRes, musicRes, statsRes] = await Promise.all([
     getFightCardPositions(
       eventId,
-      roster.map((r) => ({ enrollmentId: r.enrollmentId, fullName: r.compiled, ringName: r.ring }))
+      roster.map((r) => ({ enrollmentId: r.enrollmentId, fullName: r.compiled, ringName: r.ring })),
+      supabase
     ),
     supabase.from('mma_event_tasks').select('id, name').eq('event_id', eventId),
     supabase
@@ -136,6 +152,8 @@ export async function getDashboardMatrix(eventId: string): Promise<DashboardMatr
       photoUrl: getFighterPhotoUrl(r.fighterId) || '',
       corner: pos?.corner ?? null,
       fightOrder: pos?.fightOrder ?? null,
+      division: pos?.division ?? null,
+      nationality: r.nationality,
       cells,
     };
   });
