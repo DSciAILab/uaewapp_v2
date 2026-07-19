@@ -1007,6 +1007,21 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
 .corner-blue .fblock{ align-items: flex-end;   text-align: right; margin-left: auto; }
 .corner-red  .fblock{ align-items: flex-start; text-align: left;  margin-right: auto; }
 
+/* Name and nationality share a line. min-width:0 is what lets the name keep
+   its ellipsis instead of shoving the flag out of the row. */
+.fnameline{
+  display: flex;
+  align-items: baseline;
+  gap: clamp(6px, 0.5vw, 14px);
+  min-width: 0;
+  max-width: 100%;
+}
+/* Mirrored, like every other pair in this layout: the flag always sits on the
+   far side of the name from the bout, so both corners read outward. */
+.corner-red .fnameline{ flex-direction: row-reverse; }
+.fnameline .fname{ min-width: 0; }
+.fnameline .ctry{ flex-shrink: 0; }
+
 .fname{
   font-family: 'Geist', sans-serif;
   font-weight: 800;
@@ -1036,8 +1051,12 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
 .fmeta{ flex-wrap: nowrap; white-space: nowrap; align-items: center; }
 .fmeta .fid{ color: var(--fg-4); }
 .fmeta .rec{ color: var(--fg-2); font-weight: 600; }
-.fmeta .ctry{
+/* Sits beside the name now, so it carries a bit more weight than the meta row
+   below it — but still clearly subordinate to the name itself. */
+.ctry{
   color: var(--gold);
+  font-family: 'Geist Mono', monospace;
+  font-size: var(--fs-sm);
   font-weight: 700;
   letter-spacing: 0.12em;
   display: inline-flex;
@@ -1977,11 +1996,13 @@ function renderFightRow(f, idx){
       <div class="corner corner-blue">
         ${avatarHtml(f.blue.id, f.blue.name)}
         <div class="fblock">
-          <span class="fname ${isFighterReady(f.blue.id) ? 'ready' : ''}">${f.blue.name}</span>
+          <span class="fnameline">
+            <span class="fname ${isFighterReady(f.blue.id) ? 'ready' : ''}">${f.blue.name}</span>
+            <span class="ctry">${flagHtml(f.blue.country)}${f.blue.country}</span>
+          </span>
           <span class="fmeta">
             <span class="fid">${f.blue.code || ''}</span>
             ${whereabouts(f.blue)}
-            <span class="ctry">${flagHtml(f.blue.country)}${f.blue.country}</span>
           </span>
         </div>
         <div class="tasks">${taskCells(f.blue.id)}</div>
@@ -1995,9 +2016,11 @@ function renderFightRow(f, idx){
       <div class="corner corner-red">
         ${avatarHtml(f.red.id, f.red.name)}
         <div class="fblock">
-          <span class="fname ${isFighterReady(f.red.id) ? 'ready' : ''}">${f.red.name}</span>
-          <span class="fmeta">
+          <span class="fnameline">
+            <span class="fname ${isFighterReady(f.red.id) ? 'ready' : ''}">${f.red.name}</span>
             <span class="ctry">${flagHtml(f.red.country)}${f.red.country}</span>
+          </span>
+          <span class="fmeta">
             ${whereabouts(f.red)}
             <span class="fid">${f.red.code || ''}</span>
           </span>
