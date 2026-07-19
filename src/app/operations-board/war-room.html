@@ -27,6 +27,9 @@
 
   --pad:      clamp(14px, 1.1vw, 32px);
   --gap:      clamp(4px, 0.3vw, 10px);
+  /* Height of the fixed bottom ticker. The shell subtracts it so the board
+     ends above the bar; change it here and both follow. */
+  --ticker-h: 30px;
   --row-h:    clamp(44px, 3vw, 72px);
   --avatar:   clamp(34px, 2.4vw, 60px);
   --tcell-w:  clamp(34px, 2.4vw, 56px);
@@ -99,7 +102,11 @@ body::before{
 
 /* ─── APP SHELL ─────────────────────────────────────────── */
 .app{
-  height: 100vh;
+  /* The ticker is fixed to the bottom, so the shell has to END above it.
+     body{padding-bottom} could never do it: a 100vh grid stays viewport-tall
+     whatever the body pads, so the bottom 30px of the board sat underneath
+     the ticker. One variable owns that height, here and on the ticker. */
+  height: calc(100vh - var(--ticker-h));
   display: grid;
   grid-template-columns: var(--sb-w, clamp(260px, 18vw, 380px)) 1fr;
   grid-template-rows: auto 1fr;
@@ -1209,7 +1216,7 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
 .ticker{
   position: fixed;
   left: 0; right: 0; bottom: 0;
-  height: 30px;
+  height: var(--ticker-h);
   background: var(--bg-2);
   border-top: 1px solid var(--rule-2);
   overflow: hidden;
@@ -1244,8 +1251,9 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
-/* push the bottom of the layout above the ticker so nothing is hidden */
-body{ padding-bottom: 30px; }
+/* The shell already ends above the ticker (height: calc(100vh - --ticker-h)).
+   Padding the body on top of that would push the board down and reintroduce
+   the very overlap it was meant to prevent. */
 
 .tooltip{
   position: fixed;
@@ -2075,17 +2083,28 @@ function currentDisplayEvent(){
   return rotationEvents[rotationIdx] || rotationEvents[0] || '';
 }
 
+/** Markup currently on the wall, so an unchanged refresh can skip the rebuild. */
+let lastRenderedHtml = '';
+
 function render() {
   const evt = currentDisplayEvent();
   updateTopbarTitle();
   let fights = FIGHTS.filter(f => f.event === evt).filter(fightMatchesFilter);
 
   const wrapper = document.getElementById('wrap');
-  wrapper.innerHTML = renderSection(evt, fights);
-  // rotation bar always re-created so width animation restarts cleanly
-  const newBar = document.createElement('div');
-  newBar.className = 'rotation-bar';
-  wrapper.appendChild(newBar);
+  const html = renderSection(evt, fights);
+  // The flicker: every refresh threw the board away and rebuilt it, so the
+  // browser dropped the DOM, reloaded the portraits and repainted the whole
+  // wall even when nothing had changed. Most refreshes change nothing, so
+  // compare first and only touch the DOM when the markup actually differs.
+  if (html !== lastRenderedHtml) {
+    wrapper.innerHTML = html;
+    lastRenderedHtml = html;
+    // rotation bar always re-created so width animation restarts cleanly
+    const newBar = document.createElement('div');
+    newBar.className = 'rotation-bar';
+    wrapper.appendChild(newBar);
+  }
   updateRotationBar();
 
   // visually highlight which event is on screen, even during auto-rotation
@@ -2202,6 +2221,9 @@ function renderStats(displayEvent){
   renderTicker();
 }
 
+/** Ticker markup on screen, so an unchanged refresh does not restart the scroll. */
+let lastTickerSeq = '';
+
 function renderTicker(){
   const track = document.getElementById('ticker-track');
   if (!track) return;
@@ -2220,11 +2242,15 @@ function renderTicker(){
         else if (c === 'requested') requested++;
         else if (c === 'pending') pending++;
       });
-      const parts = [
-        `<span class="tk-evt">${evtLabel}</span>`,
+      // The event name only earns its space when there is more than one event
+      // on the card. With a single event it repeated on every item and said
+      // nothing the topbar was not already saying.
+      const parts = [];
+      if (events.length > 1) parts.push(`<span class="tk-evt">${evtLabel}</span>`);
+      parts.push(
         `<span class="tk-task">${t.key}</span>`,
         `<span class="tk-done">${done}/${ids.length} done</span>`,
-      ];
+      );
       if (requested) parts.push(`<span class="tk-sep">·</span><span class="tk-requested">${requested} req</span>`);
       if (pending)   parts.push(`<span class="tk-sep">·</span><span class="tk-pending">${pending} pending</span>`);
       items.push(`<span class="ticker-item">${parts.join(' ')}</span>`);
@@ -2233,15 +2259,28 @@ function renderTicker(){
 
   // duplicate the sequence so the -50% translateX loop is seamless
   const seq = items.join('');
-  track.innerHTML = seq + seq;
+  if (seq !== lastTickerSeq) {
+    track.innerHTML = seq + seq;
+    lastTickerSeq = seq;
+  }
 
-  // pace: ~80px per second baseline → measure single-sequence width and time it
+  paceTicker(track);
+}
+
+/**
+ * The scroll duration comes from a MEASURED width, so it is only right for the
+ * width it was measured at. Text reflows when the window changes size, and the
+ * old duration then makes the ticker crawl or sprint — part of what looked like
+ * the board "reconfiguring itself" on resize.
+ */
+function paceTicker(track){
+  track = track || document.getElementById('ticker-track');
+  if (!track) return;
   requestAnimationFrame(() => {
-    const fullW = track.scrollWidth;
-    const seqW = fullW / 2;
+    const seqW = track.scrollWidth / 2;
+    if (!seqW) return;
     const speedPxSec = 80;
-    const duration = Math.max(20, Math.round(seqW / speedPxSec));
-    track.style.animationDuration = duration + 's';
+    track.style.animationDuration = Math.max(20, Math.round(seqW / speedPxSec)) + 's';
   });
 }
 
@@ -2516,6 +2555,16 @@ setInterval(tick, 1000);
 setInterval(fetchFightCard, CONFIG.fightCardRefreshInterval);
 startRotation();
 syncRotationUI();
+
+// Nothing reacted to the window changing size: the ticker kept the duration it
+// measured at the old width, and any layout that had been sized from a
+// measurement stayed at the stale one. Debounced so a drag resizes once at the
+// end instead of on every pixel.
+let resizeTimer = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(paceTicker, 200);
+});
 </script>
 </body>
 </html>
