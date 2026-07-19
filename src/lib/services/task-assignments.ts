@@ -40,6 +40,8 @@ export interface TaskAssignment {
   enrollment?: {
     id: string;
     event_id: string;
+    /** Short code the printed sheets show beside the name, e.g. FT.006. */
+    event_code?: string | null;
     person: {
       id: string;
       compiled_name: string;
@@ -69,6 +71,7 @@ export async function getTaskAssignments(taskId: string): Promise<TaskAssignment
       enrollment:mma_enrollments!inner(
         id,
         event_id,
+        event_code,
         person:mma_people(id, compiled_name:compiled_name, name, surname, appadmin_fighter_id, event_name),
         role:mma_roles(name, code)
       )

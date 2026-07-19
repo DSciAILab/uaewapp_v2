@@ -312,8 +312,24 @@ export function drawAthleteCell(
  * Always event + document + date. This is what stops two events, or two
  * different templates, from landing on the same name in the downloads folder.
  */
-export function buildReportFilename(eventName: string, documentSlug: string, when: Date = new Date()): string {
-  return `${eventSlug(eventName)}-${documentSlug}-${when.toISOString().slice(0, 10)}.pdf`
+export function buildReportFilename(eventName: string, documentName: string, when: Date = new Date()): string {
+  return `${eventSlug(eventName)}-${documentSlug(documentName)}-${when.toISOString().slice(0, 10)}.pdf`
+}
+
+/**
+ * A name given as a literal ('fighter-stats') passes through untouched, so this
+ * is a no-op for Medical and Stats. It exists for callers that name a document
+ * from database text: a task called "Blood Test" would otherwise reach the
+ * filesystem with a space in it, and one called "Weigh-in / Medical" would
+ * carry a path separator into the filename.
+ */
+function documentSlug(value: string): string {
+  return (value || '')
+    // Strip accents first, so "Ação" degrades to "acao" and not to "a-o".
+    .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+    .replace(/[^a-z0-9]+/gi, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase() || 'report'
 }
 
 /** "UAE Warriors 72" -> "uaew72"; anything else degrades to a plain slug. */

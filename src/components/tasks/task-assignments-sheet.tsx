@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Plus, Trash2, Users } from 'lucide-react';
+import { Search, Plus, Trash2, Users, Printer, Loader2 } from 'lucide-react';
 import { EventTask } from '@/types/task';
 import {
   TaskAssignment,
@@ -25,7 +25,20 @@ import {
 import { getEventById } from '@/lib/services/events';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { getFighterPhotoUrl } from '@/lib/utils';
+import { getDataUrl, getFighterPhotoUrl } from '@/lib/utils';
+import { useUser } from '@/hooks/use-user';
+import {
+  loadBrandLogo,
+  repeatingHeader,
+  drawReportFooters,
+  buildReportFilename,
+  drawAthleteCell,
+  drawAthletePhoto,
+  REPORT_TABLE_STYLES,
+} from '@/lib/pdf/identity';
+import { getWhereaboutsMap } from '@/lib/pdf/whereabouts';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import {
   FighterAvatar,
   FighterIdentity,
@@ -74,6 +87,8 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   // Second line of the identity block is the EVENT — person.event_name is the
   // athlete's ring name, which is a different thing despite the column name.
   const [eventName, setEventName] = useState<string | null>(null);
+  const [printing, setPrinting] = useState(false);
+  const { user } = useUser();
 
   // Load assignments when sheet opens
   const loadAssignments = useCallback(async () => {
@@ -254,6 +269,114 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     pending: assignments.filter(a => a.status === 'pending').length
   };
 
+  /**
+   * The task's own clipboard sheet, on the identity Medical and Fighter Stats
+   * already use, so the three read as one system.
+   *
+   * Only people who still have to do the task are printed. 'exempt' never
+   * needed it and 'cancelled' left the event, so neither will ever be filled
+   * in: a row nobody writes on wastes the page and invites a wrong tick. The
+   * screen keeps showing them — this is the printed form, not the record.
+   */
+  const printableAssignments = useMemo(
+    () => filteredAssignments.filter((a) => a.status !== 'exempt' && a.status !== 'cancelled'),
+    [filteredAssignments]
+  );
+
+  const handlePrint = async () => {
+    if (!task) return;
+    setPrinting(true);
+    try {
+      const ordered = printableAssignments;
+
+      const [logoDataUrl, whereabouts, photoEntries] = await Promise.all([
+        loadBrandLogo(),
+        getWhereaboutsMap(eventId),
+        Promise.all(
+          ordered.map(async (a) => {
+            const url = getFighterPhotoUrl(a.enrollment?.person.appadmin_fighter_id);
+            if (!url) return [a.id, null] as const;
+            try {
+              return [a.id, await getDataUrl(url)] as const;
+            } catch {
+              return [a.id, null] as const;
+            }
+          })
+        ),
+      ]);
+      const photoMap = new Map(photoEntries);
+
+      const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+
+      const done = ordered.filter((a) => a.status === 'completed').length;
+      const headerOptions = {
+        eventName: eventName || 'Event',
+        documentTitle: task.name,
+        printedBy: user?.name || user?.email,
+        breakdown: `${ordered.length} people · ${done} done · ${ordered.length - done} open`,
+        logoDataUrl,
+      };
+
+      autoTable(doc, {
+        ...repeatingHeader(doc, headerOptions),
+        head: [['#', 'Done', 'Photo', 'Person', 'Role', 'Notes']],
+        body: ordered.map((a) => [
+          String(positionOf(a).fightOrder ?? '-'),
+          // Open rows are blank to tick on paper. Rows already marked done in
+          // the app carry the tick, otherwise the sheet shows a finished person
+          // as outstanding and the staff redo work that is already recorded.
+          a.status === 'completed' ? 'X' : '',
+          '', // Photo — drawn in didDrawCell
+          '', // Person — drawn in didDrawCell (name and code differ in weight)
+          a.enrollment?.role.name || '',
+          '', // Written on paper
+        ]),
+        // Same taller rows as Fighter Stats: an empty cell has to fit a pen.
+        styles: { ...REPORT_TABLE_STYLES.styles, valign: 'middle', minCellHeight: 15 },
+        headStyles: REPORT_TABLE_STYLES.headStyles,
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 14, halign: 'center' },
+          2: { cellWidth: 14, halign: 'center' },
+          3: { cellWidth: 62 },
+          4: { cellWidth: 26 },
+          5: { cellWidth: 'auto' },
+        },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.cell.text.join('') === '') data.cell.text = [''];
+        },
+        didDrawCell: (data) => {
+          if (data.section !== 'body') return;
+          const a = ordered[data.row.index];
+          if (!a) return;
+          try {
+            if (data.column.index === 2) {
+              drawAthletePhoto(doc, data.cell, {
+                dataUrl: photoMap.get(a.id),
+                corner: positionOf(a).corner,
+              });
+            } else if (data.column.index === 3) {
+              drawAthleteCell(doc, data.cell, {
+                name: a.enrollment?.person.event_name || a.enrollment?.person.compiled_name || '',
+                eventCode: a.enrollment?.event_code ?? null,
+                detail: whereabouts.get(a.enrollment_id),
+              });
+            }
+          } catch (err) {
+            console.warn('[task sheet pdf] cell draw failed:', err);
+          }
+        },
+      });
+
+      drawReportFooters(doc, `${eventName || 'Event'} — ${task.name}`);
+      doc.save(buildReportFilename(eventName || 'Event', task.name));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to build the PDF');
+    } finally {
+      setPrinting(false);
+    }
+  };
+
   // Corner only exists for people on the card, so filtering by it implies
   // fighters — a staffer has no corner to match.
   const assignCandidates = useMemo(() => {
@@ -321,6 +444,11 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           */}
           <Button variant="outline" onClick={handleEnrollAll} disabled={isEnrollingAll}>
             <Users className="h-4 w-4 mr-2" /> {isEnrollingAll ? 'Enrolling…' : 'Enroll all fighters'}
+          </Button>
+          {/* Disabled when nothing is printable, so the button never hands out a blank sheet. */}
+          <Button variant="outline" onClick={handlePrint} disabled={printing || printableAssignments.length === 0}>
+            {printing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Printer className="h-4 w-4 mr-2" />}
+            Print
           </Button>
           <Button onClick={handleOpenAssignDialog}>
             <Plus className="h-4 w-4 mr-2" /> Assign
