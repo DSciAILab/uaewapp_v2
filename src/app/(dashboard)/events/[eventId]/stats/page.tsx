@@ -217,7 +217,15 @@ export default function StatsPage() {
           if (!s) return;
           try {
             if (data.column.index === 2) {
-              drawAthletePhoto(doc, data.cell, { dataUrl: photoMap.get(s.id), corner: s.corner });
+              // Corner comes from the fight card, never from the enrollment:
+              // mma_enrollments.corner is empty for every row of this event, so
+              // reading it printed all 26 fighters with no corner ring at all.
+              // The table on screen already resolves it this way.
+              const pos = s.enrollment_id ? positions.get(s.enrollment_id) : undefined;
+              drawAthletePhoto(doc, data.cell, {
+                dataUrl: photoMap.get(s.id),
+                corner: pos?.corner ?? s.corner,
+              });
             } else if (data.column.index === 3) {
               drawAthleteCell(doc, data.cell, {
                 name: s.person?.event_name || s.person?.compiled_name || '',
