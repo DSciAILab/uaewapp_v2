@@ -154,6 +154,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
       id,
       person_id,
       corner,
+      event_code,
       person:mma_people!inner(id, compiled_name:compiled_name, nationality, appadmin_fighter_id, event_name),
       role:mma_roles!inner(code)
     `)
@@ -191,7 +192,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
     const existing = statsMap.get(e.person_id);
     const corner = e.corner || existing?.corner || null; // Enrollment corner takes precedence
 
-    if (existing) return { ...toFighterStats(existing, { corner }), enrollment_id: e.id };
+    if (existing) return { ...toFighterStats(existing, { corner }), enrollment_id: e.id, event_code: e.event_code ?? null };
 
     // Return placeholder for UI
     const now = new Date().toISOString();
@@ -201,6 +202,7 @@ export async function getEventFighterStats(eventId: string): Promise<FighterStat
       // Lets the table key the shared fight-card resolver instead of relying on
       // this service's own corner lookup.
       enrollment_id: e.id,
+      event_code: e.event_code ?? null,
       person: toPerson(e.person),
 
       // Defaults

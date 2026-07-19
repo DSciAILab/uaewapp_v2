@@ -20,6 +20,17 @@ import { useUser } from '@/hooks/use-user';
 import { getEventById } from '@/lib/services/events';
 import { getFightCardPositions } from '@/lib/services/fight-card-positions';
 import { flagFor } from '@/lib/countries';
+import {
+  REPORT_TABLE_STYLES,
+  buildReportFilename,
+  drawAthleteCell,
+  drawAthletePhoto,
+  drawReportFooters,
+  loadBrandLogo,
+  repeatingHeader,
+} from '@/lib/pdf/identity';
+import { getWhereaboutsMap } from '@/lib/pdf/whereabouts';
+import { getDataUrl, getFighterPhotoUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -132,23 +143,46 @@ export default function StatsPage() {
         return oa - ob;
       });
 
+      // Brand mark, whereabouts and portraits in parallel — same identity the
+      // Medical report uses, so the two sheets read as one system.
+      const [logoDataUrl, whereabouts, photoEntries] = await Promise.all([
+        loadBrandLogo(),
+        getWhereaboutsMap(eventId),
+        Promise.all(
+          ordered.map(async (s) => {
+            const url = getFighterPhotoUrl(s.person?.appadmin_fighter_id) || s.person?.passport_photo
+            if (!url) return [s.id, null] as const
+            try {
+              return [s.id, await getDataUrl(url)] as const
+            } catch {
+              return [s.id, null] as const
+            }
+          })
+        ),
+      ]);
+      const photoMap = new Map(photoEntries);
+
       const doc = new jsPDF({ orientation: 'l', unit: 'mm', format: 'a4' });
-      doc.setFontSize(15);
-      doc.text(`${eventName || 'Event'} — Fighter Stats`, 14, 14);
-      doc.setFontSize(9);
-      doc.setTextColor(120);
-      doc.text(`Generated ${new Date().toLocaleString('en-GB')}`, 14, 20);
+
+      const confirmed = ordered.filter((s) => s.confirmed_at).length;
+      const headerOptions = {
+        eventName: eventName || 'Event',
+        documentTitle: 'Fighter Stats',
+        printedBy: user?.name || user?.email,
+        breakdown: `${ordered.length} fighters · ${confirmed} confirmed · ${ordered.length - confirmed} pending`,
+        logoDataUrl,
+      };
 
       autoTable(doc, {
-        startY: 26,
-        head: [['#', 'Done', 'Fighter', 'ID', 'Nationality', 'Residency', 'Weight', 'Height', 'Reach', 'Style', 'Team']],
+        ...repeatingHeader(doc, headerOptions),
+        head: [['#', 'Done', 'Photo', 'Fighter', 'Nationality', 'Residency', 'Weight', 'Height', 'Reach', 'Style', 'Team']],
         body: ordered.map((s) => {
           const pos = s.enrollment_id ? positions.get(s.enrollment_id) : undefined;
           return [
             String(pos?.fightOrder ?? s.matchNumber ?? '-'),
             s.confirmed_at ? 'X' : '',
-            s.person?.event_name || s.person?.compiled_name || '',
-            s.person?.appadmin_fighter_id || '',
+            '', // Photo — drawn in didDrawCell
+            '', // Fighter — drawn in didDrawCell (name, code and whereabouts differ in weight)
             s.person?.nationality || '',
             s.residency || '',
             s.weight_kg ? `${s.weight_kg} kg` : '',
@@ -158,14 +192,47 @@ export default function StatsPage() {
             s.team_gym || '',
           ];
         }),
-        styles: { fontSize: 8, cellPadding: 1.5 },
-        headStyles: { fillColor: [38, 38, 38], textColor: 255, fontSize: 8 },
-        columnStyles: { 0: { cellWidth: 10, halign: 'center' }, 1: { cellWidth: 12, halign: 'center' } },
+        // Taller rows than the Medical report on purpose: this sheet is carried
+        // on a clipboard and written on, so an empty cell has to fit a pen.
+        styles: { ...REPORT_TABLE_STYLES.styles, valign: 'middle', minCellHeight: 15 },
+        headStyles: REPORT_TABLE_STYLES.headStyles,
+        columnStyles: {
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 12, halign: 'center' },
+          2: { cellWidth: 14, halign: 'center' },
+          3: { cellWidth: 50 },
+          4: { cellWidth: 24 },
+          5: { cellWidth: 24 },
+          6: { cellWidth: 18 },
+          7: { cellWidth: 18 },
+          8: { cellWidth: 18 },
+          9: { cellWidth: 'auto' },
+          10: { cellWidth: 'auto' },
+        },
         // Blank cells to write on: the whole point is updating on paper.
         didParseCell: (data) => { if (data.section === 'body' && data.cell.text.join('') === '') data.cell.text = ['']; },
+        didDrawCell: (data) => {
+          if (data.section !== 'body') return;
+          const s = ordered[data.row.index];
+          if (!s) return;
+          try {
+            if (data.column.index === 2) {
+              drawAthletePhoto(doc, data.cell, { dataUrl: photoMap.get(s.id), corner: s.corner });
+            } else if (data.column.index === 3) {
+              drawAthleteCell(doc, data.cell, {
+                name: s.person?.event_name || s.person?.compiled_name || '',
+                eventCode: s.event_code,
+                detail: s.enrollment_id ? whereabouts.get(s.enrollment_id) : undefined,
+              });
+            }
+          } catch (err) {
+            console.warn('[stats pdf] cell draw failed:', err);
+          }
+        },
       });
-      const stamp = new Date().toISOString().slice(0, 10);
-      doc.save(`fighter-stats-${(eventName || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${stamp}.pdf`);
+
+      drawReportFooters(doc, `${eventName || 'Event'} — Fighter Stats`);
+      doc.save(buildReportFilename(eventName || 'Event', 'fighter-stats'));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to build the PDF');
     } finally {
