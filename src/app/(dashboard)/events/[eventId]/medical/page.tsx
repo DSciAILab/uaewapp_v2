@@ -19,6 +19,17 @@ import autoTable from 'jspdf-autotable'
 import { createClient } from '@/lib/supabase/client'
 import { getDataUrl } from '@/lib/utils'
 import {
+  REPORT_TABLE_STYLES,
+  buildReportFilename,
+  drawAthleteCell,
+  drawAthletePhoto,
+  drawReportFooters,
+  loadBrandLogo,
+  repeatingHeader,
+} from '@/lib/pdf/identity'
+import { getWhereaboutsMap } from '@/lib/pdf/whereabouts'
+import { useUser } from '@/hooks/use-user'
+import {
   getMedicalData,
   updateMedicalStatus,
   updateMedicalNotes,
@@ -49,6 +60,7 @@ export default function MedicalPage() {
 
   const { canEdit, isAdmin, loading: permissionsLoading } = usePermissions()
   const canEditMedical = isAdmin || canEdit('pre_event')
+  const { user } = useUser()
 
   const summary = useMemo(() => computeMedicalSummary(rows), [rows])
 
@@ -141,8 +153,8 @@ export default function MedicalPage() {
       // Sort by fight order for the report (matches default sort)
       const ordered = [...rows].sort((a, b) => (a.fight_order ?? 999) - (b.fight_order ?? 999))
 
-      // Fetch histories AND photos in parallel
-      const [histories, photoEntries] = await Promise.all([
+      // Fetch histories, photos, brand mark and whereabouts in parallel
+      const [histories, photoEntries, logoDataUrl, whereabouts] = await Promise.all([
         Promise.all(
           ordered.map(async (r) => {
             try {
@@ -160,27 +172,23 @@ export default function MedicalPage() {
             return [r.enrolled_id, dataUrl] as const
           })
         ),
+        loadBrandLogo(),
+        getWhereaboutsMap(eventId),
       ])
       const historyMap = new Map(histories)
       const photoMap = new Map(photoEntries)
 
-      const doc = new jsPDF({ orientation: 'landscape' })
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
-      doc.setFontSize(16)
-      doc.text(`${eventName || 'Event'} — Medical Clearance Report`, 14, 14)
-      doc.setFontSize(9)
-      doc.setTextColor(120)
-      doc.text(`Generated: ${new Date().toLocaleString('pt-BR')}`, 14, 20)
-
-      // Summary line
-      doc.setFontSize(10)
-      doc.setTextColor(0)
       const totals = summary.total
-      doc.text(
-        `Pending: ${totals.pending}   |   Cleared by Doctor: ${totals.cleared}   |   Sent to Hospital: ${totals.hospital}   |   Total: ${rows.length}`,
-        14,
-        27
-      )
+      // Header is drawn per page by repeatingHeader below, not once up front.
+      const headerOptions = {
+        eventName: eventName || 'Event',
+        documentTitle: 'Medical Clearance Report',
+        printedBy: user?.name || user?.email,
+        breakdown: `${rows.length} fighters · ${totals.cleared} cleared · ${totals.pending} pending · ${totals.hospital} sent to hospital`,
+        logoDataUrl,
+      }
 
       const body = ordered.map((r) => {
         const log = historyMap.get(r.enrolled_id) || []
@@ -206,10 +214,8 @@ export default function MedicalPage() {
         const wasHospital = r.was_at_hospital && r.status !== 'sent_to_hospital' ? ' (was at hospital)' : ''
         return [
           r.fight_order?.toString() ?? '-',
-          '', // Photo placeholder — drawn in didDrawCell
-          r.corner ?? '-',
-          r.person.compiled_name,
-          r.person.appadmin_fighter_id ?? '-',
+          '', // Photo — drawn in didDrawCell
+          '', // Fighter — drawn in didDrawCell (name, code and detail carry different weights)
           STATUS_LABEL[r.status] + wasHospital,
           r.notes || '—',
           historyText,
@@ -217,32 +223,28 @@ export default function MedicalPage() {
       })
 
       autoTable(doc, {
-        startY: 32,
-        head: [['#', 'Photo', 'Corner', 'Fighter', 'ID', 'Current Status', 'Notes', 'History']],
+        ...repeatingHeader(doc, headerOptions),
+        head: [['#', 'Photo', 'Fighter', 'Current Status', 'Notes', 'History']],
         body,
         theme: 'striped',
-        styles: { fontSize: 8, valign: 'top', cellPadding: 2, minCellHeight: 16 },
-        headStyles: { fillColor: [38, 38, 38], textColor: 255, fontSize: 9 },
+        // Rows read centred: the photo is the tallest thing in the row, and text
+        // pinned to the top floated away from the face it belongs to.
+        styles: { ...REPORT_TABLE_STYLES.styles, valign: 'middle', minCellHeight: 16 },
+        headStyles: REPORT_TABLE_STYLES.headStyles,
         columnStyles: {
-          0: { cellWidth: 10, halign: 'center', valign: 'middle' },
-          1: { cellWidth: 16, halign: 'center', valign: 'middle' },
-          2: { cellWidth: 16, halign: 'center', valign: 'middle' },
-          3: { cellWidth: 46 },
-          4: { cellWidth: 16, halign: 'center' },
-          5: { cellWidth: 42 },
-          6: { cellWidth: 46 },
-          7: { cellWidth: 'auto' },
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 18, halign: 'center' },
+          2: { cellWidth: 58 },
+          3: { cellWidth: 42 },
+          4: { cellWidth: 50 },
+          5: { cellWidth: 'auto' },
         },
         didParseCell: (data) => {
           if (data.section !== 'body') return
           const row = ordered[data.row.index]
           if (!row) return
-          // Tint Corner cell + Status cell by corner / status
-          if (data.column.index === 2) {
-            if (row.corner === 'RED') data.cell.styles.fillColor = [254, 226, 226]
-            else if (row.corner === 'BLUE') data.cell.styles.fillColor = [219, 234, 254]
-          }
-          if (data.column.index === 5) {
+          // The corner now rides on the photo, so only the status is tinted here.
+          if (data.column.index === 3) {
             if (row.status === 'cleared_by_doctor') {
               data.cell.styles.fillColor = [220, 252, 231]
               data.cell.styles.textColor = [21, 128, 61]
@@ -253,34 +255,31 @@ export default function MedicalPage() {
           }
         },
         didDrawCell: (data) => {
-          if (data.section !== 'body' || data.column.index !== 1) return
+          if (data.section !== 'body') return
           const row = ordered[data.row.index]
           if (!row) return
-          const dataUrl = photoMap.get(row.enrolled_id)
-          if (!dataUrl) return
           try {
-            const dim = Math.min(data.cell.height, data.cell.width) - 2
-            const x = data.cell.x + (data.cell.width - dim) / 2
-            const y = data.cell.y + (data.cell.height - dim) / 2
-            // Detect format from data URL prefix
-            const fmt = dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG'
-            doc.addImage(dataUrl, fmt, x, y, dim, dim)
-            // Corner-colored ring
-            if (row.corner === 'RED' || row.corner === 'BLUE') {
-              const ringColor: [number, number, number] = row.corner === 'RED' ? [220, 38, 38] : [37, 99, 235]
-              doc.setDrawColor(...ringColor)
-              doc.setLineWidth(0.6)
-              doc.rect(x, y, dim, dim)
+            if (data.column.index === 1) {
+              drawAthletePhoto(doc, data.cell, {
+                dataUrl: photoMap.get(row.enrolled_id),
+                corner: row.corner,
+              })
+            } else if (data.column.index === 2) {
+              drawAthleteCell(doc, data.cell, {
+                name: row.person.compiled_name,
+                eventCode: row.event_code,
+                // Where they are: room once checked in, otherwise the inbound flight.
+                detail: whereabouts.get(row.enrolled_id),
+              })
             }
           } catch (err) {
-            console.warn('[medical pdf] image add failed:', err)
+            console.warn('[medical pdf] cell draw failed:', err)
           }
         },
       })
 
-      const safeName = (eventName || 'event').replace(/[^a-z0-9]+/gi, '-').toLowerCase()
-      const stamp = new Date().toISOString().slice(0, 10)
-      doc.save(`medical-clearance-${safeName}-${stamp}.pdf`)
+      drawReportFooters(doc, `${eventName || 'Event'} — Medical Clearance Report`)
+      doc.save(buildReportFilename(eventName || 'Event', 'medical-clearance'))
       toast.success('PDF report downloaded', { id: toastId })
     } catch (err: any) {
       console.error('[medical] pdf export failed:', err)

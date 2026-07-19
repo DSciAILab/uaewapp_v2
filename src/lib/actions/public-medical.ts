@@ -23,6 +23,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         .from('mma_enrollments')
         .select(`
           id,
+          event_code,
           person:mma_people(id, name, surname, nationality, appadmin_fighter_id, event_name),
           event:mma_events(name),
           role:mma_roles!inner(code)
@@ -87,6 +88,7 @@ export async function getPublicMedicalData(eventId: string): Promise<MedicalRow[
         was_at_hospital: wasAtHospital.has(enr.id),
         corner: (match.corner as 'RED' | 'BLUE' | null) ?? null,
         fight_order: match.matchNumber ?? null,
+        event_code: enr.event_code ?? null,
         person: {
           id: person.id,
           compiled_name: match.name || eventName || fullName,

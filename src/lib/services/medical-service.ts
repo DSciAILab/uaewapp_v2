@@ -25,6 +25,7 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
     .from('mma_enrollments')
     .select(`
       id,
+      event_code,
       person:mma_people(id, name, surname, nationality, appadmin_fighter_id, passport_photo, phone, event_name),
       event:mma_events(name),
       role:mma_roles!inner(code)
@@ -113,6 +114,9 @@ export async function getMedicalData(eventId: string): Promise<MedicalRow[]> {
       was_at_hospital: wasAtHospital.has(enr.id),
       corner: (match.corner as 'RED' | 'BLUE' | null) ?? null,
       fight_order: match.matchNumber ?? null,
+      // The event-scoped code (FT.006) the whole operation speaks in — Fernando's
+      // ruling: this is the official numbering, not the appadmin fighter id.
+      event_code: (enr as { event_code?: string | null }).event_code ?? null,
       person: {
         id: person.id,
         compiled_name: match.name || eventName || fullName,

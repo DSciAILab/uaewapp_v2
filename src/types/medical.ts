@@ -20,6 +20,8 @@ export interface MedicalRow {
   was_at_hospital: boolean
   corner: 'RED' | 'BLUE' | null
   fight_order: number | null
+  /** Event-scoped code (FT.006 / ST.001) — the official reference, per Fernando. */
+  event_code: string | null
   person: {
     id: string
     compiled_name: string
