@@ -319,7 +319,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
 
       autoTable(doc, {
         ...repeatingHeader(doc, headerOptions),
-        head: [['#', 'Done', 'Photo', 'Person', 'Role', 'Notes']],
+        head: [['#', 'Done', 'Photo', 'Person', 'Status', 'Notes']],
         body: ordered.map((a) => [
           String(positionOf(a).fightOrder ?? '-'),
           // Open rows are blank to tick on paper. Rows already marked done in
@@ -328,7 +328,9 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           a.status === 'completed' ? 'X' : '',
           '', // Photo — drawn in didDrawCell
           '', // Person — drawn in didDrawCell (name and code differ in weight)
-          a.enrollment?.role.name || '',
+          // What the app says right now, so the clipboard and the record can be
+          // compared without opening the app. 'Done' is the box to tick.
+          ASSIGNMENT_STATUS_LABELS[a.status] || '',
           '', // Written on paper
         ]),
         // Same taller rows as Fighter Stats: an empty cell has to fit a pen.
@@ -339,7 +341,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           1: { cellWidth: 14, halign: 'center' },
           2: { cellWidth: 14, halign: 'center' },
           3: { cellWidth: 62 },
-          4: { cellWidth: 26 },
+          4: { cellWidth: 28 },
           5: { cellWidth: 'auto' },
         },
         didParseCell: (data) => {
