@@ -51,9 +51,13 @@ export async function getWarRoomTables(
 
   // The HTML looks these labels up by name, so they must match the sheet's.
   const fightCard: GvizTable = {
+    // New columns go on the END: the HTML resolves each one by label, but every
+    // lookup carries a positional fallback, so inserting in the middle would
+    // silently shift the fallbacks onto the wrong cells.
     cols: cols([
       '#', 'Event', 'Corner', 'Division', 'Name', 'Nickname',
       'Record', 'Nationality', 'Team', 'App ID', 'Event ID',
+      'Event Code', 'Room', 'Arrival',
     ]),
     rows: matrix.rows.map((r) => ({
       c: [
@@ -71,6 +75,17 @@ export async function getWarRoomTables(
         { v: '' },
         { v: r.photoUrl },
         { v: r.enrollmentId },
+        { v: r.eventCode ?? '' },
+        { v: r.roomNumber ?? '' },
+        // Pre-joined here rather than in the HTML: the wall display should render
+        // strings, not assemble them.
+        {
+          v: r.arrival
+            ? [r.arrival.flightNumber, r.arrival.date, r.arrival.time, r.arrival.airport]
+                .filter(Boolean)
+                .join(' · ')
+            : '',
+        },
       ],
     })),
   };

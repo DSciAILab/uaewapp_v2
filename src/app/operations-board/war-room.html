@@ -1031,13 +1031,32 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
   font-weight: 500;
 }
 .corner-red .fmeta{ flex-direction: row-reverse; }
+/* One line, always. The meta row used to wrap onto a second line and push the
+   row taller than its neighbours — that was the photo misalignment. */
+.fmeta{ flex-wrap: nowrap; white-space: nowrap; align-items: center; }
 .fmeta .fid{ color: var(--fg-4); }
 .fmeta .rec{ color: var(--fg-2); font-weight: 600; }
 .fmeta .ctry{
   color: var(--gold);
   font-weight: 700;
   letter-spacing: 0.12em;
+  display: inline-flex;
+  align-items: center;
+  gap: clamp(4px, 0.3vw, 8px);
 }
+.flag{
+  height: 0.85em;
+  width: auto;
+  display: block;
+  border-radius: 2px;
+  /* The flag is data, not decoration: a hairline keeps white flags from
+     dissolving into the dark board. */
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.18);
+}
+/* Whereabouts: in the hotel, or still on the way. */
+.wb{ font-weight: 700; letter-spacing: 0.06em; }
+.wb.room{ color: var(--done); }
+.wb.inbound{ color: var(--fg-2); font-weight: 500; letter-spacing: 0.03em; }
 
 /* avatar — sharp rectangle, no rounding */
 .avatar{
@@ -1708,11 +1727,35 @@ const COUNTRY_CODE = {
   'colombia':'COL','peru':'PER','chile':'CHL','ireland':'IRL','england':'ENG',
   'united kingdom':'GBR','scotland':'SCO','wales':'WAL','poland':'POL','romania':'ROU',
   'azerbaijan':'AZE','georgia':'GEO','kyrgyzstan':'KGZ','dagestan':'RUS','chechnya':'RUS',
+  'china':'CHN','india':'IND','sudan':'SDN','moldova':'MDA','sweden':'SWE',
+  'denmark':'DNK','australia':'AUS','slovakia':'SVK','thailand':'THA','japan':'JPN',
 };
 function countryCode(name){
   if (!name) return '';
   const k = String(name).trim().toLowerCase();
   return COUNTRY_CODE[k] || String(name).slice(0,3).toUpperCase();
+}
+
+// ISO-3 -> ISO-2, for the flag image only. A nationality that fell through the
+// map above arrives here as a raw 3-letter slice and simply gets no flag —
+// which is the honest outcome. A wrong flag beside a fighter's name is worse
+// than none.
+const ISO3_TO_ISO2 = {
+  RUS:'ru', TJK:'tj', TKM:'tm', UZB:'uz', TUR:'tr', SRB:'rs', BRA:'br', KAZ:'kz',
+  EGY:'eg', ZWE:'zw', MAR:'ma', BLR:'by', ALB:'al', PHL:'ph', ZAF:'za', CMR:'cm',
+  ITA:'it', KOR:'kr', ARM:'am', UKR:'ua', PAK:'pk', TUN:'tn', DZA:'dz', IRN:'ir',
+  IRQ:'iq', SYR:'sy', JOR:'jo', LBN:'lb', SAU:'sa', ARE:'ae', FRA:'fr', ESP:'es',
+  DEU:'de', USA:'us', CAN:'ca', MEX:'mx', ARG:'ar', COL:'co', PER:'pe', CHL:'cl',
+  IRL:'ie', ENG:'gb-eng', GBR:'gb', SCO:'gb-sct', WAL:'gb-wls', POL:'pl', ROU:'ro',
+  AZE:'az', GEO:'ge', KGZ:'kg', CHN:'cn', IND:'in', SDN:'sd', MDA:'md', SWE:'se',
+  DNK:'dk', AUS:'au', SVK:'sk', THA:'th', JPN:'jp',
+};
+function flagHtml(code){
+  const iso2 = ISO3_TO_ISO2[code];
+  if (!iso2) return '';
+  // An image, not an emoji flag: Chrome on Windows renders regional-indicator
+  // pairs as bare letters, and a Windows-driven TV is exactly where this runs.
+  return `<img class="flag" src="https://flagcdn.com/w40/${iso2}.png" alt="" loading="lazy" onerror="this.remove()">`;
 }
 
 function parseFightCard(table) {
@@ -1729,7 +1772,10 @@ function parseFightCard(table) {
   const iRec = ix('record', 6);
   const iCountry = ix('nationality', 7);
   const iPhoto = ix('app id', 9);
-  const iAthleteId = cols.indexOf('event id'); // internal numeric ID
+  const iAthleteId = cols.indexOf('event id'); // enrollment UUID — the join key, never shown
+  const iEventCode = cols.indexOf('event code'); // FT.006 — what a human reads
+  const iRoom = cols.indexOf('room');
+  const iArrival = cols.indexOf('arrival');
 
   const grouped = {}; // key: event|bout -> { bout, event, weight, blue, red }
   Object.keys(PHOTO_URL).forEach(k => delete PHOTO_URL[k]);
@@ -1755,9 +1801,13 @@ function parseFightCard(table) {
     const photo = String((c[iPhoto] || {}).v || '').trim();
     if (id && photo) PHOTO_URL[id] = photo;
 
+    const code = iEventCode >= 0 ? String((c[iEventCode] || {}).v || '').trim() : '';
+    const room = iRoom >= 0 ? String((c[iRoom] || {}).v || '').trim() : '';
+    const arrival = iArrival >= 0 ? String((c[iArrival] || {}).v || '').trim() : '';
+
     const key = event + '|' + bout;
     if (!grouped[key]) grouped[key] = { bout, event, weight: String((c[iWeight] || {}).v || '').trim(), blue: null, red: null };
-    grouped[key][corner] = { id, name, rec, country };
+    grouped[key][corner] = { id, name, rec, country, code, room, arrival };
   }
 
   FIGHTS = Object.values(grouped)
@@ -1902,6 +1952,15 @@ function fightMatchesFilter(f){
   );
 }
 
+// Where the athlete is. A room is only handed over at check-in, so having one
+// IS the arrival signal — no separate check-in flag to keep in sync. Until then
+// the inbound flight is the thing the operator actually needs on the wall.
+function whereabouts(p){
+  if (p.room) return `<span class="wb room">ROOM ${p.room}</span>`;
+  if (p.arrival) return `<span class="wb inbound">${p.arrival}</span>`;
+  return '';
+}
+
 function renderFightRow(f, idx){
   const vTasks = getVisibleTasks();
   const blueReady = readinessCount(f.blue.id);
@@ -1920,9 +1979,9 @@ function renderFightRow(f, idx){
         <div class="fblock">
           <span class="fname ${isFighterReady(f.blue.id) ? 'ready' : ''}">${f.blue.name}</span>
           <span class="fmeta">
-            <span class="fid">F.${f.blue.id}</span>
-            <span class="rec">${f.blue.rec || '—'}</span>
-            <span class="ctry">${f.blue.country}</span>
+            <span class="fid">${f.blue.code || ''}</span>
+            ${whereabouts(f.blue)}
+            <span class="ctry">${flagHtml(f.blue.country)}${f.blue.country}</span>
           </span>
         </div>
         <div class="tasks">${taskCells(f.blue.id)}</div>
@@ -1938,9 +1997,9 @@ function renderFightRow(f, idx){
         <div class="fblock">
           <span class="fname ${isFighterReady(f.red.id) ? 'ready' : ''}">${f.red.name}</span>
           <span class="fmeta">
-            <span class="ctry">${f.red.country}</span>
-            <span class="rec">${f.red.rec || '—'}</span>
-            <span class="fid">F.${f.red.id}</span>
+            <span class="ctry">${flagHtml(f.red.country)}${f.red.country}</span>
+            ${whereabouts(f.red)}
+            <span class="fid">${f.red.code || ''}</span>
           </span>
         </div>
         <div class="tasks">${taskCells(f.red.id)}</div>

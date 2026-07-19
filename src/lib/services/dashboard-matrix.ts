@@ -32,6 +32,19 @@ export interface MatrixRow {
   /** Display-only fields the war-room grid shows under the name. */
   division: string | null;
   nationality: string | null;
+  /**
+   * The event-scoped code (FT.006, C.043, ST.032) — the internal reference the
+   * whole operation speaks in. Not the enrollment UUID, which means nothing to
+   * a human standing in front of the wall display.
+   */
+  eventCode: string | null;
+  /**
+   * Where the athlete is, right now. Having a room IS the arrival signal: the
+   * room is only assigned at check-in, so a filled room_number means they are
+   * in the hotel. No room yet -> the inbound flight is what the operator needs.
+   */
+  roomNumber: string | null;
+  arrival: { flightNumber: string; date: string; time: string; airport: string } | null;
   /** Out of the event, but kept on the board as the record of who dropped. */
   cancelled: boolean;
   cells: Record<string, MatrixCell>;
@@ -61,7 +74,7 @@ export async function getDashboardMatrix(
       // Cancelled athletes stay on the board, marked (UAE-26). Dropping them
       // hid the very thing the operator needs to see: who left, and what of
       // their logistics is still booked.
-      .select('id, person_id, status, person:mma_people(id, compiled_name, event_name, appadmin_fighter_id, nationality), role:mma_roles!inner(code)')
+      .select('id, person_id, status, event_code, person:mma_people(id, compiled_name, event_name, appadmin_fighter_id, nationality), role:mma_roles!inner(code)')
       .eq('event_id', eventId)
       .in('status', ['active', 'cancelled'])
       .eq('role.code', 'F'),
@@ -76,6 +89,7 @@ export async function getDashboardMatrix(
       ring: (p?.event_name as string) || null,
       fighterId: (p?.appadmin_fighter_id as string) || null,
       nationality: (p?.nationality as string) || null,
+      eventCode: (e.event_code as string) || null,
       cancelled: e.status === 'cancelled',
     };
   });
@@ -83,7 +97,7 @@ export async function getDashboardMatrix(
 
   // Positions (corner + bout order), the tasks and their assignments, and the
   // two auto-sources — all in parallel.
-  const [positions, tasksRes, assignmentsRes, musicRes, statsRes] = await Promise.all([
+  const [positions, tasksRes, assignmentsRes, musicRes, statsRes, hotelsRes, flightsRes] = await Promise.all([
     getFightCardPositions(
       eventId,
       roster.map((r) => ({ enrollmentId: r.enrollmentId, fullName: r.compiled, ringName: r.ring })),
@@ -102,7 +116,35 @@ export async function getDashboardMatrix(
       .from('mma_fighter_stats')
       .select('person_id, confirmed_at')
       .in('person_id', roster.map((r) => r.personId)),
+    // Where they are: the assigned room, or the flight still bringing them in.
+    supabase
+      .from('mma_hotels')
+      .select('enrollment_id, room_number')
+      .in('enrollment_id', enrollmentIds.length ? enrollmentIds : ['00000000-0000-0000-0000-000000000000']),
+    supabase
+      .from('mma_flights')
+      .select('enrollment_id, arrival_flight_number, arrival_date, arrival_time, arrival_airport')
+      .in('enrollment_id', enrollmentIds.length ? enrollmentIds : ['00000000-0000-0000-0000-000000000000']),
   ]);
+
+  // Room by enrollment. Blank rooms are dropped so an empty string never reads
+  // as "checked in" downstream — absent and empty must mean the same thing.
+  const roomByEnrollment = new Map<string, string>();
+  for (const h of hotelsRes.data || []) {
+    const room = String(h.room_number ?? '').trim();
+    if (room) roomByEnrollment.set(h.enrollment_id as string, room);
+  }
+
+  // Inbound flight by enrollment, for whoever has not checked in yet.
+  const arrivalByEnrollment = new Map<string, MatrixRow['arrival']>();
+  for (const f of flightsRes.data || []) {
+    const flightNumber = String(f.arrival_flight_number ?? '').trim();
+    const date = String(f.arrival_date ?? '').trim();
+    const time = String(f.arrival_time ?? '').trim().slice(0, 5);
+    const airport = String(f.arrival_airport ?? '').trim();
+    if (!flightNumber && !date && !time && !airport) continue;
+    arrivalByEnrollment.set(f.enrollment_id as string, { flightNumber, date, time, airport });
+  }
 
   // task_id -> canonical task name (only the six we track)
   const taskIdToName = new Map<string, string>();
@@ -160,6 +202,9 @@ export async function getDashboardMatrix(
       fightOrder: pos?.fightOrder ?? null,
       division: pos?.division ?? null,
       nationality: r.nationality,
+      eventCode: r.eventCode,
+      roomNumber: roomByEnrollment.get(r.enrollmentId) ?? null,
+      arrival: arrivalByEnrollment.get(r.enrollmentId) ?? null,
       cancelled: r.cancelled,
       cells,
     };
