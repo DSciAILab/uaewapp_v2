@@ -74,8 +74,24 @@ export default function FightCardPage({ params }: { params: Promise<{ eventId: s
           if (!confirm('Save the current Fight Card state to the database? The screen will stop reading from Google Sheets.')) return;
           
           setSyncing(true);
-          const count = await syncFightCardToDatabase(eventId);
-          toast.success(`Successfully synced history of ${count} fights.`);
+          const result = await syncFightCardToDatabase(eventId);
+
+          // A partial sync is not a success. This used to toast "Successfully
+          // synced" no matter what came back, so a sync that saved nothing was
+          // indistinguishable from one that worked.
+          const parts = [`${result.synced} ${result.synced === 1 ? 'bout' : 'bouts'} saved`];
+          if (result.retired > 0) {
+              parts.push(`${result.retired} no longer on the card`);
+          }
+
+          if (result.problems.length > 0) {
+              toast.error(`${parts.join(', ')} — ${result.problems.length} problem${result.problems.length === 1 ? '' : 's'}`, {
+                  description: result.problems.join('\n'),
+                  duration: 15000,
+              });
+          } else {
+              toast.success(parts.join(', '));
+          }
           setRefreshKey(prev => prev + 1);
       } catch (err: any) {
           toast.error(err.message || 'Sync failed');
