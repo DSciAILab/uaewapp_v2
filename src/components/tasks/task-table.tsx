@@ -1,13 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  SortableHead,
+  nextSort,
+  compareValues,
+  type SortState,
+} from '@/components/fighters/fighter-identity';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, Pencil, Trash2, Play, CheckCircle, XCircle, Users } from 'lucide-react';
 import { format } from 'date-fns';
-import { EventTask, TaskStatus, TASK_CATEGORY_LABELS } from '@/types/task';
+import { EventTask, TaskStatus, TaskPriority, TASK_CATEGORY_LABELS } from '@/types/task';
 import { TaskStatusBadge, TaskPriorityBadge } from './task-status-badge';
 import { deleteEventTask, updateTaskStatus } from '@/lib/services/task-service';
 import { toast } from 'sonner';
@@ -21,12 +27,62 @@ interface TaskTableProps {
   onRefresh: () => void;
 }
 
+type SortKey = 'name' | 'category' | 'priority' | 'status' | 'due' | 'checklist';
+
+/** Urgency, not the alphabet — sorting by priority to get "high, low, medium,
+ *  urgent" would be worse than not sorting at all. */
+const PRIORITY_RANK: Record<TaskPriority, number> = {
+  urgent: 0, high: 1, medium: 2, low: 3,
+};
+
+/** The order work actually moves through, so one click groups what still needs
+ *  doing at the top and the finished and dropped work at the bottom. */
+const STATUS_RANK: Record<TaskStatus, number> = {
+  in_progress: 0, pending: 1, completed: 2, cancelled: 3,
+};
+
+/**
+ * The value a column sorts on, which is not always the value it displays.
+ * Checklist shows "3/7" but sorts on how much is left undone, because a bar at
+ * 3/7 and one at 30/70 are the same progress and reading them as text is not.
+ */
+function sortValue(task: EventTask, key: SortKey | null): string | number | null {
+  switch (key) {
+    case 'name': return task.name;
+    case 'category': return TASK_CATEGORY_LABELS[task.category];
+    case 'priority': return PRIORITY_RANK[task.priority];
+    case 'status': return STATUS_RANK[task.status];
+    // Sort on the raw ISO date, never the "MMM dd" on screen: formatted dates
+    // sort alphabetically, which puts April before January.
+    case 'due': return task.due_date ? `${task.due_date}T${task.due_time || '00:00'}` : null;
+    case 'checklist': {
+      const total = task.checklist_items.length;
+      if (!total) return null;
+      return task.checklist_items.filter(i => i.completed).length / total;
+    }
+    default: return null;
+  }
+}
+
 export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [assignmentTask, setAssignmentTask] = useState<EventTask | null>(null);
+  const [sort, setSort] = useState<SortState<SortKey>>({ key: 'due', dir: 'asc' });
   const params = useParams();
   const eventId = params.eventId as string;
+
+  const toggleSort = (key: SortKey) => setSort(prev => nextSort(prev, key));
+
+  // Sort a COPY: Array.prototype.sort mutates, and `tasks` is the parent's
+  // state — reordering it in place makes the parent disagree with the screen.
+  const sortedTasks = useMemo(
+    () => [...tasks].sort((a, b) => {
+      const cmp = compareValues(sortValue(a, sort.key), sortValue(b, sort.key));
+      return sort.dir === 'asc' ? cmp : -cmp;
+    }),
+    [tasks, sort]
+  );
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -60,12 +116,12 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Task</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Due</TableHead>
-              <TableHead>Checklist</TableHead>
+              <SortableHead column="name" label="Task" sort={sort} onSort={toggleSort} />
+              <SortableHead column="category" label="Category" sort={sort} onSort={toggleSort} />
+              <SortableHead column="priority" label="Priority" sort={sort} onSort={toggleSort} />
+              <SortableHead column="status" label="Status" sort={sort} onSort={toggleSort} />
+              <SortableHead column="due" label="Due" sort={sort} onSort={toggleSort} />
+              <SortableHead column="checklist" label="Checklist" sort={sort} onSort={toggleSort} />
               <TableHead className="w-[70px]"></TableHead>
             </TableRow>
           </TableHeader>
@@ -77,7 +133,7 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              tasks.map((task) => {
+              sortedTasks.map((task) => {
                 const completedItems = task.checklist_items.filter(i => i.completed).length;
                 const totalItems = task.checklist_items.length;
                 const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
