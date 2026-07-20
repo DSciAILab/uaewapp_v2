@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getWarRoomTables } from '@/lib/services/dashboard-gviz';
 import { getActiveEventId } from '@/lib/services/active-event';
 import { createClient } from '@/lib/supabase/server';
+import { BUILD_VERSION } from '@/lib/build-version';
 
 /**
  * Data source for the war-room dashboard (UAE-23).
@@ -22,7 +23,7 @@ export async function GET(req: NextRequest) {
     const { fightCard, attendance, eventName } = await getWarRoomTables(eventId, supabase);
 
     return NextResponse.json(
-      { eventName, fightCard, attendance },
+      { eventName, fightCard, attendance, version: BUILD_VERSION },
       // The screen polls; let it get fresh data every time.
       { headers: { 'Cache-Control': 'no-store' } }
     );

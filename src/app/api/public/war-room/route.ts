@@ -3,6 +3,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { getWarRoomTables } from '@/lib/services/dashboard-gviz';
 import { getActiveEventId } from '@/lib/services/active-event';
 import { createAdminClient } from '@/lib/supabase/server';
+import { BUILD_VERSION } from '@/lib/build-version';
 
 /**
  * Data for the wall-display board (UAE-23).
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
     const { fightCard, attendance, eventName } = await getWarRoomTables(eventId, supabase);
 
     return NextResponse.json(
-      { eventName, fightCard, attendance },
+      { eventName, fightCard, attendance, version: BUILD_VERSION },
       {
         headers: {
           'Cache-Control': 'no-store',

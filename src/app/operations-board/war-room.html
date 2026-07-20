@@ -1767,6 +1767,36 @@ function apiUrl() {
  * screen on display instead of blanking it; we only say "Offline" if we have
  * never managed to load at all.
  */
+/* ─── SELF-UPDATE (UAE-50) ───────────────────────────────────────────────
+   This page loads its HTML once and then only re-fetches data, so a deploy
+   never reaches a screen that is already open: the wall kept showing the old
+   board until somebody walked over and pressed F5. The API stamps each response
+   with the build it came from; when that stops matching the build this page
+   booted with, the page reloads itself.
+
+   Two guards, because a wall display that reloads in a loop during an event is
+   worse than the bug this fixes:
+
+   1. The SAME new version has to show up twice in a row. If a stamp is ever
+      unstable per request, it alternates and never repeats, so it never
+      triggers — the loop needs agreement, not a single reading.
+   2. Nobody may be touching the screen. On the wall nobody is, so it reloads at
+      the next poll; on a laptop it waits until you stop clicking, so it cannot
+      yank the page out from under someone mid-task. */
+let bootVersion = null, seenVersion = null, lastInteractionAt = 0;
+['mousemove', 'mousedown', 'keydown', 'touchstart', 'wheel'].forEach(ev => {
+  window.addEventListener(ev, () => { lastInteractionAt = Date.now(); }, { passive: true });
+});
+
+function checkBuildVersion(version) {
+  if (!version) return;                       // older API, nothing to compare
+  if (bootVersion === null) { bootVersion = version; return; }
+  if (version === bootVersion) { seenVersion = null; return; }
+  if (version !== seenVersion) { seenVersion = version; return; }  // guard 1
+  if (Date.now() - lastInteractionAt < 60000) return;              // guard 2
+  location.reload();
+}
+
 async function fetchWarRoom() {
   const now = Date.now();
   if (now - lastFetchAt < 2000) return; // collapse the paired startup calls
@@ -1780,6 +1810,7 @@ async function fetchWarRoom() {
     }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
+    checkBuildVersion(data.version);
     lastAttendanceTable = data.attendance;
     parseFightCard(data.fightCard);
     rebuildRotationEvents();
