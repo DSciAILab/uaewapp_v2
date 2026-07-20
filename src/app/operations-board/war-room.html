@@ -959,6 +959,12 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* Which page of the card is on the wall. Gold, because it is the one line here
+   that changes on its own and someone walking past has to catch it. */
+.section-stats .pager{
+  color: var(--gold);
+  font-weight: 700;
+}
 .section-stats .pct{
   font-family: 'Geist', sans-serif;
   font-size: var(--fs-md);
@@ -2086,18 +2092,29 @@ function renderFightRow(f, idx){
   `;
 }
 
-function renderSection(eventCode, fights){
+function renderSection(eventCode, fights, allFights){
   if (!fights.length) return '';
-  const totalTasks = fights.length * 2 * getVisibleTasks().length;
+  // The header describes the CARD, never the page. In Pages mode `fights` is a
+  // slice, so counting it put "8 bouts" on screen while the sidebar said "13" —
+  // two different answers on the same wall, and the smaller one looks like the
+  // card shrank. Stats always come from the whole card; only the rows are sliced.
+  const all = allFights || fights;
+  const totalTasks = all.length * 2 * getVisibleTasks().length;
   let done = 0;
-  fights.forEach(f => { done += readinessCount(f.blue.id) + readinessCount(f.red.id); });
+  all.forEach(f => { done += readinessCount(f.blue.id) + readinessCount(f.red.id); });
   const pct = totalTasks ? Math.round((done/totalTasks)*100) : 0;
   const pctCls = pct >= 90 ? 'complete' : (pct >= 50 ? 'hot' : '');
+  // With the card split across pages, someone looking at the wall has no way to
+  // know a page 2 exists — so say which page this is.
+  const pager = (boardMode === 'page' && boardPageCount > 1)
+    ? `<span class="pager">page ${boardPage + 1}/${boardPageCount}</span>`
+    : '';
 
   return `
     <div class="section section-compact" data-event="${eventCode}">
       <div class="section-stats">
-        <span>${fights.length} bouts · ${done}/${totalTasks} tasks</span>
+        <span>${all.length} bouts · ${done}/${totalTasks} tasks</span>
+        ${pager}
         <span class="pct ${pctCls}">${pct}%</span>
       </div>
     </div>
@@ -2139,6 +2156,9 @@ function render() {
   let fights = FIGHTS.filter(f => f.event === evt).filter(fightMatchesFilter);
 
   // Pages mode keeps the type size and shows a slice at a time (see applyFit).
+  // Keep the whole card too: the header must keep describing the card, not the
+  // slice, or the wall shows one bout count on top and a different one beside it.
+  const allFights = fights;
   if (boardMode === 'page' && fights.length) {
     // Use the per-page figure MEASURED from real rows (applyFit sets it after
     // the first paint). Before that we have nothing to measure, so show the
@@ -2153,7 +2173,7 @@ function render() {
   }
 
   const wrapper = document.getElementById('wrap');
-  const html = renderSection(evt, fights);
+  const html = renderSection(evt, fights, allFights);
   // The flicker: every refresh threw the board away and rebuilt it, so the
   // browser dropped the DOM, reloaded the portraits and repainted the whole
   // wall even when nothing had changed. Most refreshes change nothing, so
