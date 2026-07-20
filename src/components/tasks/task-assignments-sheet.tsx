@@ -339,22 +339,48 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
         logoDataUrl,
       };
 
+      // Columns are described rather than hardcoded because the two sheets do
+      // not have the same ones: the label sheet drops 'Done'. With positional
+      // arrays, removing a column silently shifts every index after it and the
+      // photo starts being drawn into the name's cell.
+      const isLabel = variant === 'label';
+      const columns = [
+        { key: 'order', label: '#', width: 10, halign: 'center' as const },
+        // The tick box is for the clipboard. The label sheet has a label stuck
+        // where it would go, and nobody ticks a sheet they are labelling.
+        ...(isLabel ? [] : [{ key: 'done', label: 'Done', width: 14, halign: 'center' as const }]),
+        // The photo grows 50% on the label sheet, so its column has to grow with
+        // it — drawAthletePhoto clamps to the cell, so a wider circle in a 14mm
+        // column would just be silently cropped back to 14mm.
+        { key: 'photo', label: 'Photo', width: isLabel ? 20 : 14, halign: 'center' as const },
+        { key: 'person', label: 'Person', width: 62 },
+        { key: 'status', label: 'Status', width: 28 },
+        { key: 'notes', label: 'Notes', width: 'auto' as const },
+      ];
+      const colIndex = (key: string) => columns.findIndex((c) => c.key === key);
+      const iPhoto = colIndex('photo');
+      const iPerson = colIndex('person');
+
       autoTable(doc, {
         ...repeatingHeader(doc, headerOptions),
-        head: [['#', 'Done', 'Photo', 'Person', 'Status', 'Notes']],
-        body: ordered.map((a) => [
-          String(positionOf(a).fightOrder ?? '-'),
-          // Open rows are blank to tick on paper. Rows already marked done in
-          // the app carry the tick, otherwise the sheet shows a finished person
-          // as outstanding and the staff redo work that is already recorded.
-          a.status === 'completed' ? 'X' : '',
-          '', // Photo — drawn in didDrawCell
-          '', // Person — drawn in didDrawCell (name and code differ in weight)
-          // What the app says right now, so the clipboard and the record can be
-          // compared without opening the app. 'Done' is the box to tick.
-          ASSIGNMENT_STATUS_LABELS[a.status] || '',
-          '', // Written on paper
-        ]),
+        head: [columns.map((c) => c.label)],
+        body: ordered.map((a) =>
+          columns.map((c) => {
+            switch (c.key) {
+              case 'order': return String(positionOf(a).fightOrder ?? '-');
+              // Open rows are blank to tick on paper. Rows already marked done
+              // in the app carry the tick, otherwise the sheet shows a finished
+              // person as outstanding and the staff redo work already recorded.
+              case 'done': return a.status === 'completed' ? 'X' : '';
+              // What the app says right now, so the clipboard and the record
+              // can be compared without opening the app.
+              case 'status': return ASSIGNMENT_STATUS_LABELS[a.status] || '';
+              // photo and person are drawn by hand in didDrawCell; notes is
+              // written on paper.
+              default: return '';
+            }
+          })
+        ),
         // Same taller rows as Fighter Stats: an empty cell has to fit a pen.
         // The label sheet goes to 4cm so a sample label fits beside the row.
         styles: { ...REPORT_TABLE_STYLES.styles, valign: 'middle', minCellHeight: ROW_MM[variant] },
@@ -365,14 +391,12 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
         // 40mm over 6 pages rather than 5 pages with four unusable rows.
         rowPageBreak: 'avoid',
         headStyles: REPORT_TABLE_STYLES.headStyles,
-        columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 14, halign: 'center' },
-          2: { cellWidth: 14, halign: 'center' },
-          3: { cellWidth: 62 },
-          4: { cellWidth: 28 },
-          5: { cellWidth: 'auto' },
-        },
+        columnStyles: Object.fromEntries(
+          columns.map((c, i) => [
+            i,
+            { cellWidth: c.width, ...(c.halign ? { halign: c.halign } : {}) },
+          ])
+        ),
         didParseCell: (data) => {
           if (data.section === 'body' && data.cell.text.join('') === '') data.cell.text = [''];
         },
@@ -381,16 +405,23 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           const a = ordered[data.row.index];
           if (!a) return;
           try {
-            if (data.column.index === 2) {
+            if (data.column.index === iPhoto) {
               drawAthletePhoto(doc, data.cell, {
                 dataUrl: photoMap.get(a.id),
                 corner: positionOf(a).corner,
+                // 50% up from the 11mm the normal sheet prints, stated as a
+                // measurement so widening the column cannot change it again.
+                sizeMm: isLabel ? 16.5 : undefined,
               });
-            } else if (data.column.index === 3) {
+            } else if (data.column.index === iPerson) {
               drawAthleteCell(doc, data.cell, {
                 name: a.enrollment?.person.event_name || a.enrollment?.person.compiled_name || '',
                 eventCode: a.enrollment?.event_code ?? null,
                 detail: whereabouts.get(a.enrollment_id),
+                // Name and room read from a distance on the label sheet, and
+                // centred so they sit beside the label rather than above it.
+                nameFontSize: isLabel ? 10 : 8,
+                verticalAlign: isLabel ? 'middle' : 'top',
               });
             }
           } catch (err) {

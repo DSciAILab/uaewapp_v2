@@ -196,11 +196,18 @@ interface CellBox {
 export function drawAthletePhoto(
   doc: jsPDF,
   cell: CellBox,
-  options: { dataUrl?: string | null; corner?: string | null }
+  options: { dataUrl?: string | null; corner?: string | null; sizeMm?: number }
 ): void {
-  const { dataUrl, corner } = options
+  const { dataUrl, corner, sizeMm } = options
   const ring = corner ? CORNER_INK[corner] : undefined
-  const size = Math.min(cell.height, cell.width) - 3
+  // An explicit diameter, not a scale factor. A factor multiplies whatever the
+  // cell happens to be, so widening the column to make room for a bigger photo
+  // silently made it bigger again — asking for +50% on an 11mm photo produced
+  // 19mm. Callers that say nothing keep filling their cell as before, which is
+  // what Medical and Stats print today. Still clamped: a circle wider than its
+  // column would be drawn straight over the next one.
+  const fit = Math.min(cell.height, cell.width) - 3
+  const size = Math.min(sizeMm ?? fit, cell.height - 1, cell.width - 1)
   if (size <= 0) return
 
   const x = cell.x + (cell.width - size) / 2
@@ -260,44 +267,89 @@ export function drawAthletePhoto(
 export function drawAthleteCell(
   doc: jsPDF,
   cell: CellBox,
-  options: { name: string; eventCode?: string | null; detail?: string | null }
+  options: {
+    name: string
+    eventCode?: string | null
+    detail?: string | null
+    /** Name size in pt. The detail line keeps its own scale relative to this. */
+    nameFontSize?: number
+    /**
+     * 'top' keeps the historical layout, which is what Medical and Stats print
+     * and must keep printing. 'middle' centres the whole name+detail block in
+     * the cell, which only matters once the row is much taller than its text —
+     * on the 4cm label sheet a top-anchored name floats at the ceiling with
+     * 25mm of blank under it.
+     */
+    verticalAlign?: 'top' | 'middle'
+  }
 ): void {
-  const { name, eventCode, detail } = options
+  const { name, eventCode, detail, nameFontSize = 8, verticalAlign = 'top' } = options
   const padding = 2
   const maxWidth = cell.width - padding * 2
-  let cursorY = cell.y + padding + 3
+  // Line spacing was tuned at 8pt; keep the same ratio so a bigger name does not
+  // print its second line on top of its first.
+  const nameLead = 3.4 * (nameFontSize / 8)
+  const detailSize = 6.5 * (nameFontSize / 8)
+  const detailLead = 2.9 * (nameFontSize / 8)
 
-  doc.setFontSize(8)
+  doc.setFontSize(nameFontSize)
   doc.setFont('helvetica', 'bold')
   doc.setTextColor(0)
   const nameLines = doc.splitTextToSize(name, eventCode ? maxWidth - 14 : maxWidth) as string[]
+
+  let cursorY = cell.y + padding + nameLead * 0.88
+  if (verticalAlign === 'middle') {
+    // Measure the detail with the face it will actually be drawn in, or a long
+    // room/flight line wraps to two lines at draw time and the block sits low.
+    doc.setFontSize(detailSize)
+    doc.setFont('helvetica', 'normal')
+    const detailLineCount = detail
+      ? (doc.splitTextToSize(detail, maxWidth) as string[]).length
+      : 0
+    doc.setFontSize(nameFontSize)
+    doc.setFont('helvetica', 'bold')
+    // Centre the INK, not the line advances. Summing a full line-height for the
+    // last line counts trailing space that has no glyph in it, which pushed the
+    // block about 2mm low in a 40mm row — visible when the whole point is that
+    // the name sits level with the label beside it.
+    const PT_TO_MM = 0.3528
+    const ascent = nameFontSize * PT_TO_MM * 0.75
+    const descent = (detailLineCount ? detailSize : nameFontSize) * PT_TO_MM * 0.25
+    const advance = (nameLines.length - 1) * nameLead + detailLineCount * detailLead
+    cursorY = cell.y + (cell.height - advance + ascent - descent) / 2
+  }
 
   // Measure the first line while the bold face is still active. Measuring after
   // switching to the smaller face reports a narrower name than is drawn, and the
   // code lands on top of it.
   const firstLineWidth = doc.getTextWidth(nameLines[0] || '')
 
+  // The event code hangs off the name's first line, so it has to follow the
+  // name wherever vertical centring put it — not the old fixed offset from the
+  // top of the cell, which would leave it stranded at the ceiling.
+  const firstLineY = cursorY
+
   for (const line of nameLines) {
     doc.text(line, cell.x + padding, cursorY)
-    cursorY += 3.4
+    cursorY += nameLead
   }
 
   if (eventCode) {
     // Sits on the name's first line, to its right: it identifies the person, so
     // it belongs with the name and not down among the logistics.
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7)
+    doc.setFontSize(7 * (nameFontSize / 8))
     doc.setTextColor(MUTED_INK)
-    doc.text(eventCode, cell.x + padding + firstLineWidth + 2, cell.y + padding + 3)
+    doc.text(eventCode, cell.x + padding + firstLineWidth + 2, firstLineY)
   }
 
   if (detail) {
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(6.5)
+    doc.setFontSize(detailSize)
     doc.setTextColor(MUTED_INK)
     for (const line of doc.splitTextToSize(detail, maxWidth) as string[]) {
       doc.text(line, cell.x + padding, cursorY)
-      cursorY += 2.9
+      cursorY += detailLead
     }
   }
 
