@@ -35,6 +35,20 @@
   --tcell-w:  clamp(34px, 2.4vw, 56px);
   --tcell-h:  clamp(28px, 2vw, 46px);
 
+  /* Board fit factor (UAE-48). 1 = the sizes above, untouched.
+     Every clamp() above scales with viewport WIDTH, so the board shrinks with
+     width but hits the clamp MINIMUMS and then refuses to get any shorter.
+     Measured on this page with the real 13-bout card, by usable height:
+        1080 -> content 976px, clipped   4px
+         960 -> content 885px, clipped  33px
+         900 -> content 885px, clipped  93px
+         780 -> content 885px, clipped 213px
+     The content floors at 885px, so every pixel of height lost below that is a
+     pixel of fighter cut off — not proportional, a hard floor. A 1920x1080 TV at
+     120% scale is 900 CSS px, which is why the last bout vanished "sometimes".
+     Fit mode multiplies AFTER the clamp, which is the only way under the floor. */
+  --fit: 1;
+
   /* UAEW brand — pure black + pure white + gold #FDB913 */
   --bg:        #000000;
   --bg-1:      #0a0a0a;
@@ -119,6 +133,30 @@ body::before{
 .app.sb-collapsed{ --sb-w: 0px; }
 .app.sb-autohide{ --sb-w: clamp(20px, 1.4vw, 32px); }
 .app.sb-autohide:has(.sidebar:hover){ --sb-w: clamp(260px, 18vw, 380px); }
+
+/* ─── BOARD FIT (UAE-48) ─────────────────────────────────
+   Two ways to make 13 bouts fit a screen that is too short, chosen from the
+   sidebar and remembered per browser:
+     mode-fit  — shrink everything until the card fits, however short the screen
+     mode-page — keep the size and show the card a page at a time, auto-turning
+   Fit re-applies the factor OUTSIDE the clamp(), so it can go below the clamp
+   minimums; that floor is exactly what made the last bout unreachable. */
+.app.mode-fit{
+  --row-h:   calc(clamp(44px, 3vw, 72px) * var(--fit));
+  --avatar:  calc(clamp(34px, 2.4vw, 60px) * var(--fit));
+  --tcell-w: calc(clamp(34px, 2.4vw, 56px) * var(--fit));
+  --tcell-h: calc(clamp(28px, 2vw, 46px) * var(--fit));
+  --fs-xs:   calc(clamp(10px, 0.55vw, 14px) * var(--fit));
+  --fs-sm:   calc(clamp(11px, 0.7vw, 16px)  * var(--fit));
+  --fs-base: calc(clamp(13px, 0.85vw, 20px) * var(--fit));
+  --fs-md:   calc(clamp(15px, 1.05vw, 26px) * var(--fit));
+  --fs-lg:   calc(clamp(18px, 1.4vw, 36px)  * var(--fit));
+  --gap:     calc(clamp(4px, 0.3vw, 10px)   * var(--fit));
+}
+/* In fit mode nothing may scroll — a scrollbar on a wall display is a bug, not
+   an affordance: nobody is there to drag it. */
+.app.mode-fit .wrap{ overflow-y: hidden; }
+.app.mode-page .wrap{ overflow-y: hidden; }
 
 .topbar-area{ grid-area: topbar; }
 .sidebar-area{
@@ -1577,6 +1615,15 @@ html, body{ overflow-x: hidden; max-width: 100vw; }
       </div>
 
       <div class="sb-section">
+        <span class="sb-eyebrow">Screen Fit</span>
+        <div class="sb-filters">
+          <button class="sb-filter sb-fit active" data-fit="fit">Shrink</button>
+          <button class="sb-filter sb-fit" data-fit="page">Pages</button>
+        </div>
+        <div class="sb-rothelp" id="fit-help">Fits all bouts on screen</div>
+      </div>
+
+      <div class="sb-section">
         <span class="sb-eyebrow">Legend</span>
         <div class="sb-legend">
           <span class="lg"><span class="sq done"></span>Done</span>
@@ -2091,6 +2138,20 @@ function render() {
   updateTopbarTitle();
   let fights = FIGHTS.filter(f => f.event === evt).filter(fightMatchesFilter);
 
+  // Pages mode keeps the type size and shows a slice at a time (see applyFit).
+  if (boardMode === 'page' && fights.length) {
+    // Use the per-page figure MEASURED from real rows (applyFit sets it after
+    // the first paint). Before that we have nothing to measure, so show the
+    // whole card for one frame rather than guess a number and flash the wrong
+    // slice at the wall.
+    const per = boardMeasuredPer || fights.length;
+    boardPageCount = Math.max(1, Math.ceil(fights.length / per));
+    if (boardPage >= boardPageCount) boardPage = 0;
+    fights = fights.slice(boardPage * per, boardPage * per + per);
+  } else {
+    boardPageCount = 1;
+  }
+
   const wrapper = document.getElementById('wrap');
   const html = renderSection(evt, fights);
   // The flicker: every refresh threw the board away and rebuilt it, so the
@@ -2117,6 +2178,152 @@ function render() {
 
   renderStats(evt);
   renderMeta();
+  applyFit();
+}
+
+/* ─── SCREEN FIT (UAE-48) ────────────────────────────────────────────────
+   The card is taller than the screen and the last bout ends up under the
+   ticker. Measured with the real 13-bout card: the layout stops shrinking at
+   885px of content, so anything shorter is clipped 1:1 (900px screen -> 93px
+   of fighter gone). A 1080p TV at 120% is a 900px screen, which is why it
+   only broke "sometimes".
+
+   Shrink: measure, scale everything down until it fits.
+   Pages:  keep the size, show as many whole bouts as fit, turn the page.
+   Both refuse to scroll — nobody is standing at the wall to drag a scrollbar. */
+let boardMode = (() => {
+  try { return localStorage.getItem('uaew-board-mode') || 'fit'; } catch (e) { return 'fit'; }
+})();
+let boardPage = 0, boardPageCount = 1, boardPageTimer = null, fitting = false;
+// Rows-per-page as last MEASURED from real rows, so applyFit can tell a genuine
+// change from a re-measure of the same value and not re-render forever.
+let boardMeasuredPer = 0;
+
+function boardRowHeight(){
+  const row = document.querySelector('.fight');
+  return row ? row.getBoundingClientRect().height : 0;
+}
+
+function boardPerPage(total){
+  const wrap = document.getElementById('wrap');
+  const rowH = boardRowHeight();
+  if (!wrap || !rowH) return total;
+  // Only whole rows: half a fighter is the bug we are fixing.
+  const room = wrap.clientHeight - boardChromeHeight();
+  return Math.max(1, Math.min(total, Math.floor(room / rowH)));
+}
+
+// Everything inside .wrap that is not a bout row (section header, stats strip).
+function boardChromeHeight(){
+  const wrap = document.getElementById('wrap');
+  const rows = document.querySelectorAll('.fight');
+  if (!wrap || !rows.length) return 0;
+  let rowsH = 0;
+  rows.forEach(r => { rowsH += r.getBoundingClientRect().height; });
+  return Math.max(0, wrap.scrollHeight - rowsH);
+}
+
+function applyFit(){
+  if (fitting) return;             // measuring changes layout; never re-enter
+  const app = document.querySelector('.app');
+  const wrap = document.getElementById('wrap');
+  if (!app || !wrap) return;
+  fitting = true;
+  try {
+    app.classList.toggle('mode-fit',  boardMode === 'fit');
+    app.classList.toggle('mode-page', boardMode === 'page');
+
+    if (boardMode === 'page') {
+      app.style.setProperty('--fit', '1');
+      // How many rows fit can only be measured once rows EXIST, and render()
+      // has to slice the list before that — first paint has nothing to measure,
+      // so it drew all 13 and overflowed by 93px with no pagination at all.
+      // Measure now that the DOM is real; if the answer changed, re-render once.
+      const total = FIGHTS.filter(f => f.event === currentDisplayEvent())
+                          .filter(fightMatchesFilter).length;
+      let per = boardMeasuredPer || boardPerPage(total);
+      // Summing row heights misses the margins BETWEEN rows, so the arithmetic
+      // lands one row too generous and the page still hung 9px over the edge.
+      // Rather than model the gaps, let the browser answer: if what is on screen
+      // overflows, the page holds one row too many.
+      if (boardMeasuredPer && wrap.scrollHeight > wrap.clientHeight && per > 1) {
+        per = per - 1;
+      }
+      if (per !== boardMeasuredPer) {
+        boardMeasuredPer = per;
+        boardPageCount = Math.max(1, Math.ceil(total / per));
+        lastRenderedHtml = null;
+        fitting = false;           // release before re-entering render()
+        render();
+      }
+      return;
+    }
+    if (boardMode !== 'fit') { app.style.setProperty('--fit', '1'); return; }
+
+    // Step down until it ACTUALLY fits, instead of computing a factor and
+    // trusting it. Two closed-form attempts were tried and both left the last
+    // bout clipped by a few pixels (2 passes: 9px at 900; 6 passes: 8px; rows-vs-
+    // room: 9px) because the parts that do not scale are not cleanly separable —
+    // some of the "fixed" chunk moves with the type after all. Measuring the real
+    // overflow after every step needs no model of which parts scale: the loop
+    // ends when the browser says there is nothing hanging over the edge.
+    // 2% steps from 1.00 to the 0.55 floor is 30 reflows worst case, on a screen
+    // that repaints every 5 minutes.
+    // The stop condition is the row's REAL height in pixels, not the scale
+    // factor. Legibility across a room is physical: a 44px row is the same row
+    // whether it got there from a 1080 screen at 0.68 or a 900 screen at 0.55.
+    // Flooring the FACTOR punished the shorter screen twice — at 900 it quit
+    // with 54px rows, comfortably readable, and still left the last bout clipped.
+    app.style.setProperty('--fit', '1');
+    let f = 1;
+    while (wrap.scrollHeight > wrap.clientHeight && f > 0.3) {
+      if (boardRowHeight() <= MIN_ROW_PX) break;
+      f = Math.max(0.3, f - 0.02);
+      app.style.setProperty('--fit', String(f));
+    }
+    // Still hanging over the edge at the smallest readable row: shrinking more
+    // would trade a cut-off fighter for an unreadable wall. Say so instead of
+    // pretending it fits — Pages is the honest answer on a screen this short.
+    const help = document.getElementById('fit-help');
+    if (help) {
+      help.textContent = (wrap.scrollHeight > wrap.clientHeight)
+        ? 'Screen too short — use Pages'
+        : 'Fits all bouts on screen';
+    }
+  } finally {
+    fitting = false;
+  }
+}
+
+function setBoardMode(mode){
+  boardMode = mode;
+  boardPage = 0;
+  try { localStorage.setItem('uaew-board-mode', mode); } catch (e) {}
+  document.querySelectorAll('.sb-fit').forEach(b => {
+    b.classList.toggle('active', b.dataset.fit === mode);
+  });
+  const help = document.getElementById('fit-help');
+  if (help) help.textContent = mode === 'fit'
+    ? 'Fits all bouts on screen'
+    : 'Turns pages every ' + Math.round(BOARD_PAGE_MS / 1000) + 's';
+  lastRenderedHtml = null;         // force a real re-render, not the diff shortcut
+  scheduleBoardPaging();
+  render();
+}
+
+// Smallest bout row we will shrink to. Below this the wall stops being readable
+// from across the room, which is the whole point of the screen.
+const MIN_ROW_PX = 40;
+const BOARD_PAGE_MS = 10000;
+function scheduleBoardPaging(){
+  if (boardPageTimer) { clearInterval(boardPageTimer); boardPageTimer = null; }
+  if (boardMode !== 'page') return;
+  boardPageTimer = setInterval(() => {
+    if (boardPageCount <= 1) return;
+    boardPage = (boardPage + 1) % boardPageCount;
+    lastRenderedHtml = null;
+    render();
+  }, BOARD_PAGE_MS);
 }
 
 function updateRotationBar(){
@@ -2563,8 +2770,21 @@ syncRotationUI();
 let resizeTimer = null;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  resizeTimer = setTimeout(paceTicker, 200);
+  resizeTimer = setTimeout(() => {
+    paceTicker();
+    // Screen fit is a measurement, so it is stale the moment the window
+    // changes — including a browser zoom change, which is what 120% display
+    // scaling looks like to the page.
+    lastRenderedHtml = null;
+    render();
+  }, 200);
 });
+
+// Screen Fit buttons (UAE-48).
+document.querySelectorAll('.sb-fit').forEach(b => {
+  b.addEventListener('click', () => setBoardMode(b.dataset.fit));
+});
+setBoardMode(boardMode);
 </script>
 </body>
 </html>
