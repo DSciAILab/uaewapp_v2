@@ -59,6 +59,16 @@ type SheetLayout = 'side' | 'center' | 'full';
 const LAYOUT_STORAGE_KEY = 'uaew-task-sheet-layout';
 
 /**
+ * Blood Test is the only task that pairs a printed tube label with a name, so
+ * it is the only one that offers the 4cm sheet (Fernando, 2026-07-20). Matched
+ * on the name because that is what identifies a task across events — the task
+ * row itself is recreated per event and carries a different id every time.
+ */
+function offersLabelSheet(task: EventTask | null): boolean {
+  return (task?.name || '').trim().toLowerCase() === 'blood test';
+}
+
+/**
  * The three framings, as class overrides on SheetContent.
  *
  * Every one of these has to beat a base class the component already sets for
@@ -608,10 +618,12 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
             Print
           </Button>
           {/* Same sheet with 4cm rows, to stick a label beside each athlete. */}
-          <Button variant="outline" onClick={() => handlePrint('label')} disabled={printing || printableAssignments.length === 0}>
-            {printing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Tags className="h-4 w-4 mr-2" />}
-            Labels
-          </Button>
+          {offersLabelSheet(task) && (
+            <Button variant="outline" onClick={() => handlePrint('label')} disabled={printing || printableAssignments.length === 0}>
+              {printing ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Tags className="h-4 w-4 mr-2" />}
+              Labels
+            </Button>
+          )}
           <Button onClick={handleOpenAssignDialog}>
             <Plus className="h-4 w-4 mr-2" /> Assign
           </Button>
