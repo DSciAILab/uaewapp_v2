@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Plus, Trash2, Users, Printer, Loader2, Tags } from 'lucide-react';
+import { Search, Plus, Trash2, Users, Printer, Loader2, Tags, PanelRight, Square, Maximize2 } from 'lucide-react';
 import { EventTask } from '@/types/task';
 import {
   TaskAssignment,
@@ -25,7 +25,7 @@ import {
 import { getEventById } from '@/lib/services/events';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { getDataUrl, getFighterPhotoUrl } from '@/lib/utils';
+import { getDataUrl, getFighterPhotoUrl, cn } from '@/lib/utils';
 import { useUser } from '@/hooks/use-user';
 import {
   loadBrandLogo,
@@ -53,6 +53,37 @@ import {
 import { getFightCardPositions, NO_POSITION, type FightCardPosition } from '@/lib/services/fight-card-positions';
 
 type SortKey = 'order' | 'corner' | 'person' | 'role' | 'status' | 'completed' | 'notes';
+
+type SheetLayout = 'side' | 'center' | 'full';
+
+const LAYOUT_STORAGE_KEY = 'uaew-task-sheet-layout';
+
+/**
+ * The three framings, as class overrides on SheetContent.
+ *
+ * Every one of these has to beat a base class the component already sets for
+ * side="right" (`inset-y-0 right-0 h-full w-3/4 sm:max-w-sm`), so each layout
+ * states the full box — including the sides it wants neutralised. Leaving
+ * `right-0` in place while setting `left-1/2` would pin both edges and stretch
+ * the panel instead of centring it.
+ */
+const LAYOUT_CLASS: Record<SheetLayout, string> = {
+  side: 'inset-y-0 right-0 left-auto h-full w-3/4 sm:max-w-[800px] border-l',
+  // `inset-0` + `m-auto` with a fixed size centres on both axes without any
+  // top/left/translate arithmetic, so nothing here has to out-order the base
+  // `inset-y-0 right-0`. Every layout restates sm:max-w — a responsive variant
+  // is a separate property to tailwind-merge, so the base `sm:max-w-sm` sails
+  // through an unprefixed `max-w-none` and would have capped both of these at
+  // 384px on any desktop.
+  center: 'inset-0 m-auto h-[92vh] w-[94vw] max-w-[1400px] sm:max-w-[1400px] rounded-lg border',
+  full: 'inset-0 h-full w-full max-w-none sm:max-w-none rounded-none border-0',
+};
+
+const LAYOUTS: { key: SheetLayout; Icon: typeof PanelRight; title: string }[] = [
+  { key: 'side', Icon: PanelRight, title: 'Side panel' },
+  { key: 'center', Icon: Square, title: 'Centred' },
+  { key: 'full', Icon: Maximize2, title: 'Full screen' },
+];
 
 /** Same colour language as the operations dashboard, so the two agree. */
 const ASSIGNMENT_STATUS_TONE: Record<AssignmentStatus, string> = {
@@ -89,6 +120,28 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const [searchQuery, setSearchQuery] = useState('');
   const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
+  // Starts on 'side' and only becomes the stored choice after mount: reading
+  // localStorage during render makes the server and the first client render
+  // disagree, and React throws the whole subtree away and rebuilds it.
+  const [layout, setLayout] = useState<SheetLayout>('side');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(LAYOUT_STORAGE_KEY);
+      if (saved === 'side' || saved === 'center' || saved === 'full') setLayout(saved);
+    } catch {
+      // Private mode or a locked-down browser: the default is a fine answer.
+    }
+  }, []);
+
+  const changeLayout = (next: SheetLayout) => {
+    setLayout(next);
+    try {
+      localStorage.setItem(LAYOUT_STORAGE_KEY, next);
+    } catch {
+      // Not being able to remember the choice must not stop making it.
+    }
+  };
   // Second line of the identity block is the EVENT — person.event_name is the
   // athlete's ring name, which is a different thing despite the column name.
   const [eventName, setEventName] = useState<string | null>(null);
@@ -475,15 +528,38 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="sm:max-w-[800px] flex flex-col h-full bg-background" side="right">
+      <SheetContent className={cn('flex flex-col bg-background', LAYOUT_CLASS[layout])} side="right">
         <SheetHeader className="mb-4">
           <div className="flex justify-between items-start mr-8">
             <div>
               <SheetTitle>Task Assignments: {task?.name}</SheetTitle>
               <SheetDescription>{task?.description || 'Manage people assigned to this task'}</SheetDescription>
             </div>
-            <div className="flex gap-2">
-                <Badge variant="outline">{stats.completed}/{stats.total} Completed</Badge>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline">{stats.completed}/{stats.total} Completed</Badge>
+              {/*
+                How the sheet is framed is a per-person habit, not a property of
+                the task — someone comparing 26 rows wants the screen, someone
+                ticking one name wants the panel and the page still visible
+                behind it. Remembered per browser so the choice survives closing
+                the task.
+              */}
+              <div className="flex rounded-md border p-0.5">
+                {LAYOUTS.map(({ key, Icon, title }) => (
+                  <Button
+                    key={key}
+                    variant={layout === key ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    title={title}
+                    aria-label={title}
+                    aria-pressed={layout === key}
+                    onClick={() => changeLayout(key)}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </SheetHeader>
