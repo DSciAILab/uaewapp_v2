@@ -959,6 +959,32 @@ input.rotnum:focus{ background: rgba(253,185,19,0.08); }
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* The wall with nothing to show. Sized to be read from across the room like the
+   bout rows are — an apology in small grey type would be the black screen again
+   with extra steps. Centred in the space the card would have occupied. */
+.board-empty{
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 12px;
+  min-height: 40vh;
+  text-align: center;
+  padding: 24px;
+}
+.board-empty .be-line{
+  font-family: 'Geist', sans-serif;
+  font-size: clamp(22px, 2.6vw, 42px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--fg-2);
+}
+.board-empty .be-hint{
+  font-family: 'Geist Mono', monospace;
+  font-size: clamp(12px, 1.1vw, 18px);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+.board-empty .be-hint b{ color: var(--gold); font-weight: 700; }
+
 /* Which page of the card is on the wall. Gold, because it is the one line here
    that changes on its own and someone walking past has to catch it. */
 .section-stats .pager{
@@ -2030,6 +2056,14 @@ function statusClass(s) {
   if (l === 'in progress') return 'inprog';
   if (l === 'requested') return 'requested';
   if (s === '---') return 'nonreq';
+  // A cancelled bout has nothing left to chase, so it belongs with "not
+  // required", not with "no status". Falling through to pending put the two
+  // cancelled athletes of UAEW 72 in the No-status bucket — and since a
+  // cancelled row also arrives with no corner, the board had already dropped
+  // them, so that filter matched two athletes it could never draw and went
+  // black. Grouping with nonreq reuses the existing cell styling; a new class
+  // would need CSS on every surface that paints a status.
+  if (l === 'cancelled' || l === 'canceled') return 'nonreq';
   return 'pending';
 }
 function taskStatus(fid, key) {
@@ -2146,6 +2180,43 @@ function renderFightRow(f, idx){
   `;
 }
 
+// Labels exactly as the sidebar buttons read them, so the wall names the filter
+// with the words that are on the button somebody has to go and click.
+const FILTER_LABELS = {
+  all: 'All', pending: 'No status', requested: 'Requested',
+  inprog: 'In Progress', done: 'Done', nonreq: '---',
+};
+
+/**
+ * What the wall says when the filter matches nothing.
+ *
+ * It used to say nothing at all — renderSection returned '' and the board went
+ * black, which on a TV across the room is indistinguishable from a crash. It
+ * happened for real during UAEW 72: the wall sat on No-status while operations
+ * finished giving every athlete a status, so the filter emptied itself and the
+ * screen went dark at the exact moment the work was going WELL. Nobody could
+ * tell from the wall that a filter was even on, because the sidebar is the only
+ * place that says so and nobody walks to the sidebar to read a black screen.
+ */
+function renderEmptyBoard(totalOnCard){
+  const label = FILTER_LABELS[activeFilter] || activeFilter;
+  const line = totalOnCard
+    ? `0 of ${totalOnCard} bouts match this filter`
+    : 'No bouts on this card';
+  const hint = totalOnCard
+    ? `Filter: <b>${label}</b> — click <b>All</b> in the sidebar to show the card`
+    : 'Waiting for the fight card';
+  return `
+    <div class="section section-compact">
+      <div class="section-stats"><span>${line}</span></div>
+    </div>
+    <div class="board-empty">
+      <div class="be-line">${line}</div>
+      <div class="be-hint">${hint}</div>
+    </div>
+  `;
+}
+
 function renderSection(eventCode, fights, allFights){
   if (!fights.length) return '';
   // The header describes the CARD, never the page. In Pages mode `fights` is a
@@ -2207,7 +2278,11 @@ let lastRenderedHtml = '';
 function render() {
   const evt = currentDisplayEvent();
   updateTopbarTitle();
-  let fights = FIGHTS.filter(f => f.event === evt).filter(fightMatchesFilter);
+  // Keep the unfiltered card: the empty state has to say "0 of 13", and 13 is
+  // the only number that tells the operator the card is fine and the FILTER is
+  // what is hiding it.
+  const onCard = FIGHTS.filter(f => f.event === evt);
+  let fights = onCard.filter(fightMatchesFilter);
 
   // Pages mode keeps the type size and shows a slice at a time (see applyFit).
   // Keep the whole card too: the header must keep describing the card, not the
@@ -2227,7 +2302,9 @@ function render() {
   }
 
   const wrapper = document.getElementById('wrap');
-  const html = renderSection(evt, fights, allFights);
+  const html = fights.length
+    ? renderSection(evt, fights, allFights)
+    : renderEmptyBoard(onCard.length);
   // The flicker: every refresh threw the board away and rebuilt it, so the
   // browser dropped the DOM, reloaded the portraits and repainted the whole
   // wall even when nothing had changed. Most refreshes change nothing, so
