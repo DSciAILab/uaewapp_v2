@@ -81,6 +81,11 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const [assignCornerFilter, setAssignCornerFilter] = useState<'all' | 'RED' | 'BLUE'>('all');
   const [assignSearch, setAssignSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  // Same shape as assignCornerFilter above, but for the list you are looking at
+  // rather than the Assign panel — the two are independent filters on two
+  // different lists, and sharing one would make opening Assign silently
+  // re-filter the table behind it.
+  const [cornerFilter, setCornerFilter] = useState<'all' | 'RED' | 'BLUE'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
@@ -233,6 +238,10 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const filteredAssignments = useMemo(() => {
     const filtered = assignments.filter(a => {
       if (statusFilter !== 'all' && a.status !== statusFilter) return false;
+      // Corner comes from the fight card, not the enrollment, so only people on
+      // the card have one: picking RED or BLUE necessarily drops staff and
+      // coaches, who have no corner to match. Same rule the Assign panel uses.
+      if (cornerFilter !== 'all' && positionOf(a).corner !== cornerFilter) return false;
       if (searchQuery) {
         const name = a.enrollment?.person.compiled_name?.toLowerCase() || '';
         const role = a.enrollment?.role.name?.toLowerCase() || '';
@@ -257,7 +266,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
 
     const sorted = [...filtered].sort((a, b) => compareValues(valueOf(a), valueOf(b)));
     return sort.dir === 'asc' ? sorted : sorted.reverse();
-  }, [assignments, statusFilter, searchQuery, sort, positionOf]);
+  }, [assignments, statusFilter, cornerFilter, searchQuery, sort, positionOf]);
 
   const toggleSort = (key: SortKey) => setSort(prev => nextSort(prev, key));
 
@@ -438,6 +447,16 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
               {(Object.keys(ASSIGNMENT_STATUS_LABELS) as AssignmentStatus[]).map((s) => (
                 <SelectItem key={s} value={s}>{ASSIGNMENT_STATUS_LABELS[s]}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={cornerFilter} onValueChange={(v) => setCornerFilter(v as typeof cornerFilter)}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Corner" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Athletes</SelectItem>
+              <SelectItem value="RED">Red Corner</SelectItem>
+              <SelectItem value="BLUE">Blue Corner</SelectItem>
             </SelectContent>
           </Select>
           {/*
