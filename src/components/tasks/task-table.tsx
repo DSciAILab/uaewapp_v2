@@ -138,14 +138,12 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                 const totalItems = task.checklist_items.length;
                 const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'completed';
 
+                // The overdue tint needs a dark counterpart. bg-red-50 is a
+                // near-white pink, so on the dark theme it painted a pale row
+                // under light text and the whole line went invisible — the two
+                // tasks that most needed attention were the two nobody could
+                // read.
                 return (
-                  {/*
-                    The overdue tint needs a dark counterpart. bg-red-50 is a
-                    near-white pink, so on the dark theme it painted a pale row
-                    under light text and the whole line went invisible — the two
-                    tasks that most needed attention were the two nobody could
-                    read.
-                  */}
                   <TableRow key={task.id} className={isOverdue ? 'bg-red-50 dark:bg-red-950/40' : ''}>
                     <TableCell>
                       <div 
