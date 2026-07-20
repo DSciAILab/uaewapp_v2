@@ -1740,10 +1740,24 @@ let attendance = {};
 let activeEvent = (() => {
   try { return localStorage.getItem('uaew-active-event') || 'all'; } catch(e){ return 'all'; }
 })();
+/** The filters a bout can actually be matched against. Anything else is damage. */
+const FILTER_VALUES = ['all', 'pending', 'requested', 'inprog', 'done', 'nonreq'];
+
 let activeFilter = (() => {
   try {
     const v = localStorage.getItem('uaew-active-filter') || 'all';
-    return v === 'none' ? 'all' : v; // migrate legacy "Untouched" → "All"
+    if (v === 'none') return 'all'; // migrate legacy "Untouched" → "All"
+    // Repair, don't just default: walls that clicked Screen Fit before this was
+    // fixed persisted the STRING "undefined" here, and a value no status can
+    // equal filters every bout out — a black wall that survives a reload and a
+    // deploy, because the damage lives in that TV's localStorage. Anything not
+    // in the known set means show the card, which is the safe answer for a
+    // screen nobody is standing in front of.
+    if (!FILTER_VALUES.includes(v)) {
+      try { localStorage.setItem('uaew-active-filter', 'all'); } catch(e){}
+      return 'all';
+    }
+    return v;
   } catch(e){ return 'all'; }
 })();
 let statsScope = (() => {
@@ -2725,9 +2739,25 @@ document.querySelectorAll('.tab').forEach(tab => {
     syncRotationUI();
   });
 });
-document.querySelectorAll('.sb-filter').forEach(btn => {
+/*
+ * WHAT is on the wall (Filter bouts) and HOW it is laid out (Screen Fit) are two
+ * independent choices, and the sidebar has to treat them that way.
+ *
+ * They were not independent: the Screen Fit buttons are styled with the same
+ * .sb-filter class, so this handler bound to them too. Clicking Shrink or Pages
+ * cleared the highlight off the content filter AND ran `activeFilter =
+ * btn.dataset.filter`, which is undefined on a fit button — no status ever
+ * equals undefined, so every bout was filtered out and the wall went black for
+ * choosing a layout. It also persisted the string "undefined", so the next
+ * reload came back black too.
+ *
+ * Scoped by [data-filter] rather than by renaming the class: the class is what
+ * gives both rows their look, and the two should keep looking like siblings.
+ * They just must not act on each other.
+ */
+document.querySelectorAll('.sb-filter[data-filter]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.sb-filter').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.sb-filter[data-filter]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     activeFilter = btn.dataset.filter;
     try { localStorage.setItem('uaew-active-filter', activeFilter); } catch(e){}
@@ -2746,7 +2776,10 @@ document.querySelectorAll('.sb-scope-btn').forEach(btn => {
 
 // apply persisted UI state on boot
 setActiveTab(activeEvent);
-document.querySelectorAll('.sb-filter').forEach(b => {
+// Same scoping as the click handler: without [data-filter] this loop compares a
+// fit button's undefined dataset.filter against activeFilter and, on a wall that
+// had already stored "undefined", lit up Shrink as if it were a content filter.
+document.querySelectorAll('.sb-filter[data-filter]').forEach(b => {
   b.classList.toggle('active', b.dataset.filter === activeFilter);
 });
 document.querySelectorAll('.sb-scope-btn').forEach(b => {
