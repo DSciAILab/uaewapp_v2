@@ -39,6 +39,19 @@ export function normalizeName(name: string): string {
     .join(' ')
 }
 
+/**
+ * Normalizes an appadmin_fighter_id for identity comparison.
+ * Returns '' when there is no usable id, so callers can skip id matching.
+ * Spreadsheets export numeric id cells as "255.0", which must compare equal
+ * to the "255" stored in the database.
+ */
+export function normalizeFighterId(id: unknown): string {
+  if (id === null || id === undefined) return ''
+  const raw = String(id).trim()
+  if (!raw) return ''
+  return /^\d+\.0+$/.test(raw) ? raw.split('.')[0] : raw
+}
+
 export function cleanName(name: string): string {
   if (!name) return ''
   // Remove redundant parentheses like "Name (Name)"

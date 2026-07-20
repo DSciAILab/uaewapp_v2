@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Person, PeopleFilters, PaginatedResponse, PersonFormData } from '@/types/database'
-import { normalizeName } from '@/lib/utils'
+import { normalizeName, normalizeFighterId } from '@/lib/utils'
 import Papa from 'papaparse'
 
 function getClient() {
@@ -235,6 +235,14 @@ export async function importPeopleFromCSV(
     const supabase = getClient()
     // Map: dedup key → existing record (with id + all fields)
     const existingMap = new Map<string, any>()
+    // Map: appadmin_fighter_id → existing record. Checked BEFORE the name key:
+    // the fighter id is the stable identity, the name is not. A one-letter typo
+    // ("Karin" vs "Karim") used to slip past the name key and insert a duplicate
+    // of a fighter whose id was already in the database.
+    const existingById = new Map<string, any>()
+    // Fighter ids that already point at more than one row. These cannot be used
+    // to match safely, so rows hitting them go to human review instead.
+    const ambiguousIds = new Set<string>()
 
     // 1. Fetch existing records (paginated — PostgREST caps each response at 1000 rows)
     if (checkDuplicates || upsertMode) {
@@ -258,6 +266,17 @@ export async function importPeopleFromCSV(
           const dobPart = p.dob || ''
           const key = `${namePart}|${surnamePart}|${dobPart}`
           existingMap.set(key, p)
+
+          const idKey = normalizeFighterId(p.appadmin_fighter_id)
+          if (idKey) {
+            if (existingById.has(idKey)) {
+              // Pre-existing duplicate in the database. Rows are paged ordered by
+              // created_at ascending, so the oldest record stays as the reference.
+              ambiguousIds.add(idKey)
+            } else {
+              existingById.set(idKey, p)
+            }
+          }
         })
 
         if (page.length < PAGE_SIZE) break
@@ -271,6 +290,7 @@ export async function importPeopleFromCSV(
     const toInsert: any[] = []
     const toUpdate: { id: string; changes: Record<string, any>; fullName: string }[] = []
     const localSeen = new Set<string>()
+    const localSeenIds = new Set<string>()
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
@@ -291,12 +311,41 @@ export async function importPeopleFromCSV(
       const key = `${namePart}|${surnamePart}|${dobPart}`;
       const fullName = `${row.name}${row.surname ? ' ' + row.surname : ''}${row.dob ? ' (' + row.dob + ')' : ''}`;
 
-      if (localSeen.has(key)) {
+      const idKey = normalizeFighterId(row.appadmin_fighter_id)
+
+      if (localSeen.has(key) || (idKey && localSeenIds.has(idKey))) {
         duplicates.push(`${fullName} (Row ${i + 1}) — duplicated within the CSV`)
         continue
       }
 
-      const existingRecord = existingMap.get(key)
+      // A fighter id pointing at several rows cannot identify anyone. Inserting
+      // would deepen the mess and updating could hit the wrong person, so stop.
+      if (idKey && ambiguousIds.has(idKey)) {
+        errors.push({
+          fullName,
+          column: 'appadmin_fighter_id',
+          csvColumnTitle: getCsvTitle('appadmin_fighter_id'),
+          errorType: 'Ambiguous ID',
+          message: `Fighter ID ${idKey} matches more than one record in the database — needs manual merge (Row ${i + 1})`
+        })
+        continue
+      }
+
+      // Fighter id wins over the name key: it survives typos, accents and
+      // ring-name-vs-legal-name differences that the name key cannot see.
+      const existingRecord = (idKey && existingById.get(idKey)) || existingMap.get(key)
+
+      if (existingRecord && idKey && existingById.has(idKey)) {
+        const dbFullName = `${existingRecord.name}${existingRecord.surname ? ' ' + existingRecord.surname : ''}`
+        const csvFullName = `${namePart}${surnamePart ? ' ' + surnamePart : ''}`
+        if (dbFullName !== csvFullName) {
+          // Matched on id despite a different name. Surfaced because it is either
+          // the typo this check exists to catch, or a genuinely wrong id.
+          duplicates.push(
+            `${fullName} (Row ${i + 1}) — matched by ID ${idKey}, but database has "${dbFullName}". Name left untouched; verify which is correct.`
+          )
+        }
+      }
 
       if (existingRecord) {
         if (upsertMode) {
@@ -334,11 +383,13 @@ export async function importPeopleFromCSV(
           duplicates.push(`${fullName} (Row ${i + 1})`)
         }
         localSeen.add(key)
+        if (idKey) localSeenIds.add(idKey)
         continue
       }
 
       localSeen.add(key)
-      
+      if (idKey) localSeenIds.add(idKey)
+
       const cleanRow: any = {
         name: normalizeName(row.name),
         surname: row.surname ? normalizeName(row.surname) : null,
