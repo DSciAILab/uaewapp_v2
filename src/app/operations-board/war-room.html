@@ -1741,8 +1741,31 @@ let lastFetchAt = 0;
  * board being readable by anyone who wanders onto the URL.
  */
 const IS_TV = location.pathname.startsWith('/tv');
+
+/* The PIN used to live ONLY in this device's storage, and that is what left the
+   wall blank for twenty minutes on 20/07. The chain: the API answers 401 once,
+   the code below deletes the stored PIN, and from then on the screen needs a
+   human to type it again. Nobody stands at a wall display, so one transient
+   failure became a permanent blank board — and the server log stayed clean the
+   whole time, because a 401 is a valid answer, not an error.
+
+   So the address is now allowed to carry it: /tv?key=NNNNNN. A screen pointed at
+   that URL recovers by itself, however many times it is rejected, because the
+   PIN is in the thing that reloads. Storage still works and still wins for
+   screens already set up, and the prompt remains for someone opening /tv by hand.
+
+   This does not widen access: the API already takes the PIN as a query
+   parameter, so the secret was already URL-shaped, and the page is noindex. */
 function tvKey() {
   let k = null;
+  try {
+    k = new URLSearchParams(location.search).get('key');
+  } catch (e) {}
+  if (k) {
+    // Remember it too, so the board survives losing the query string.
+    try { localStorage.setItem('uaew-tv-key', k); } catch (e) {}
+    return k;
+  }
   try { k = localStorage.getItem('uaew-tv-key'); } catch (e) {}
   if (!k) {
     k = window.prompt('Enter the display PIN for this screen:') || '';
