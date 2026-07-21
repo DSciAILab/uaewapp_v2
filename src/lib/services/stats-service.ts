@@ -320,6 +320,14 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
     }
   });
 
+  // Read BEFORE writing: the log needs the old value, and after the update it is
+  // gone. One extra read per edit, on a table of about 30 rows per event.
+  const { data: before } = await supabase
+    .from('mma_fighter_stats')
+    .select('*')
+    .eq('id', statsId)
+    .single();
+
   const { data, error } = await supabase
     .from('mma_fighter_stats')
     .update(updatePayload as Database['public']['Tables']['mma_fighter_stats']['Update'])
@@ -335,7 +343,104 @@ export async function updateFighterStats(statsId: string, formData: Partial<Figh
      throw new Error('Failed to update fighter stats');
   }
 
+  await recordStatsChanges(statsId, data.person_id as string, before, updatePayload);
+
   return toFighterStats(data);
+}
+
+/** Changing this is not an edit anybody wants to read about. */
+const LOG_IGNORED_FIELDS = new Set(['updated_at']);
+
+function logValue(v: unknown): string | null {
+  if (v === null || v === undefined || v === '') return null;
+  return String(v);
+}
+
+/**
+ * One log row per field that actually changed (Fernando, 2026-07-20).
+ *
+ * Deliberately never throws: an edit that SUCCEEDED must not be reported as
+ * failed because its audit trail did not save. A missing log line is a gap; a
+ * false error makes the operator redo work that is already in the database.
+ * Failures go to the console so they stay visible.
+ */
+async function recordStatsChanges(
+  statsId: string,
+  personId: string,
+  before: Record<string, unknown> | null,
+  updatePayload: Record<string, unknown>
+): Promise<void> {
+  if (!before) return;
+  try {
+    const supabase = getClient();
+
+    const entries = Object.entries(updatePayload)
+      .filter(([field]) => !LOG_IGNORED_FIELDS.has(field))
+      // Compare as text, because the form hands back strings for numeric
+      // columns: a raw !== would read 70 and '70' as a change and log an edit
+      // on every save whether or not anybody touched the field.
+      .filter(([field, next]) => logValue(before[field]) !== logValue(next))
+      .map(([field, next]) => ({
+        stats_id: statsId,
+        person_id: personId,
+        field,
+        old_value: logValue(before[field]),
+        new_value: logValue(next),
+      }));
+
+    if (!entries.length) return;
+
+    const { data: auth } = await supabase.auth.getUser();
+    const changedBy = auth?.user?.id ?? null;
+
+    const { error } = await supabase
+      .from('mma_fighter_stats_log')
+      .insert(entries.map((e) => ({ ...e, changed_by: changedBy })));
+
+    if (error) console.error('[stats log] could not record change:', error.message);
+  } catch (err) {
+    console.error('[stats log] could not record change:', err);
+  }
+}
+
+export interface StatsChangeLogEntry {
+  id: string;
+  field: string;
+  oldValue: string | null;
+  newValue: string | null;
+  changedAt: string;
+  changedByName: string | null;
+}
+
+/** Change history for one athlete, newest first. */
+export async function getStatsChangeLog(personId: string): Promise<StatsChangeLogEntry[]> {
+  const supabase = getClient();
+  const { data, error } = await supabase
+    .from('mma_fighter_stats_log')
+    .select('id, field, old_value, new_value, changed_at, author:mma_users(name, email)')
+    .eq('person_id', personId)
+    .order('changed_at', { ascending: false })
+    .limit(200);
+
+  if (error) {
+    console.error('[stats log] read failed:', error.message);
+    throw new Error('Failed to load the change log');
+  }
+
+  return (data || []).map((r) => {
+    const author = r.author as unknown as { name?: string | null; email?: string | null } | null;
+    return {
+      id: r.id as string,
+      field: r.field as string,
+      oldValue: (r.old_value as string | null) ?? null,
+      newValue: (r.new_value as string | null) ?? null,
+      changedAt: r.changed_at as string,
+      // The generic "Usuário" placeholder says less than the login itself,
+      // which at least carries the PS number.
+      changedByName:
+        author?.name && author.name !== 'Usuário' ? author.name : author?.email ?? null,
+    };
+  });
 }
 
 export async function upsertFighterStats(personId: string, formData: FighterStatsFormData): Promise<FighterStats> {

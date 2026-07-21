@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Pencil } from 'lucide-react';
+import { History } from 'lucide-react';
 import { FighterStats } from '@/types/stats';
 import { formatHeight, formatReach } from '@/lib/services/stats-service';
 import { flagFor } from '@/lib/countries';
@@ -41,6 +41,8 @@ interface StatsTableProps {
   eventId?: string;
   onEdit: (stats: FighterStats) => void;
   onToggleConfirm?: (stats: FighterStats, confirmed: boolean) => void;
+  /** Opens the change log for a row. */
+  onViewLog?: (stats: FighterStats) => void;
 }
 
 /** Falls back to the row's own corner when the card has nothing for it. */
@@ -52,7 +54,7 @@ const cornerOf = (s: FighterStats): Corner => {
 const photoOf = (s: FighterStats): string =>
   getFighterPhotoUrl(s.person?.appadmin_fighter_id) || s.person?.passport_photo || '';
 
-export function StatsTable({ stats, eventId, onEdit, onToggleConfirm }: StatsTableProps) {
+export function StatsTable({ stats, eventId, onEdit, onToggleConfirm, onViewLog }: StatsTableProps) {
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'order', dir: 'asc' });
 
   // Same resolver as every other table: an exact join on mma_matches, with the
@@ -197,9 +199,20 @@ export function StatsTable({ stats, eventId, onEdit, onToggleConfirm }: StatsTab
                    </div>
                 </TableCell>
                 <TableCell className="text-xs max-w-[150px] truncate">{s.team_gym || '-'}</TableCell>
+                {/*
+                  This used to be a second way to open the editor, which the
+                  whole row already does on click. It opens the change log now —
+                  nothing was lost, and the row gained an action it did not have.
+                */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
-                  <Button variant="ghost" size="icon" onClick={() => onEdit(s)}>
-                    <Pencil className="h-4 w-4" />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    title="Change log"
+                    aria-label={`Change log for ${s.person?.compiled_name || 'athlete'}`}
+                    onClick={() => onViewLog?.(s)}
+                  >
+                    <History className="h-4 w-4" />
                   </Button>
                 </TableCell>
               </TableRow>

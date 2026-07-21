@@ -3555,6 +3555,61 @@ export type Database = {
           },
         ]
       }
+      mma_fighter_stats_log: {
+        Row: {
+          id: string
+          stats_id: string
+          person_id: string
+          field: string
+          old_value: string | null
+          new_value: string | null
+          changed_at: string
+          changed_by: string | null
+        }
+        Insert: {
+          id?: string
+          stats_id: string
+          person_id: string
+          field: string
+          old_value?: string | null
+          new_value?: string | null
+          changed_at?: string
+          changed_by?: string | null
+        }
+        Update: {
+          id?: string
+          stats_id?: string
+          person_id?: string
+          field?: string
+          old_value?: string | null
+          new_value?: string | null
+          changed_at?: string
+          changed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mma_fighter_stats_log_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "mma_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mma_fighter_stats_log_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "mma_people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mma_fighter_stats_log_stats_id_fkey"
+            columns: ["stats_id"]
+            isOneToOne: false
+            referencedRelation: "mma_fighter_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mma_flights: {
         Row: {
           arrival_airport: string | null

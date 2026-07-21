@@ -34,6 +34,7 @@ import { getDataUrl, getFighterPhotoUrl } from '@/lib/utils';
 import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { StatsChangeLog } from '@/components/stats/stats-change-log';
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
 import { GenericCSVImport, type FieldDef } from '@/components/shared/generic-csv-import';
 
@@ -72,6 +73,9 @@ export default function StatsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [weighIns, setWeighIns] = useState<EventWeighIn[]>([]);
   const [isLoadingWeighIns, setIsLoadingWeighIns] = useState(false);
+  // Held as its own row rather than reusing editingStats: opening the log must
+  // not look like opening the editor to the rest of this page.
+  const [logStats, setLogStats] = useState<FighterStats | null>(null);
   const [csvOpen, setCsvOpen] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -364,7 +368,13 @@ export default function StatsPage() {
           {isLoading ? (
             <div className="text-center py-8">Loading stats...</div>
           ) : viewMode === 'table' ? (
-            <StatsTable stats={filteredStats} eventId={eventId} onEdit={handleEdit} onToggleConfirm={handleToggleConfirm} />
+            <StatsTable
+              stats={filteredStats}
+              eventId={eventId}
+              onEdit={handleEdit}
+              onToggleConfirm={handleToggleConfirm}
+              onViewLog={setLogStats}
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {filteredStats.map((s) => (
@@ -473,6 +483,13 @@ export default function StatsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <StatsChangeLog
+        personId={logStats?.person_id ?? null}
+        fighterName={logStats?.person?.compiled_name || 'Athlete'}
+        open={!!logStats}
+        onOpenChange={(o) => { if (!o) setLogStats(null); }}
+      />
     </div>
   );
 }
