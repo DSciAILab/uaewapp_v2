@@ -13,7 +13,7 @@ import {
   Search, Filter, ArrowUpDown, ArrowUp, ArrowDown,
 } from 'lucide-react';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
-import { EntranceMusic, MusicStatus, SongStatus } from '@/types/music';
+import { EntranceMusic, MusicStatus, SongStatus, isMusicDone } from '@/types/music';
 import {
   getAllActiveEventsMusic,
   getActiveEventsFighters,
@@ -170,8 +170,9 @@ function SortIcon({ column, sortKey, sortDir }: { column: SortKey; sortKey: Sort
 
 function getStatusOrder(row: FighterMusicRow): number {
   if (!hasSongs(row.music)) return 4;
+  // Done (UAE-62: all 3 links, or a human confirm) sorts first, same as the badge.
+  if (isMusicDone(row.music)) return 0;
   switch (row.music.status) {
-    case 'confirmed': return 0;
     case 'uploaded': return 1;
     case 'pending': return 2;
     case 'not_provided': return 3;
@@ -253,7 +254,12 @@ export default function GlobalMusicPage() {
       if (cornerFilter !== 'all' && (r.corner || '').toLowerCase() !== cornerFilter) return false;
       if (statusFilter !== 'all') {
         if (statusFilter === 'no_music' && hasSongs(r.music)) return false;
-        if (statusFilter !== 'no_music' && r.music?.status !== statusFilter) return false;
+        // Filter on the DISPLAYED status (UAE-62), so "confirmed" catches the
+        // 3-links Done rows too — otherwise the filter and the badge disagree.
+        const shown: MusicStatus | undefined = r.music
+          ? (isMusicDone(r.music) ? 'confirmed' : r.music.status)
+          : undefined;
+        if (statusFilter !== 'no_music' && shown !== statusFilter) return false;
       }
       if (search) {
         const q = search.toLowerCase();
@@ -302,7 +308,7 @@ export default function GlobalMusicPage() {
     for (const r of rows) {
       const bucket: keyof PanelTotals = !hasSongs(r.music)
         ? 'noMusic'
-        : r.music.status === 'confirmed'
+        : isMusicDone(r.music)
           ? 'done'
           : 'pending';
       out.total[bucket]++;
@@ -629,7 +635,7 @@ export default function GlobalMusicPage() {
 
                             <TableCell className="text-center">
                               {hasSongs(m) ? (
-                                <MusicStatusBadge status={m.status} />
+                                <MusicStatusBadge status={isMusicDone(m) ? 'confirmed' : m.status} />
                               ) : (
                                 <Badge variant="outline" className="text-[10px] border-dashed text-muted-foreground">
                                   —
@@ -683,7 +689,7 @@ export default function GlobalMusicPage() {
                                     ID: {row.appadmin_fighter_id || 'N/A'}
                                   </Badge>
                                   {hasSongs(m) ? (
-                                    <MusicStatusBadge status={m.status} />
+                                    <MusicStatusBadge status={isMusicDone(m) ? 'confirmed' : m.status} />
                                   ) : (
                                     <Badge variant="outline" className="text-[9px] border-dashed text-muted-foreground">
                                       No music

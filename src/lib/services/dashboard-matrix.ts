@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/client';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { getFightCardPositions } from './fight-card-positions';
 import { TASK_CATALOG, normalizeAssignmentStatus, type TaskStatus } from '@/lib/tasks-catalog';
+import { isMusicDone } from '@/types/music';
 
 /**
  * The operational dashboard's data: one row per active fighter, one cell per
@@ -161,11 +162,13 @@ export async function getDashboardMatrix(
     assignmentStatus.set(`${a.enrollment_id}|${name}`, normalizeAssignmentStatus(a.status as string));
   }
 
-  // AUTO: Walkout Music by enrollment — approved song = done, any link = in_progress.
+  // AUTO: Walkout Music by enrollment. UAE-62: all 3 links (or a human confirm) =
+  // done, matching the Music page badge; a partial link set = in_progress.
   const musicStatus = new Map<string, TaskStatus>();
   for (const m of musicRes.data || []) {
-    const hasSong = !!(m.source_url || m.source_url_2 || m.source_url_3);
-    musicStatus.set(m.enrolled_id as string, m.status === 'confirmed' ? 'done' : hasSong ? 'in_progress' : 'pending');
+    const anyLink = !!(m.source_url || m.source_url_2 || m.source_url_3);
+    const status = isMusicDone(m) ? 'done' : anyLink ? 'in_progress' : 'pending';
+    musicStatus.set(m.enrolled_id as string, status);
   }
 
   // AUTO: Stats by person — confirmed = done.
