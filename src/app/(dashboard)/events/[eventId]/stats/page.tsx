@@ -7,7 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, Printer, Loader2 } from 'lucide-react';
+import { Search, Printer, Loader2, FileSpreadsheet } from 'lucide-react';
+import { downloadXlsx, type CellValue } from '@/lib/xlsx';
 import { StatsTable } from '@/components/stats/stats-table';
 import { StatsForm } from '@/components/stats/stats-form';
 import { CoachStatsForm } from '@/components/operations/coach-stats-form';
@@ -252,6 +253,51 @@ export default function StatsPage() {
     }
   };
 
+  // XLSX export (UAE-64). Unlike the PDF clipboard sheet, this carries the full
+  // data (record, sizes) as real numbers so the file is analysable in Excel.
+  // Exports the current filtered/sorted view, matching what's on screen.
+  const handleExportExcel = async () => {
+    if (filteredStats.length === 0) return;
+    setExporting(true);
+    try {
+      const header = [
+        '#', 'Done', 'Fighter', 'Ring Name', 'Nationality', 'Residency',
+        'Weight (kg)', 'Height (cm)', 'Reach (cm)', 'Style', 'Team',
+        'Wins', 'Losses', 'Draws', 'Uniform', 'Shoe',
+      ];
+      const rows: CellValue[][] = [header];
+      filteredStats.forEach((s, i) => {
+        rows.push([
+          s.matchNumber ?? i + 1,
+          s.confirmed_at ? 'Yes' : 'No',
+          s.person?.compiled_name ?? '',
+          s.person?.event_name ?? '',
+          s.person?.nationality ?? '',
+          s.residency ?? '',
+          s.weight_kg ?? null,
+          s.height_cm ?? null,
+          s.reach_cm ?? null,
+          s.fighting_style ?? '',
+          s.team_gym ?? '',
+          s.wins ?? 0,
+          s.losses ?? 0,
+          s.draws ?? 0,
+          s.uniform_size ?? '',
+          s.shoe_size ?? '',
+        ]);
+      });
+      await downloadXlsx(
+        `${(eventName || 'event').replace(/[^\w-]+/g, '_')}_fighter-stats.xlsx`,
+        'Fighter Stats',
+        rows,
+      );
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to build the Excel file');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const handleEdit = (s: FighterStats) => {
     setEditingStats(s);
     setEditingCoach(null);
@@ -273,6 +319,7 @@ export default function StatsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [eventName, setEventName] = useState('');
   const [printing, setPrinting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { user } = useUser();
 
   const filteredStats = stats.filter(s => {
@@ -335,6 +382,10 @@ export default function StatsPage() {
               <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handlePrint} disabled={printing || filteredStats.length === 0}>
                 {printing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                 Print
+              </Button>
+              <Button variant="outline" size="sm" className="h-9 shrink-0" onClick={handleExportExcel} disabled={exporting || filteredStats.length === 0}>
+                {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+                Excel
               </Button>
             </div>
           )}
