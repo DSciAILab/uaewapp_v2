@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Music, XCircle, History,
   Search, Filter, ArrowUpDown, ArrowUp, ArrowDown,
+  FileSpreadsheet, Loader2,
 } from 'lucide-react';
 import { MusicStatusBadge } from '@/components/music/music-status-badge';
 import { EntranceMusic, MusicStatus, SongStatus, isMusicDone } from '@/types/music';
@@ -31,6 +32,7 @@ import { toast } from 'sonner';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-import-dropdown';
 import { MusicBulkDownload } from '@/components/music/music-bulk-download';
+import { downloadXlsx, type CellValue } from '@/lib/xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 interface FighterMusicRow {
@@ -185,6 +187,7 @@ export default function GlobalMusicPage() {
   const [rows, setRows] = useState<FighterMusicRow[]>([]);
   const [allMusic, setAllMusic] = useState<EntranceMusic[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
   const [search, setSearch] = useState('');
   const [eventFilter, setEventFilter] = useState('all');
   const [cornerFilter, setCornerFilter] = useState('all');
@@ -404,6 +407,47 @@ export default function GlobalMusicPage() {
     }
   };
 
+  // XLSX export (UAE-72). Mirrors the Fighter Stats export: one flat sheet of the
+  // current filtered/sorted view — all three song slots (link + cached title +
+  // start second) plus the derived row status, so the file matches what's on screen.
+  const handleExportExcel = async () => {
+    if (filtered.length === 0) return;
+    setExporting(true);
+    try {
+      const header = [
+        '#', 'Event', 'Fighter', 'Fighter ID', 'Corner', 'Phone', 'Status',
+        'Song 1', 'Title 1', 'Start 1 (s)',
+        'Song 2', 'Title 2', 'Start 2 (s)',
+        'Song 3', 'Title 3', 'Start 3 (s)',
+        'Notes',
+      ];
+      const rowStatus = (m: EntranceMusic | null): string =>
+        isMusicDone(m) ? 'Done' : hasSongs(m) ? 'Pending' : 'No Music';
+      const data: CellValue[][] = [header];
+      filtered.forEach((r, i) => {
+        const m = r.music;
+        data.push([
+          r.fight_order ?? i + 1,
+          r.event_name ?? '',
+          r.person_name ?? '',
+          r.appadmin_fighter_id ?? '',
+          r.corner ?? '',
+          r.phone ?? '',
+          rowStatus(m),
+          m?.source_url ?? '', m?.title_1 ?? '', m?.start_time_seconds ?? null,
+          m?.source_url_2 ?? '', m?.title_2 ?? '', m?.start_time_2 ?? null,
+          m?.source_url_3 ?? '', m?.title_3 ?? '', m?.start_time_3 ?? null,
+          m?.notes ?? '',
+        ]);
+      });
+      await downloadXlsx('UAEW_walkout-songs.xlsx', 'Walk-out Songs', data);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to build the Excel file');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -415,6 +459,16 @@ export default function GlobalMusicPage() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 shrink-0"
+            onClick={handleExportExcel}
+            disabled={exporting || filtered.length === 0}
+          >
+            {exporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileSpreadsheet className="mr-2 h-4 w-4" />}
+            Export Excel
+          </Button>
           <MusicBulkDownload music={allMusic} eventName="All_Events" />
           <CSVImportDropdown
             onImportClick={() => {}}
