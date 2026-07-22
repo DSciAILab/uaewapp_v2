@@ -24,6 +24,16 @@ import { getEventFighterStats, upsertFighterStats, getFightCardData } from '@/li
 import { getEventById } from '@/lib/services/events';
 import { updateEnrollmentCorner } from '@/lib/services/enrollments';
 import { getFighterPhotoUrl, getDataUrl, normalizeName, getDisplayName, cn } from '@/lib/utils';
+import {
+  REPORT_TABLE_STYLES,
+  REPORT_BODY_TOP,
+  buildReportFilename,
+  drawAthleteCell,
+  drawAthletePhoto,
+  drawReportHeader,
+  drawReportFooters,
+  loadBrandLogo,
+} from '@/lib/pdf/identity';
 import type { FighterStats } from '@/types/stats';
 import type { Event } from '@/types/database';
 
@@ -175,17 +185,12 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         return;
     }
 
-    const doc = new jsPDF();
-    doc.setFontSize(18);
-    const title = eventData ? `Uniforms - ${eventData.name}` : 'Uniforms and Equipment Report';
-    doc.text(title, 14, 22);
-    
-    doc.setFontSize(10);
-    doc.text(`Generated on ${new Date().toLocaleDateString()}`, 14, 28);
-
     const loadingToast = toast.loading('Generating PDF with photos...');
 
     try {
+        const doc = new jsPDF();
+        const eventName = eventData?.name || 'Event';
+
         // 1. Prepare table data and pre-fetch images
         const photoMap = new Map<string, string>(); // person_id -> base64
 
@@ -200,8 +205,22 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
             }
         }));
 
-        // 2. Add Summary Sections to PDF
-        let currentY = 32;
+        // 2. Shared report identity (matches Medical / Fighter Stats): brand logo,
+        // the header block repeated per page, page-numbered footer, and an
+        // event+date filename. The page-1 header is drawn now so the per-corner
+        // size summary can sit directly under it.
+        const logoDataUrl = await loadBrandLogo();
+        const redCount = fightersToExport.filter(f => f.corner?.toLowerCase() === 'red').length;
+        const blueCount = fightersToExport.filter(f => f.corner?.toLowerCase() === 'blue').length;
+        const headerOptions = {
+            eventName,
+            documentTitle: 'Uniforms & Equipment Report',
+            breakdown: `${fightersToExport.length} fighters  |  Red: ${redCount}   Blue: ${blueCount}`,
+            logoDataUrl,
+        };
+        drawReportHeader(doc, headerOptions);
+        let currentY = REPORT_BODY_TOP + 2;
+
         const summaryRows: any[] = [];
         ['Red', 'Blue'].forEach(corner => {
             const counts: Record<string, number> = {};
@@ -247,15 +266,16 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
                 margin: { left: 14, right: 14 }
             });
             // @ts-ignore
-            currentY = doc.lastAutoTable.finalY + 8;
+            currentY = doc.lastAutoTable.finalY + 6;
         }
 
-        // 3. Prepare and add main table
+        // 3. Main table. Photo (round, ringed in the corner colour) and the
+        // Fighter cell (name + fighter id) come from the shared identity, so ID
+        // and Corner no longer need their own columns — that width goes to the
+        // size columns instead.
         const tableData = fightersToExport.map(f => [
-            '', // Placeholder for Photo
-            (f.person as any)?.appadmin_fighter_id || '-',
-            getDisplayName(f.person || {}),
-            f.corner || '-',
+            '', // Photo — drawn in didDrawCell
+            '', // Fighter — drawn in didDrawCell
             f.tshirt_size || '-',
             f.shorts_size || '-',
             f.jacket_size || '-',
@@ -266,29 +286,39 @@ export function UniformsTab({ eventId, externalSearchQuery }: UniformsTabProps) 
         ]);
 
         autoTable(doc, {
-            head: [['Photo', 'ID', 'Fighter', 'Corner', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
+            head: [['Photo', 'Fighter', 'T-Shirt', 'Shorts', 'Jacket', 'Gloves', 'Coach 1', 'Coach 2', 'Coach 3']],
             body: tableData,
             startY: currentY,
-            styles: { fontSize: 8, minCellHeight: 15, valign: 'middle' },
-            headStyles: { fillColor: [41, 128, 185] },
-            didDrawCell: (data) => {
-                if (data.section === 'body' && data.column.index === 0) {
-                    const fighter = fightersToExport[data.row.index];
-                    if (!fighter) return;
-
-                    const base64 = photoMap.get(fighter.person_id);
-                    if (base64) {
-                         try {
-                             doc.addImage(base64, 'JPEG', data.cell.x + 2, data.cell.y + 2, 11, 11);
-                         } catch (e) {
-                             console.warn('Failed to add image to PDF', e);
-                         }
-                    }
+            margin: { top: REPORT_BODY_TOP },
+            styles: { ...REPORT_TABLE_STYLES.styles, valign: 'middle', minCellHeight: 16 },
+            headStyles: REPORT_TABLE_STYLES.headStyles,
+            columnStyles: { 0: { cellWidth: 16 }, 1: { cellWidth: 44 } },
+            // Header was drawn above for page 1 (over the summary); repeat it on
+            // every following page.
+            didDrawPage: (data: any) => {
+                if (data.pageNumber > 1) drawReportHeader(doc, headerOptions);
+            },
+            didDrawCell: (data: any) => {
+                if (data.section !== 'body') return;
+                const fighter = fightersToExport[data.row.index];
+                if (!fighter) return;
+                if (data.column.index === 0) {
+                    drawAthletePhoto(doc, data.cell, {
+                        dataUrl: photoMap.get(fighter.person_id),
+                        corner: fighter.corner?.toUpperCase(),
+                        sizeMm: 11,
+                    });
+                } else if (data.column.index === 1) {
+                    drawAthleteCell(doc, data.cell, {
+                        name: getDisplayName(fighter.person || {}),
+                        eventCode: (fighter.person as any)?.appadmin_fighter_id || null,
+                    });
                 }
             }
         });
 
-        doc.save('uniforms-report.pdf');
+        drawReportFooters(doc, `${eventName} — Uniforms & Equipment Report`);
+        doc.save(buildReportFilename(eventName, 'uniforms'));
     toast.success('PDF Generated successfully');
   } catch (err) {
     console.error('PDF Generation error:', err);
