@@ -317,7 +317,7 @@ function TransportListPage() {
                 <TableRow className="bg-muted/50">
                   <SortableHead k="order" label="#" className="w-[50px] text-center" />
                   <SortableHead k="name" label="Name" className="min-w-[200px]" />
-                  {list === 'departure' && <SortableHead k="room" label="Room" className="w-[70px]" />}
+                  {list === 'departure' && <SortableHead k="room" label="Room" className="w-[36px] max-w-[36px] whitespace-normal" />}
                   <SortableHead k="flight" label="Flight" />
                   <SortableHead k="flightDate" label="Date" />
                   <SortableHead k="flightTime" label="Time" />
@@ -341,7 +341,7 @@ function TransportListPage() {
                       <TableCell className="text-center font-bold text-muted-foreground">{r.order}</TableCell>
                       <TableCell className="font-medium">{r.name}</TableCell>
                       {list === 'departure' && (
-                        <TableCell className="font-mono text-xs whitespace-nowrap w-[70px]">{r.room || '-'}</TableCell>
+                        <TableCell className="font-mono text-xs w-[36px] max-w-[36px] whitespace-normal break-words">{r.room || '-'}</TableCell>
                       )}
                       <TableCell>
                         {(() => {
