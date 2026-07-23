@@ -287,13 +287,13 @@ function TransportListPage() {
             <TabsList>
               <TabsTrigger
                 value="arrival"
-                className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+                className="data-[state=active]:bg-green-600 data-[state=active]:text-white dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=active]:border-green-600"
               >
                 Arrival
               </TabsTrigger>
               <TabsTrigger
                 value="departure"
-                className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+                className="data-[state=active]:bg-green-600 data-[state=active]:text-white dark:data-[state=active]:bg-green-600 dark:data-[state=active]:text-white dark:data-[state=active]:border-green-600"
               >
                 Departure
               </TabsTrigger>
