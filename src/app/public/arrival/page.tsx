@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, Suspense } from 'react';
+import { useCallback, useEffect, useRef, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -134,21 +134,33 @@ function TransportListPage() {
     router.replace(next === 'arrival' ? '/public/arrival' : '/public/arrival?list=departure', { scroll: false });
   };
 
+  // Guards load() against the stale-response race: on slow connections an
+  // in-flight fetch for the previous tab can resolve AFTER the new tab's
+  // response and clobber rows/error with the wrong list's data. Every state
+  // write is gated on "is my list still the active one?".
+  const listRef = useRef(list);
+  listRef.current = list;
+
   const load = useCallback(async (manual = false) => {
+    const requested = list;
     if (manual) setRefreshing(true);
     try {
-      const res = await fetch(`/api/public/arrival?list=${list}`, { cache: 'no-store' });
+      const res = await fetch(`/api/public/arrival?list=${requested}`, { cache: 'no-store' });
       const json = await res.json();
+      if (listRef.current !== requested) return; // stale response — drop
       if (!res.ok) throw new Error(json.error || 'Failed to load');
       setRows(json.rows || []);
       setTitle(json.title || 'UAE Warriors');
       setFetchedAt(json.fetchedAt);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Failed to load ${list} list`);
+      if (listRef.current !== requested) return; // stale failure — drop
+      setError(err instanceof Error ? err.message : `Failed to load ${requested} list`);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (listRef.current === requested) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   }, [list]);
 
