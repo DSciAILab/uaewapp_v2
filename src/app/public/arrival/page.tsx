@@ -238,12 +238,7 @@ function TransportListPage() {
         {/* Header */}
         <div className="text-center space-y-1 pt-2">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
-          <Tabs value={list} onValueChange={(v) => setList(v as ListKind)} className="flex justify-center pt-1">
-            <TabsList>
-              <TabsTrigger value="arrival">Arrival</TabsTrigger>
-              <TabsTrigger value="departure">Departure</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <p className="text-lg font-semibold text-muted-foreground">{listLabel}</p>
           <p className="text-sm text-muted-foreground">
             Your driver will be assigned up to three hours before your scheduled pick-up time.
           </p>
@@ -277,15 +272,33 @@ function TransportListPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search any column — comma separates (EK 058, FZ 204)"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
+        {/* Search + list toggle */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative max-w-sm flex-1 min-w-[240px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search any column — comma separates (EK 058, FZ 204)"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+          <Tabs value={list} onValueChange={(v) => setList(v as ListKind)}>
+            <TabsList>
+              <TabsTrigger
+                value="arrival"
+                className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+              >
+                Arrival
+              </TabsTrigger>
+              <TabsTrigger
+                value="departure"
+                className="data-[state=active]:bg-green-600 data-[state=active]:text-white"
+              >
+                Departure
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {/* Table */}
@@ -304,7 +317,7 @@ function TransportListPage() {
                 <TableRow className="bg-muted/50">
                   <SortableHead k="order" label="#" className="w-[50px] text-center" />
                   <SortableHead k="name" label="Name" className="min-w-[200px]" />
-                  {list === 'departure' && <SortableHead k="room" label="Room" />}
+                  {list === 'departure' && <SortableHead k="room" label="Room" className="w-[70px]" />}
                   <SortableHead k="flight" label="Flight" />
                   <SortableHead k="flightDate" label="Date" />
                   <SortableHead k="flightTime" label="Time" />
@@ -328,7 +341,7 @@ function TransportListPage() {
                       <TableCell className="text-center font-bold text-muted-foreground">{r.order}</TableCell>
                       <TableCell className="font-medium">{r.name}</TableCell>
                       {list === 'departure' && (
-                        <TableCell className="font-mono text-xs">{r.room || '-'}</TableCell>
+                        <TableCell className="font-mono text-xs whitespace-nowrap w-[70px]">{r.room || '-'}</TableCell>
                       )}
                       <TableCell>
                         {(() => {
