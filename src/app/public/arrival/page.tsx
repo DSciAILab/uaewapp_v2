@@ -1,10 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowDown, ArrowUp, ArrowUpDown, MessageCircle, Plane, RefreshCw, Search } from 'lucide-react';
 import {
   Dialog,
@@ -20,7 +22,21 @@ import {
 const COORDINATOR_PHONE = '+971543054140';
 const AUTO_REFRESH_MS = 60_000;
 
-type SortKey = keyof ArrivalRow;
+interface TransportRow {
+  order: string;
+  name: string;
+  flight: string;
+  flightDate: string;
+  flightTime: string;
+  carNumber: string;
+  driver: string;
+  airport?: string;       // arrival only
+  hotelBooking?: string;  // arrival only
+  room?: string;          // departure only
+  pickup?: string;        // departure only
+}
+type ListKind = 'arrival' | 'departure';
+type SortKey = keyof TransportRow;
 
 /** Driver cells come from the sheet as "Name | +phone" (phone optional). */
 function parseDriver(raw: string): { name: string; phone: string | null } {
@@ -31,7 +47,7 @@ function parseDriver(raw: string): { name: string; phone: string | null } {
 }
 
 /** One-line flight summary used in both the table and the WhatsApp messages. */
-function flightSummary(r: ArrivalRow): string {
+function flightSummary(r: TransportRow): string {
   return [r.flight, r.flightDate && `on ${r.flightDate}`, r.flightTime && `at ${r.flightTime}`, r.airport && `(${r.airport})`]
     .filter(Boolean)
     .join(' ');
@@ -41,7 +57,7 @@ function flightSummary(r: ArrivalRow): string {
  * Message the guest sends to their assigned driver. WhatsApp inline monospace
  * is a SINGLE backtick; ``` is a block fence and does not render mid-sentence.
  */
-function driverMessage(r: ArrivalRow, driverName: string, eventTitle: string): string {
+function driverMessage(r: TransportRow, driverName: string, eventTitle: string): string {
   return [
     `Hello \`${driverName}\`, I am \`${r.name}\` from ${eventTitle}.`,
     `Flight: ${flightSummary(r) || 'not listed'}`,
@@ -55,13 +71,13 @@ function driverMessage(r: ArrivalRow, driverName: string, eventTitle: string): s
  * narrows. Reading every value off the row keeps new columns searchable
  * without touching this function.
  */
-function matchesSearch(r: ArrivalRow, query: string): boolean {
+function matchesSearch(r: TransportRow, query: string): boolean {
   const terms = query
     .split(',')
     .map((t) => t.trim().toLowerCase())
     .filter(Boolean);
   if (terms.length === 0) return true;
-  const haystack = Object.values(r).join(' ').toLowerCase();
+  const haystack = Object.values(r).filter(Boolean).join(' ').toLowerCase();
   return terms.some((t) => haystack.includes(t));
 }
 
@@ -85,20 +101,12 @@ function sortableDate(v: string): string {
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : v;
 }
 
-interface ArrivalRow {
-  order: string;
-  name: string;
-  flight: string;
-  flightDate: string;
-  flightTime: string;
-  airport: string;
-  hotelBooking: string;
-  carNumber: string;
-  driver: string;
-}
+function TransportListPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const list: ListKind = searchParams.get('list') === 'departure' ? 'departure' : 'arrival';
 
-export default function PublicArrivalPage() {
-  const [rows, setRows] = useState<ArrivalRow[]>([]);
+  const [rows, setRows] = useState<TransportRow[]>([]);
   const [title, setTitle] = useState('UAE Warriors');
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -118,10 +126,18 @@ export default function PublicArrivalPage() {
     }
   };
 
+  const setList = (next: ListKind) => {
+    if (next === list) return;
+    setLoading(true);
+    setRows([]);
+    setSortKey(null);
+    router.replace(next === 'arrival' ? '/public/arrival' : '/public/arrival?list=departure', { scroll: false });
+  };
+
   const load = useCallback(async (manual = false) => {
     if (manual) setRefreshing(true);
     try {
-      const res = await fetch('/api/public/arrival', { cache: 'no-store' });
+      const res = await fetch(`/api/public/arrival?list=${list}`, { cache: 'no-store' });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Failed to load');
       setRows(json.rows || []);
@@ -129,12 +145,12 @@ export default function PublicArrivalPage() {
       setFetchedAt(json.fetchedAt);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to load arrival list');
+      setError(err instanceof Error ? err.message : `Failed to load ${list} list`);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [list]);
 
   useEffect(() => {
     load();
@@ -153,8 +169,8 @@ export default function PublicArrivalPage() {
         cmp = sortableDate(a.flightDate).localeCompare(sortableDate(b.flightDate));
       } else {
         // Empty values always sink to the bottom regardless of direction.
-        const av = a[sortKey];
-        const bv = b[sortKey];
+        const av = a[sortKey] ?? '';
+        const bv = b[sortKey] ?? '';
         if (!av && bv) return 1;
         if (av && !bv) return -1;
         cmp = av.localeCompare(bv, undefined, { numeric: true });
@@ -162,6 +178,9 @@ export default function PublicArrivalPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
   }
+
+  const listLabel = list === 'arrival' ? 'Arrival List' : 'Departure List';
+  const noun = list === 'arrival' ? 'arrivals' : 'departures';
 
   const SortableHead = ({ k, label, className }: { k: SortKey; label: string; className?: string }) => (
     <TableHead className={className}>
@@ -188,7 +207,12 @@ export default function PublicArrivalPage() {
         {/* Header */}
         <div className="text-center space-y-1 pt-2">
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">{title}</h1>
-          <p className="text-lg font-semibold text-muted-foreground">Arrival List</p>
+          <Tabs value={list} onValueChange={(v) => setList(v as ListKind)} className="flex justify-center pt-1">
+            <TabsList>
+              <TabsTrigger value="arrival">Arrival</TabsTrigger>
+              <TabsTrigger value="departure">Departure</TabsTrigger>
+            </TabsList>
+          </Tabs>
           <p className="text-sm text-muted-foreground">
             Your driver will be assigned up to three hours before your scheduled pick-up time.
           </p>
@@ -235,7 +259,7 @@ export default function PublicArrivalPage() {
 
         {/* Table */}
         {loading ? (
-          <div className="py-16 text-center text-muted-foreground">Loading arrival list…</div>
+          <div className="py-16 text-center text-muted-foreground">Loading {listLabel.toLowerCase()}…</div>
         ) : error ? (
           <div className="rounded-md border border-dashed bg-muted/20 p-8 text-center text-sm text-muted-foreground">
             {error}
@@ -262,7 +286,7 @@ export default function PublicArrivalPage() {
                 {filtered.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
-                      No arrivals match your search.
+                      No {noun} match your search.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -335,7 +359,7 @@ export default function PublicArrivalPage() {
           <div className="md:hidden space-y-2">
             {filtered.length === 0 ? (
               <div className="rounded-md border bg-card p-6 text-center text-sm text-muted-foreground">
-                No arrivals match your search.
+                No {noun} match your search.
               </div>
             ) : (
               filtered.map((r, i) => (
@@ -474,5 +498,13 @@ export default function PublicArrivalPage() {
         </Dialog>
       </div>
     </div>
+  );
+}
+
+export default function PublicArrivalPage() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-muted-foreground">Loading…</div>}>
+      <TransportListPage />
+    </Suspense>
   );
 }
