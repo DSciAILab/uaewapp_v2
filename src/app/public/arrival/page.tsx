@@ -61,8 +61,9 @@ function driverMessage(r: TransportRow, driverName: string, eventTitle: string):
   return [
     `Hello \`${driverName}\`, I am \`${r.name}\` from ${eventTitle}.`,
     `Flight: ${flightSummary(r) || 'not listed'}`,
+    r.pickup && `Pick-up: \`${r.pickup}\``,
     `Car: \`${r.carNumber || 'not assigned'}\``,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
 }
 
 /**
@@ -99,6 +100,18 @@ function flightTrackingUrl(flight: string): string | null {
 function sortableDate(v: string): string {
   const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : v;
+}
+
+/**
+ * Pick-up cells look like "Fri 24/07 - 02:14". Emit "MM-DD HH:MM" so string
+ * compare orders correctly within the event window; anything unparsable is
+ * returned as-is (string compare fallback).
+ */
+function sortablePickup(v: string): string {
+  const m = v.match(/(\d{1,2})\/(\d{1,2})\D+(\d{1,2}):(\d{2})/);
+  return m
+    ? `${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')} ${m[3].padStart(2, '0')}:${m[4]}`
+    : v;
 }
 
 function TransportListPage() {
@@ -172,17 +185,23 @@ function TransportListPage() {
 
   let filtered = search ? rows.filter((r) => matchesSearch(r, search)) : rows;
 
-  if (sortKey) {
+  // No explicit sort chosen yet: departure defaults to pick-up ascending so
+  // guests see the soonest pick-up first; arrival has no equivalent default.
+  const effectiveSortKey: SortKey | null = sortKey ?? (list === 'departure' ? 'pickup' : null);
+
+  if (effectiveSortKey) {
     filtered = [...filtered].sort((a, b) => {
       let cmp: number;
-      if (sortKey === 'order') {
+      if (effectiveSortKey === 'order') {
         cmp = (parseInt(a.order, 10) || 0) - (parseInt(b.order, 10) || 0);
-      } else if (sortKey === 'flightDate') {
+      } else if (effectiveSortKey === 'pickup') {
+        cmp = sortablePickup(a.pickup || '').localeCompare(sortablePickup(b.pickup || ''));
+      } else if (effectiveSortKey === 'flightDate') {
         cmp = sortableDate(a.flightDate).localeCompare(sortableDate(b.flightDate));
       } else {
         // Empty values always sink to the bottom regardless of direction.
-        const av = a[sortKey] ?? '';
-        const bv = b[sortKey] ?? '';
+        const av = a[effectiveSortKey] ?? '';
+        const bv = b[effectiveSortKey] ?? '';
         if (!av && bv) return 1;
         if (av && !bv) return -1;
         cmp = av.localeCompare(bv, undefined, { numeric: true });
@@ -285,11 +304,13 @@ function TransportListPage() {
                 <TableRow className="bg-muted/50">
                   <SortableHead k="order" label="#" className="w-[50px] text-center" />
                   <SortableHead k="name" label="Name" className="min-w-[200px]" />
+                  {list === 'departure' && <SortableHead k="room" label="Room" />}
                   <SortableHead k="flight" label="Flight" />
                   <SortableHead k="flightDate" label="Date" />
                   <SortableHead k="flightTime" label="Time" />
-                  <SortableHead k="airport" label="Airport" />
-                  <SortableHead k="hotelBooking" label="Hotel Booking" />
+                  {list === 'arrival' && <SortableHead k="airport" label="Airport" />}
+                  {list === 'arrival' && <SortableHead k="hotelBooking" label="Hotel Booking" />}
+                  {list === 'departure' && <SortableHead k="pickup" label="Pick-up" />}
                   <SortableHead k="carNumber" label="Car Number" />
                   <SortableHead k="driver" label="Driver" />
                 </TableRow>
@@ -306,6 +327,9 @@ function TransportListPage() {
                     <TableRow key={`${r.order}-${r.name}-${i}`} className="hover:bg-muted/30">
                       <TableCell className="text-center font-bold text-muted-foreground">{r.order}</TableCell>
                       <TableCell className="font-medium">{r.name}</TableCell>
+                      {list === 'departure' && (
+                        <TableCell className="font-mono text-xs">{r.room || '-'}</TableCell>
+                      )}
                       <TableCell>
                         {(() => {
                           const track = r.flight ? flightTrackingUrl(r.flight) : null;
@@ -332,8 +356,19 @@ function TransportListPage() {
                       </TableCell>
                       <TableCell className="tabular-nums">{r.flightDate || '-'}</TableCell>
                       <TableCell className="tabular-nums">{r.flightTime || '-'}</TableCell>
-                      <TableCell>{r.airport || '-'}</TableCell>
-                      <TableCell className="font-mono text-xs">{r.hotelBooking || '-'}</TableCell>
+                      {list === 'arrival' && <TableCell>{r.airport || '-'}</TableCell>}
+                      {list === 'arrival' && <TableCell className="font-mono text-xs">{r.hotelBooking || '-'}</TableCell>}
+                      {list === 'departure' && (
+                        <TableCell>
+                          {r.pickup ? (
+                            <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 font-semibold tabular-nums whitespace-nowrap" variant="outline">
+                              {r.pickup}
+                            </Badge>
+                          ) : (
+                            <span className="text-muted-foreground text-xs italic">TBA</span>
+                          )}
+                        </TableCell>
+                      )}
                       <TableCell>
                         {r.carNumber ? (
                           <Badge variant="secondary" className="font-mono text-[11px]">{r.carNumber}</Badge>
@@ -381,6 +416,11 @@ function TransportListPage() {
                       {r.order || '-'}
                     </div>
                     <div className="flex-1 p-3 min-w-0 space-y-1.5">
+                      {list === 'departure' && (
+                        <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+                          Pick-up: {r.pickup || 'TBA'}
+                        </p>
+                      )}
                       <p className="font-bold text-sm leading-tight">{r.name}</p>
                       {(() => {
                         const track = r.flight ? flightTrackingUrl(r.flight) : null;
@@ -428,8 +468,11 @@ function TransportListPage() {
                             </a>
                           );
                         })()}
-                        {r.hotelBooking && (
+                        {list === 'arrival' && r.hotelBooking && (
                           <span className="text-[10px] font-mono text-muted-foreground">hotel {r.hotelBooking}</span>
+                        )}
+                        {list === 'departure' && r.room && (
+                          <span className="text-[10px] font-mono text-muted-foreground">room {r.room}</span>
                         )}
                       </div>
                     </div>
@@ -484,6 +527,7 @@ function TransportListPage() {
                       const msg = [
                         `Hello, I am \`${r.name}\` from ${title}.`,
                         `Flight: ${flight || 'not listed'}`,
+                        ...(r.pickup ? [`Pick-up: \`${r.pickup}\``] : []),
                         carPart,
                         '',
                         'I need support.',
