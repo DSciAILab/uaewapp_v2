@@ -24,6 +24,7 @@ const AUTO_REFRESH_MS = 60_000;
 
 interface TransportRow {
   order: string;
+  code?: string;          // bracketed prefix split off the name by the API
   name: string;
   flight: string;
   flightDate: string;
@@ -46,6 +47,11 @@ function parseDriver(raw: string): { name: string; phone: string | null } {
   return { name: namePart.trim(), phone: phoneDigits.length >= 7 ? phoneDigits : null };
 }
 
+/** Full label "[CODE] Name" for WhatsApp messages; plain name if no code. */
+function fullName(r: TransportRow): string {
+  return r.code ? `[${r.code}] ${r.name}` : r.name;
+}
+
 /** One-line flight summary used in both the table and the WhatsApp messages. */
 function flightSummary(r: TransportRow): string {
   return [r.flight, r.flightDate && `on ${r.flightDate}`, r.flightTime && `at ${r.flightTime}`, r.airport && `(${r.airport})`]
@@ -59,7 +65,7 @@ function flightSummary(r: TransportRow): string {
  */
 function driverMessage(r: TransportRow, driverName: string, eventTitle: string): string {
   return [
-    `Hello \`${driverName}\`, I am \`${r.name}\` from ${eventTitle}.`,
+    `Hello \`${driverName}\`, I am \`${fullName(r)}\` from ${eventTitle}.`,
     `Flight: ${flightSummary(r) || 'not listed'}`,
     r.pickup && `Pick-up: \`${r.pickup}\``,
     `Car: \`${r.carNumber || 'not assigned'}\``,
@@ -316,6 +322,7 @@ function TransportListPage() {
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <SortableHead k="order" label="#" className="w-[50px] text-center" />
+                  <SortableHead k="code" label="Code" className="w-[64px]" />
                   <SortableHead k="name" label="Name" className="min-w-[200px]" />
                   {list === 'departure' && <SortableHead k="room" label="Room" className="w-[56px] max-w-[56px] whitespace-normal" />}
                   <SortableHead k="flight" label="Flight" />
@@ -331,7 +338,7 @@ function TransportListPage() {
               <TableBody>
                 {filtered.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={10} className="h-24 text-center text-muted-foreground">
                       No {noun} match your search.
                     </TableCell>
                   </TableRow>
@@ -339,6 +346,7 @@ function TransportListPage() {
                   filtered.map((r, i) => (
                     <TableRow key={`${r.order}-${r.name}-${i}`} className="hover:bg-muted/30">
                       <TableCell className="text-center font-bold text-muted-foreground">{r.order}</TableCell>
+                      <TableCell className="font-mono text-xs whitespace-nowrap">{r.code || '-'}</TableCell>
                       <TableCell className="font-medium">{r.name}</TableCell>
                       {list === 'departure' && (
                         <TableCell className="font-mono text-xs w-[56px] max-w-[56px] whitespace-normal break-words">{r.room || '-'}</TableCell>
@@ -434,7 +442,10 @@ function TransportListPage() {
                           Pick-up: {r.pickup || 'TBA'}
                         </p>
                       )}
-                      <p className="font-bold text-sm leading-tight">{r.name}</p>
+                      <p className="font-bold text-sm leading-tight">
+                        {r.code && <span className="font-mono text-[10px] font-semibold text-muted-foreground mr-1.5">{r.code}</span>}
+                        {r.name}
+                      </p>
                       {(() => {
                         const track = r.flight ? flightTrackingUrl(r.flight) : null;
                         const line =
@@ -522,7 +533,7 @@ function TransportListPage() {
             </div>
             <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
               {rows
-                .filter((r) => r.name.toLowerCase().includes(supportSearch.toLowerCase()))
+                .filter((r) => fullName(r).toLowerCase().includes(supportSearch.toLowerCase()))
                 .map((r, i) => (
                   <button
                     key={`${r.name}-${i}`}
@@ -538,7 +549,7 @@ function TransportListPage() {
                         ? `Car: \`${r.carNumber}\`${r.driver ? ` — driver ${r.driver}` : ''}`
                         : 'Car: not assigned yet';
                       const msg = [
-                        `Hello, I am \`${r.name}\` from ${title}.`,
+                        `Hello, I am \`${fullName(r)}\` from ${title}.`,
                         `Flight: ${flight || 'not listed'}`,
                         ...(r.pickup ? [`Pick-up: \`${r.pickup}\``] : []),
                         carPart,
@@ -553,13 +564,16 @@ function TransportListPage() {
                       setSupportOpen(false);
                     }}
                   >
-                    <span className="font-medium">{r.name}</span>
+                    <span className="font-medium">
+                      {r.code && <span className="font-mono text-xs text-muted-foreground mr-1.5">{r.code}</span>}
+                      {r.name}
+                    </span>
                     <span className="block text-xs text-muted-foreground">
                       {[r.flight, r.flightDate, r.carNumber].filter(Boolean).join(' · ') || 'no details yet'}
                     </span>
                   </button>
                 ))}
-              {rows.filter((r) => r.name.toLowerCase().includes(supportSearch.toLowerCase())).length === 0 && (
+              {rows.filter((r) => fullName(r).toLowerCase().includes(supportSearch.toLowerCase())).length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-muted-foreground">No names match.</div>
               )}
             </div>

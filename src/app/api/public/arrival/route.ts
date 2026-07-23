@@ -18,6 +18,7 @@ type ListKind = keyof typeof GIDS;
 
 interface TransportRow {
   order: string;
+  code: string;           // bracketed prefix split off the name, e.g. "C.14"
   name: string;
   flight: string;
   flightDate: string;
@@ -94,13 +95,22 @@ export async function GET(req: NextRequest) {
       driver: col('DRIVER'),
     };
     const cell = (r: string[], i: number) => (i === -1 ? '' : (r[i] || '').trim());
+    // Names arrive as "[C.14]  Jean-Michel Foissard": split the bracketed code
+    // off so the app carries it as its own field. No bracket → empty code, raw
+    // name kept.
+    const splitCode = (raw: string): { code: string; name: string } => {
+      const m = raw.match(/^\[([^\]]+)\]\s*(.+)$/);
+      return m ? { code: m[1].trim(), name: m[2].trim() } : { code: '', name: raw };
+    };
 
     const data: TransportRow[] = [];
     for (const r of rows.slice(headerIdx + 1)) {
-      const name = cell(r, idx.name);
-      if (!name) continue;
+      const rawName = cell(r, idx.name);
+      if (!rawName) continue;
+      const { code, name } = splitCode(rawName);
       const row: TransportRow = {
         order: cell(r, idx.order),
+        code,
         name,
         flight: cell(r, idx.flight),
         flightDate: cell(r, idx.flightDate),
