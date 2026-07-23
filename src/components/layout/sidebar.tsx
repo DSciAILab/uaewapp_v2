@@ -20,6 +20,9 @@ import {
   Layers,
   ClipboardList,
   Stethoscope,
+  ShieldAlert,
+  History,
+  ScrollText,
   X,
   ChevronsLeft,
   ChevronsRight,
@@ -57,6 +60,9 @@ const icons = {
   ClipboardList,
   Stethoscope,
   Luggage,
+  ShieldAlert,
+  History,
+  ScrollText,
 }
 
 interface NavLeaf {
@@ -64,6 +70,8 @@ interface NavLeaf {
   href: string
   icon: string
   area?: string
+  /** Visible only to admins, independent of the area-permission system. */
+  adminOnly?: boolean
 }
 
 interface NavGroup {
@@ -99,6 +107,14 @@ const navItems: NavEntry[] = [
   { label: 'Medical', href: '/medical', icon: 'Stethoscope', area: 'pre_event' },
   { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
   { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
+  {
+    label: 'Admin',
+    icon: 'ShieldAlert',
+    children: [
+      { label: 'Access Log', href: '/admin/access-log', icon: 'History', adminOnly: true },
+      { label: 'Activity Log', href: '/admin/audit-log', icon: 'ScrollText', adminOnly: true },
+    ],
+  },
   // Settings/Users page not built yet — link removed so it stops 404ing on prefetch.
 ]
 
@@ -155,6 +171,9 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
   }
 
   const canSee = (item: NavLeaf) => {
+    if (item.adminOnly) {
+      return permissionsLoading ? user?.user_type === 'admin' : isAdmin
+    }
     if (!item.area) return true
     if (permissionsLoading) return user?.user_type === 'admin'
     if (isAdmin) return true
