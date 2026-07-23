@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Inter_Tight, IBM_Plex_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/theme-provider'
+import { VersionWatcher } from '@/components/providers/version-watcher'
 import { Toaster } from '@/components/ui/sonner'
 
 const interTight = Inter_Tight({
@@ -42,6 +43,7 @@ export default function RootLayout({
         >
           {children}
           <Toaster />
+          <VersionWatcher />
         </ThemeProvider>
       </body>
     </html>

@@ -68,7 +68,11 @@ export async function middleware(request: NextRequest) {
   }
 
   // Match exato: páginas públicas isoladas.
-  const PUBLIC_EXACT = ['/login', '/callback', '/', '/staging']
+  // '/api/version' é público de propósito: só devolve o build id, e o
+  // VersionWatcher roda em TODA página (inclusive /login e as públicas), então
+  // precisa ser acessível sem sessão — senão o fetch cai em /login (HTML) e o
+  // res.json() quebra, matando o auto-reload nessas telas.
+  const PUBLIC_EXACT = ['/login', '/callback', '/', '/staging', '/api/version']
   // Match por prefixo: árvores públicas inteiras.
   // '/api/public' é obrigatório — sem ele o middleware redireciona POSTs
   // anônimos para /login (HTML), e o response.json() do submitter quebra.
