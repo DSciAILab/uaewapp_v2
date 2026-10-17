@@ -89,6 +89,9 @@ function TasksPageContent() {
   useEffect(() => {
     if (!taskSlug) return;
     const key = `${eventId}|${taskSlug}`;
+    // A key settled on an earlier visit (e.g. a create form that was
+    // cancelled) must not show the plain table while this lookup runs.
+    setSettledKey(null);
     const def = findTaskBySlug(taskSlug);
     // Look the task up UNFILTERED: the page's own list honours the status /
     // search filters, and a hidden match would mean creating a duplicate.
@@ -129,7 +132,11 @@ function TasksPageContent() {
   // Drop the `?task=` once its form closes, so the same sidebar link works
   // again on the next click (a Link to the current URL is a no-op).
   const clearTaskParam = () => {
-    if (taskSlug) router.replace(`/events/${eventId}/tasks`);
+    if (!taskSlug) return;
+    // Forget the settled key with the slug, so the next click on the same
+    // link starts at "Loading task..." from its very first frame.
+    setSettledKey(null);
+    router.replace(`/events/${eventId}/tasks`);
   };
 
   // A task created from the sidebar enrols every fighter straight away (UAE-88):

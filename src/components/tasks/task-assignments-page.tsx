@@ -178,16 +178,22 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
    * before the fight card is read, so a fight-card failure costs the corners
    * and fight order, never the people. `isStale` lets a task swap discard a
    * slow response.
+   *
+   * `surfaceError` is set only by the first load and by Retry: those are the
+   * loads with nothing trustworthy on screen, so a failure there gets the
+   * error panel. A background reload (after a status change, Enroll all,
+   * Assign) that fails keeps the rows already shown and only toasts — and any
+   * successful load clears the panel, so it can never sit over fresh rows.
    */
   const load = useCallback(
-    async (isStale: () => boolean = () => false) => {
+    async ({ isStale = () => false, surfaceError = false }: { isStale?: () => boolean; surfaceError?: boolean } = {}) => {
       let data: TaskAssignment[];
       try {
         data = await getTaskAssignments(task.id);
       } catch (error) {
         if (isStale()) return;
         console.error('Failed to load assignments:', error);
-        setLoadError('Could not load the people on this task.');
+        if (surfaceError) setLoadError('Could not load the people on this task.');
         toast.error('Failed to load assignments');
         return;
       }
@@ -219,7 +225,7 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
 
   const retry = () => {
     setLoading(true);
-    load().finally(() => setLoading(false));
+    load({ surfaceError: true }).finally(() => setLoading(false));
   };
 
   // Swapping the task in place (sidebar click while open) must not let the
@@ -233,7 +239,7 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
     setSearch('');
     setLoadError(null);
     setLoading(true);
-    load(() => stale).finally(() => {
+    load({ isStale: () => stale, surfaceError: true }).finally(() => {
       if (!stale) setLoading(false);
     });
     return () => {
