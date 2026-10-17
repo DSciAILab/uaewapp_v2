@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { toLoginEmail } from '@/lib/login-email'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -37,8 +38,13 @@ export default function LoginPage() {
 
     try {
       if (isSignUp) {
+        // Access requests need a real mailbox: the confirmation link goes there.
+        if (!email.trim().includes('@')) {
+          toast.error('Enter your full email address to request access')
+          return
+        }
         const { error } = await supabase.auth.signUp({
-          email,
+          email: email.trim(),
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/callback`,
@@ -48,7 +54,7 @@ export default function LoginPage() {
         toast.success('Cadastro iniciado! Verifique seu email para confirmar.')
       } else {
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: toLoginEmail(email),
           password,
         })
         if (error) throw error
@@ -191,11 +197,19 @@ export default function LoginPage() {
 
           <form onSubmit={handleAuth} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="label-mono">Email</Label>
+              <Label htmlFor="email" className="label-mono">
+                {isSignUp ? 'Email' : 'PS number or email'}
+              </Label>
               <Input
                 id="email"
-                type="email"
-                placeholder="ops@uaewarriors.ae"
+                // "text", not "email": the browser's email validation rejects a
+                // bare PS number before the domain is appended (UAE-92).
+                type="text"
+                inputMode="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                autoComplete="username"
+                placeholder={isSignUp ? 'you@uaewarriors.ae' : '1234 or ops@uaewarriors.ae'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
