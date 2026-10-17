@@ -34,6 +34,12 @@ import { CSVImportDropdown, downloadCSVTemplate } from '@/components/shared/csv-
 import { MusicBulkDownload } from '@/components/music/music-bulk-download';
 import { downloadXlsx, type CellValue } from '@/lib/xlsx';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import {
+  CornerSummary,
+  type CornerSummaryTotals,
+  type PanelTotals,
+  type SummaryBucket,
+} from '@/components/shared/corner-summary';
 
 interface FighterMusicRow {
   enrollment_id: string;
@@ -59,106 +65,15 @@ const AVATAR_BORDER = (corner: string | null) => {
 
 /* ---------- Corner summary panels (Medical Clearance pattern) ---------- */
 
-/**
- * Phone version of the three corner panels (UAE-20).
- *
- * Three stacked panels pushed the actual table below the fold on a phone, so
- * on mobile the numbers collapse into one strip: the totals that matter, with
- * the red/blue split kept as a footnote rather than dropped.
- */
-function MobileSummary({ summary }: { summary: { red: PanelTotals; blue: PanelTotals; total: PanelTotals } }) {
-  const buckets: { key: keyof PanelTotals; label: string; tone: string }[] = [
-    { key: 'noMusic', label: 'No Music', tone: 'text-red-700 dark:text-red-400' },
-    { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
-    { key: 'done', label: 'Done', tone: 'text-emerald-700 dark:text-emerald-400' },
-  ];
-  const total = summary.total.pending + summary.total.done + summary.total.noMusic;
+type MusicBucket = 'noMusic' | 'pending' | 'done';
 
-  return (
-    <div className="rounded-lg border bg-card p-3 md:hidden">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-bold uppercase tracking-wider">All Corners</span>
-        <span className="text-xs text-muted-foreground">{total} total</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {buckets.map((b) => (
-          <div
-            key={b.key}
-            className="flex flex-col items-center justify-center rounded-md bg-background/60 dark:bg-background/30 px-2 py-1.5 border border-border/50"
-          >
-            <span className={cn('text-xl font-bold leading-none tabular-nums', b.tone)}>
-              {summary.total[b.key]}
-            </span>
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">
-              {b.label}
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-center gap-4 mt-2 text-[10px] text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-red-600" />
-          Red {summary.red.pending + summary.red.done + summary.red.noMusic}
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-blue-600" />
-          Blue {summary.blue.pending + summary.blue.done + summary.blue.noMusic}
-        </span>
-      </div>
-    </div>
-  );
-}
-
-type PanelTotals = { pending: number; done: number; noMusic: number };
-
-function CornerPanel({ title, totals, variant }: {
-  title: string;
-  totals: PanelTotals;
-  variant: 'red' | 'blue' | 'total';
-}) {
-  const styles = {
-    red: {
-      container: 'bg-red-50/70 border-red-200 dark:bg-red-950/20 dark:border-red-900/40',
-      title: 'text-red-700 dark:text-red-400',
-    },
-    blue: {
-      container: 'bg-blue-50/70 border-blue-200 dark:bg-blue-950/20 dark:border-blue-900/40',
-      title: 'text-blue-700 dark:text-blue-400',
-    },
-    total: {
-      container: 'bg-card border-border',
-      title: 'text-foreground',
-    },
-  }[variant];
-
-  const buckets: { key: keyof PanelTotals; label: string; tone: string }[] = [
-    { key: 'noMusic', label: 'No Music', tone: 'text-red-700 dark:text-red-400' },
-    { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
-    { key: 'done', label: 'Done', tone: 'text-emerald-700 dark:text-emerald-400' },
-  ];
-
-  const total = totals.pending + totals.done + totals.noMusic;
-
-  return (
-    <div className={cn('rounded-lg border p-4 flex flex-col gap-3 transition-colors', styles.container)}>
-      <div className="flex items-center justify-between gap-2">
-        <span className={cn('text-xs font-bold uppercase tracking-wider', styles.title)}>{title}</span>
-        <span className="text-xs font-medium text-muted-foreground">{total} total</span>
-      </div>
-      <div className="grid grid-cols-3 gap-2">
-        {buckets.map((b) => (
-          <div
-            key={b.key}
-            className="flex flex-col items-center justify-center rounded-md bg-background/60 dark:bg-background/30 px-2 py-2 border border-border/50"
-          >
-            <span className={cn('text-2xl font-bold leading-none tabular-nums', b.tone)}>{totals[b.key]}</span>
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1.5 font-medium">{b.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+// Panels live in components/shared/corner-summary (UAE-98); /music owns what
+// they count and in which colour.
+const MUSIC_BUCKETS: SummaryBucket<MusicBucket>[] = [
+  { key: 'noMusic', label: 'No Music', tone: 'text-red-700 dark:text-red-400' },
+  { key: 'pending', label: 'Pending', tone: 'text-muted-foreground' },
+  { key: 'done', label: 'Done', tone: 'text-emerald-700 dark:text-emerald-400' },
+];
 
 type SortKey = 'order' | 'appadmin_fighter_id' | 'person_name' | 'event_name' | 'corner' | 'status';
 type SortDir = 'asc' | 'desc';
@@ -306,10 +221,10 @@ export default function GlobalMusicPage() {
   // Corner summary (Medical Clearance pattern): a row with no songs counts as
   // No Music; Done means at least one song is approved; anything else Pending.
   const summary = useMemo(() => {
-    const empty = (): PanelTotals => ({ pending: 0, done: 0, noMusic: 0 });
-    const out = { red: empty(), blue: empty(), total: empty() };
+    const empty = (): PanelTotals<MusicBucket> => ({ pending: 0, done: 0, noMusic: 0 });
+    const out: CornerSummaryTotals<MusicBucket> = { red: empty(), blue: empty(), total: empty() };
     for (const r of rows) {
-      const bucket: keyof PanelTotals = !hasSongs(r.music)
+      const bucket: MusicBucket = !hasSongs(r.music)
         ? 'noMusic'
         : isMusicDone(r.music)
           ? 'done'
@@ -483,12 +398,7 @@ export default function GlobalMusicPage() {
       </div>
 
       {/* Corner summary (Medical Clearance pattern) */}
-      <MobileSummary summary={summary} />
-      <div className="hidden md:grid md:grid-cols-3 gap-3">
-        <CornerPanel title="Red Corner" totals={summary.red} variant="red" />
-        <CornerPanel title="Blue Corner" totals={summary.blue} variant="blue" />
-        <CornerPanel title="Total" totals={summary.total} variant="total" />
-      </div>
+      <CornerSummary summary={summary} buckets={MUSIC_BUCKETS} />
 
       {/* Filters */}
       <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:gap-3 sm:items-center">

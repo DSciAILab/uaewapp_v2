@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
+import Link from 'next/link';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   SortableHead,
@@ -18,8 +19,8 @@ import { TaskStatusBadge, TaskPriorityBadge } from './task-status-badge';
 import { deleteEventTask, updateTaskStatus } from '@/lib/services/task-service';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { TaskAssignmentsSheet } from './task-assignments-sheet';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useParams } from 'next/navigation';
+import { TASK_CATALOG, isCatalogTask } from '@/lib/tasks-catalog';
 
 interface TaskTableProps {
   tasks: EventTask[];
@@ -46,6 +47,15 @@ const STATUS_RANK: Record<TaskStatus, number> = {
  * Checklist shows "3/7" but sorts on how much is left undone, because a bar at
  * 3/7 and one at 30/70 are the same progress and reading them as text is not.
  */
+/**
+ * The task's own page (UAE-98): the same `?task=` URL the sidebar uses — the
+ * catalog slug when the task is a catalog one, otherwise the task id.
+ */
+function taskPageHref(eventId: string, task: EventTask): string {
+  const def = TASK_CATALOG.find((d) => isCatalogTask(d, task.name));
+  return `/events/${eventId}/tasks?task=${encodeURIComponent(def ? def.slug : task.id)}`;
+}
+
 function sortValue(task: EventTask, key: SortKey | null): string | number | null {
   switch (key) {
     case 'name': return task.name;
@@ -67,14 +77,6 @@ function sortValue(task: EventTask, key: SortKey | null): string | number | null
 export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [assignmentTask, setAssignmentTask] = useState<EventTask | null>(null);
-
-  // The page opens its own sheet for a sidebar deep link (?task=); with the
-  // sheets non-modal, ours would otherwise stay up underneath it.
-  const linkedSlug = useSearchParams().get('task');
-  useEffect(() => {
-    if (linkedSlug) setAssignmentTask(null);
-  }, [linkedSlug]);
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'due', dir: 'asc' });
   const params = useParams();
   const eventId = params.eventId as string;
@@ -153,15 +155,12 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                 return (
                   <TableRow key={task.id} className={isOverdue ? 'bg-red-50 dark:bg-red-950/40' : ''}>
                     <TableCell>
-                      <div 
-                        className="cursor-pointer hover:underline" 
-                        onClick={() => setAssignmentTask(task)}
-                      >
+                      <Link href={taskPageHref(eventId, task)} className="block hover:underline">
                         <p className="font-medium">{task.name}</p>
                         {task.description && (
                           <p className="text-sm text-muted-foreground line-clamp-1">{task.description}</p>
                         )}
-                      </div>
+                      </Link>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{TASK_CATEGORY_LABELS[task.category]}</Badge>
@@ -228,8 +227,10 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
                             <Trash2 className="mr-2 h-4 w-4" />Delete
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => setAssignmentTask(task)}>
+                          <DropdownMenuItem asChild>
+                            <Link href={taskPageHref(eventId, task)}>
                               <Users className="mr-2 h-4 w-4" />Manage People
+                            </Link>
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -241,13 +242,6 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
           </TableBody>
         </Table>
       </div>
-
-      <TaskAssignmentsSheet 
-        task={assignmentTask} 
-        open={!!assignmentTask} 
-        onOpenChange={(open) => !open && setAssignmentTask(null)}
-        eventId={eventId}
-      />
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>

@@ -10,7 +10,7 @@ import { Plus, ListTodo, Clock, Play, CheckCircle, AlertTriangle, Search, Settin
 import { Badge } from '@/components/ui/badge';
 import { TaskTable } from '@/components/tasks/task-table';
 import { TaskForm } from '@/components/tasks/task-form';
-import { TaskAssignmentsSheet } from '@/components/tasks/task-assignments-sheet';
+import { TaskAssignmentsPage } from '@/components/tasks/task-assignments-page';
 import { TaskTemplateForm } from '@/components/tasks/task-template-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { EventTask, TaskTemplate, TaskFilters, TaskStatus, TaskPriority, TaskCategory, EventTaskFormData, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_CATEGORY_LABELS } from '@/types/task';
@@ -46,11 +46,16 @@ function TasksPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pending: 0, in_progress: 0, completed: 0, overdue: 0, by_category: {} as Record<string, number> });
 
-  // UAE-88 sidebar deep link (`?task=<slug>`): the task's people sheet when the
-  // task exists in this event, otherwise the form pre-filled to create it.
+  // UAE-88 sidebar deep link (`?task=<slug>`): the task's full page (UAE-98,
+  // was a side sheet) when the task exists in this event, otherwise the form
+  // pre-filled to create it. `?task=<id>` opens a task outside the catalog —
+  // that is what the Tasks table links to for those.
   const [linkedTask, setLinkedTask] = useState<EventTask | null>(null);
+  const [resolvingTask, setResolvingTask] = useState(false);
   const [formDefaults, setFormDefaults] = useState<Partial<EventTaskFormData> | null>(null);
-  const handledSlug = useRef<string | null>(null);
+  // Set when the deep-link form created the task: closing the form must then
+  // keep `?task=` so the new task's page stays open.
+  const createdFromLink = useRef(false);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -75,58 +80,58 @@ function TasksPageContent() {
   }, [loadData]);
 
   useEffect(() => {
+    // A new slug never shows the previous task's page, even for a moment.
+    setLinkedTask(null);
     if (!taskSlug) {
-      handledSlug.current = null;
+      setResolvingTask(false);
       return;
     }
-    const key = `${eventId}|${taskSlug}`;
-    if (handledSlug.current === key) return;
-    handledSlug.current = key;
 
     const def = findTaskBySlug(taskSlug);
-    if (!def) {
-      toast.error(`Unknown task "${taskSlug}"`);
-      return;
-    }
     // Look the task up UNFILTERED: the page's own list honours the status /
     // search filters, and a hidden match would mean creating a duplicate.
     let cancelled = false;
+    setResolvingTask(true);
     getEventTasks(eventId)
       .then((all) => {
         if (cancelled) return;
-        const existing = all.find((t) => isCatalogTask(def, t.name));
+        const existing = def
+          ? all.find((t) => isCatalogTask(def, t.name))
+          : all.find((t) => t.id === taskSlug);
         if (existing) {
           setLinkedTask(existing);
-        } else {
+        } else if (def) {
           setFormDefaults({ name: def.name, category: def.category ?? 'other' });
           setEditingTask(null);
           setIsFormOpen(true);
+        } else {
+          toast.error(`Unknown task "${taskSlug}"`);
         }
       })
       .catch((error) => {
+        if (cancelled) return;
         console.error('Task deep link lookup failed:', error);
         toast.error('Could not open the task');
+      })
+      .finally(() => {
+        if (!cancelled) setResolvingTask(false);
       });
     return () => {
       cancelled = true;
     };
   }, [taskSlug, eventId]);
 
-  // Drop the `?task=` once its sheet/form closes, so the same sidebar link
-  // works again on the next click (a Link to the current URL is a no-op).
+  // Drop the `?task=` once its form closes, so the same sidebar link works
+  // again on the next click (a Link to the current URL is a no-op).
   const clearTaskParam = () => {
     if (taskSlug) router.replace(`/events/${eventId}/tasks`);
-  };
-
-  const handleLinkedTaskClose = () => {
-    setLinkedTask(null);
-    clearTaskParam();
   };
 
   // A task created from the sidebar enrols every fighter straight away (UAE-88):
   // the point of the link is "who still needs to do this", never an empty list.
   const handleCreated = async (task: EventTask) => {
     if (!formDefaults) return;
+    createdFromLink.current = true;
     try {
       const n = await enrollAllFighters(eventId, task.id);
       // Blood Test is AUTO: tests recorded before the task existed must show
@@ -158,7 +163,8 @@ function TasksPageContent() {
     setEditingTask(null);
     if (formDefaults) {
       setFormDefaults(null);
-      clearTaskParam();
+      if (!createdFromLink.current) clearTaskParam();
+      createdFromLink.current = false;
     }
   };
 
@@ -166,6 +172,15 @@ function TasksPageContent() {
     setIsTemplateFormOpen(false);
     setEditingTemplate(null);
   };
+
+  // `?task=` renders the task as its own page, in the Walk-out Songs layout
+  // (UAE-98). The URL is the same one the sidebar and old links already use.
+  if (taskSlug && linkedTask) {
+    return <TaskAssignmentsPage key={linkedTask.id} task={linkedTask} eventId={eventId} />;
+  }
+  if (taskSlug && resolvingTask) {
+    return <div className="text-center py-8 text-muted-foreground">Loading task...</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -368,13 +383,6 @@ function TasksPageContent() {
         onSuccess={loadData}
         defaults={formDefaults}
         onCreated={handleCreated}
-      />
-
-      <TaskAssignmentsSheet
-        task={linkedTask}
-        open={!!linkedTask}
-        onOpenChange={(open) => !open && handleLinkedTaskClose()}
-        eventId={eventId}
       />
 
       <TaskTemplateForm
