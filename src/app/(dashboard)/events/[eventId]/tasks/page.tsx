@@ -50,8 +50,15 @@ function TasksPageContent() {
   // was a side sheet) when the task exists in this event, otherwise the form
   // pre-filled to create it. `?task=<id>` opens a task outside the catalog —
   // that is what the Tasks table links to for those.
-  const [linkedTask, setLinkedTask] = useState<EventTask | null>(null);
-  const [resolvingTask, setResolvingTask] = useState(false);
+  //
+  // Both pieces of state carry the `eventId|slug` key they were resolved for,
+  // and render compares it with the URL: a task resolved for a previous slug is
+  // never painted under a new one, not even for one frame.
+  const [linked, setLinked] = useState<{ key: string; task: EventTask } | null>(null);
+  // Key whose lookup finished WITHOUT a task to show (create form opened,
+  // unknown slug, lookup error): only then does `?task=` fall back to the list.
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+  const linkKey = taskSlug ? `${eventId}|${taskSlug}` : null;
   const [formDefaults, setFormDefaults] = useState<Partial<EventTaskFormData> | null>(null);
   // Set when the deep-link form created the task: closing the form must then
   // keep `?task=` so the new task's page stays open.
@@ -80,18 +87,12 @@ function TasksPageContent() {
   }, [loadData]);
 
   useEffect(() => {
-    // A new slug never shows the previous task's page, even for a moment.
-    setLinkedTask(null);
-    if (!taskSlug) {
-      setResolvingTask(false);
-      return;
-    }
-
+    if (!taskSlug) return;
+    const key = `${eventId}|${taskSlug}`;
     const def = findTaskBySlug(taskSlug);
     // Look the task up UNFILTERED: the page's own list honours the status /
     // search filters, and a hidden match would mean creating a duplicate.
     let cancelled = false;
-    setResolvingTask(true);
     getEventTasks(eventId)
       .then((all) => {
         if (cancelled) return;
@@ -99,8 +100,13 @@ function TasksPageContent() {
           ? all.find((t) => isCatalogTask(def, t.name))
           : all.find((t) => t.id === taskSlug);
         if (existing) {
-          setLinkedTask(existing);
-        } else if (def) {
+          setLinked({ key, task: existing });
+          return;
+        }
+        // A task remembered from an earlier visit may be gone now.
+        setLinked(null);
+        setSettledKey(key);
+        if (def) {
           setFormDefaults({ name: def.name, category: def.category ?? 'other' });
           setEditingTask(null);
           setIsFormOpen(true);
@@ -112,9 +118,8 @@ function TasksPageContent() {
         if (cancelled) return;
         console.error('Task deep link lookup failed:', error);
         toast.error('Could not open the task');
-      })
-      .finally(() => {
-        if (!cancelled) setResolvingTask(false);
+        setLinked(null);
+        setSettledKey(key);
       });
     return () => {
       cancelled = true;
@@ -132,6 +137,10 @@ function TasksPageContent() {
   const handleCreated = async (task: EventTask) => {
     if (!formDefaults) return;
     createdFromLink.current = true;
+    // Show "Loading task..." while fighters are enrolled, instead of the plain
+    // Tasks table under `?task=`; the page opens once its rows exist.
+    const key = linkKey;
+    setSettledKey(null);
     try {
       const n = await enrollAllFighters(eventId, task.id);
       // Blood Test is AUTO: tests recorded before the task existed must show
@@ -145,7 +154,7 @@ function TasksPageContent() {
       console.error('Enrol all fighters failed:', error);
       toast.error('Task created, but enrolling fighters failed');
     }
-    setLinkedTask(task);
+    if (key) setLinked({ key, task });
   };
 
   const handleEdit = (task: EventTask) => {
@@ -175,10 +184,10 @@ function TasksPageContent() {
 
   // `?task=` renders the task as its own page, in the Walk-out Songs layout
   // (UAE-98). The URL is the same one the sidebar and old links already use.
-  if (taskSlug && linkedTask) {
-    return <TaskAssignmentsPage key={linkedTask.id} task={linkedTask} eventId={eventId} />;
+  if (linkKey && linked?.key === linkKey) {
+    return <TaskAssignmentsPage key={linked.task.id} task={linked.task} eventId={eventId} />;
   }
-  if (taskSlug && resolvingTask) {
+  if (linkKey && settledKey !== linkKey) {
     return <div className="text-center py-8 text-muted-foreground">Loading task...</div>;
   }
 

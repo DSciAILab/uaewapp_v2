@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
-  ArrowLeft, Search, Plus, Trash2, Users, Printer, Loader2, Tags, List, LayoutGrid, MessageCircle, ClipboardList,
+  ArrowLeft, Search, Plus, Trash2, Users, Printer, Loader2, Tags, List, LayoutGrid, MessageCircle, ClipboardList, AlertTriangle, RotateCw,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
@@ -89,8 +89,9 @@ const ASSIGNMENT_STATUS_TONE: Record<AssignmentStatus, string> = {
 type TaskBucket = 'pending' | 'in_progress' | 'completed';
 
 /**
- * What the corner panels count. 'Not required' and 'Cancelled' stay out, the
- * same rule as the progress count: neither is work anybody still has to do.
+ * What the corner panels count: the three working states only. 'Not required'
+ * and 'Cancelled' have no panel. (The "done/total Completed" badge is a
+ * different count: its total drops only 'Cancelled', as the old sheet did.)
  */
 const TASK_BUCKETS: SummaryBucket<TaskBucket>[] = [
   { key: 'pending', label: ASSIGNMENT_STATUS_LABELS.pending, tone: ASSIGNMENT_STATUS_TONE.pending },
@@ -132,6 +133,9 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [positions, setPositions] = useState<Map<string, FightCardPosition>>(new Map());
   const [loading, setLoading] = useState(true);
+  // A failed load is not an empty task: it gets its own message and a Retry,
+  // never the "Nobody is on this task yet" state.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [eventName, setEventName] = useState<string | null>(null);
   const [isAssignOpen, setIsAssignOpen] = useState(false);
   const [isEnrollingAll, setIsEnrollingAll] = useState(false);
@@ -169,30 +173,54 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
     }
   };
 
-  const fetchRows = useCallback(async () => {
-    const data = await getTaskAssignments(task.id);
-    // Corners/bout order aren't on the enrollment — resolve them from the card.
-    const people = data
-      .filter((a) => a.enrollment)
-      .map((a) => ({
-        enrollmentId: a.enrollment_id,
-        fullName: a.enrollment!.person.compiled_name || '',
-        ringName: a.enrollment!.person.event_name,
-      }));
-    const resolved = await getFightCardPositions(eventId, people);
-    return { data, resolved };
-  }, [task.id, eventId]);
-
-  const reload = useCallback(async () => {
-    try {
-      const { data, resolved } = await fetchRows();
+  /**
+   * Rows first, positions second — as the old sheet did. The rows are set
+   * before the fight card is read, so a fight-card failure costs the corners
+   * and fight order, never the people. `isStale` lets a task swap discard a
+   * slow response.
+   */
+  const load = useCallback(
+    async (isStale: () => boolean = () => false) => {
+      let data: TaskAssignment[];
+      try {
+        data = await getTaskAssignments(task.id);
+      } catch (error) {
+        if (isStale()) return;
+        console.error('Failed to load assignments:', error);
+        setLoadError('Could not load the people on this task.');
+        toast.error('Failed to load assignments');
+        return;
+      }
+      if (isStale()) return;
+      setLoadError(null);
       setAssignments(data);
-      setPositions(resolved);
-    } catch (error) {
-      console.error('Failed to load assignments:', error);
-      toast.error('Failed to load assignments');
-    }
-  }, [fetchRows]);
+
+      // Corners/bout order aren't on the enrollment — resolve them from the card.
+      const people = data
+        .filter((a) => a.enrollment)
+        .map((a) => ({
+          enrollmentId: a.enrollment_id,
+          fullName: a.enrollment!.person.compiled_name || '',
+          ringName: a.enrollment!.person.event_name,
+        }));
+      try {
+        const resolved = await getFightCardPositions(eventId, people);
+        if (!isStale()) setPositions(resolved);
+      } catch (error) {
+        if (isStale()) return;
+        console.error('Failed to resolve fight card positions:', error);
+        toast.error('Fight card unavailable: corners and fight order not shown');
+      }
+    },
+    [task.id, eventId]
+  );
+
+  const reload = useCallback(() => load(), [load]);
+
+  const retry = () => {
+    setLoading(true);
+    load().finally(() => setLoading(false));
+  };
 
   // Swapping the task in place (sidebar click while open) must not let the
   // previous task's filters or a slow response bleed into the next one.
@@ -203,25 +231,15 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
     setStatusFilter('all');
     setCornerFilter('all');
     setSearch('');
+    setLoadError(null);
     setLoading(true);
-    fetchRows()
-      .then(({ data, resolved }) => {
-        if (stale) return;
-        setAssignments(data);
-        setPositions(resolved);
-      })
-      .catch((error) => {
-        if (stale) return;
-        console.error('Failed to load assignments:', error);
-        toast.error('Failed to load assignments');
-      })
-      .finally(() => {
-        if (!stale) setLoading(false);
-      });
+    load(() => stale).finally(() => {
+      if (!stale) setLoading(false);
+    });
     return () => {
       stale = true;
     };
-  }, [fetchRows]);
+  }, [load]);
 
   // Second line of the identity block is the EVENT — person.event_name is the
   // athlete's ring name, a different thing despite the column name.
@@ -329,6 +347,17 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
   }, [assignments, statusFilter, cornerFilter, search, sort, positionOf]);
 
   const toggleSort = (key: SortKey) => setSort((prev) => nextSort(prev, key));
+
+  // Progress badge, as the old sheet showed it (UAE-26): cancelled rows stay on
+  // screen but leave the count, or the task would look permanently unfinished.
+  // 'Not required' stays in the total.
+  const progress = useMemo(
+    () => ({
+      total: assignments.filter((a) => a.status !== 'cancelled').length,
+      completed: assignments.filter((a) => a.status === 'completed').length,
+    }),
+    [assignments]
+  );
 
   // Corner panels count the whole task, not the filtered view — same as /music.
   const summary = useMemo(() => {
@@ -445,6 +474,9 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="h-9 px-3">
+            {progress.completed}/{progress.total} Completed
+          </Badge>
           <div className="flex rounded-md border p-0.5" role="group" aria-label="Athlete view">
             {VIEWS.map(({ key, Icon, title }) => (
               <Button
@@ -539,6 +571,18 @@ export function TaskAssignmentsPage({ task, eventId }: TaskAssignmentsPageProps)
         <CardContent className="pt-6">
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">Loading people...</div>
+          ) : loadError ? (
+            <div
+              role="alert"
+              className="flex flex-col items-center justify-center py-16 text-center border rounded-lg border-dashed border-destructive/40 bg-destructive/5"
+            >
+              <AlertTriangle className="h-12 w-12 text-destructive/60 mb-4" />
+              <p className="font-medium text-lg">{loadError}</p>
+              <p className="text-muted-foreground text-sm mt-1">Check the connection and try again.</p>
+              <Button variant="outline" size="sm" className="mt-4" onClick={retry}>
+                <RotateCw className="h-4 w-4 mr-2" /> Retry
+              </Button>
+            </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center border rounded-lg bg-muted/10 border-dashed">
               <ClipboardList className="h-12 w-12 text-muted-foreground/40 mb-4" />
