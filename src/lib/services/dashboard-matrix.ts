@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/client';
 import { getFighterPhotoUrl } from '@/lib/utils';
 import { getFightCardPositions } from './fight-card-positions';
-import { TASK_CATALOG, normalizeAssignmentStatus, type TaskStatus } from '@/lib/tasks-catalog';
+import { TASK_CATALOG, normalizeAssignmentStatus, bloodTestToTaskStatus, type TaskStatus } from '@/lib/tasks-catalog';
 import { isMusicDone } from '@/types/music';
 
 /**
@@ -98,7 +98,7 @@ export async function getDashboardMatrix(
 
   // Positions (corner + bout order), the tasks and their assignments, and the
   // two auto-sources — all in parallel.
-  const [positions, tasksRes, assignmentsRes, musicRes, statsRes, hotelsRes, flightsRes] = await Promise.all([
+  const [positions, tasksRes, assignmentsRes, musicRes, statsRes, bloodRes, hotelsRes, flightsRes] = await Promise.all([
     getFightCardPositions(
       eventId,
       roster.map((r) => ({ enrollmentId: r.enrollmentId, fullName: r.compiled, ringName: r.ring })),
@@ -117,6 +117,13 @@ export async function getDashboardMatrix(
       .from('mma_fighter_stats')
       .select('person_id, confirmed_at')
       .in('person_id', roster.map((r) => r.personId)),
+    // UAE-88: the blood test row is the third auto-source (newest first, so the
+    // latest test per enrolment wins when the map is filled in order).
+    supabase
+      .from('mma_blood_tests')
+      .select('enrolled_id, status, created_at')
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: false, nullsFirst: false }),
     // Where they are: the assigned room, or the flight still bringing them in.
     supabase
       .from('mma_hotels')
@@ -176,6 +183,13 @@ export async function getDashboardMatrix(
     (statsRes.data || []).filter((s) => s.confirmed_at).map((s) => s.person_id as string)
   );
 
+  // AUTO: Blood Test by enrollment — latest test row decides (UAE-88).
+  const bloodStatus = new Map<string, TaskStatus>();
+  for (const b of bloodRes.data || []) {
+    const id = b.enrolled_id as string;
+    if (!bloodStatus.has(id)) bloodStatus.set(id, bloodTestToTaskStatus(b.status as string));
+  }
+
   const rows: MatrixRow[] = roster.map((r) => {
     const pos = positions.get(r.enrollmentId);
     const cells: Record<string, MatrixCell> = {};
@@ -189,6 +203,12 @@ export async function getDashboardMatrix(
         status = statsConfirmed.has(r.personId)
           ? 'done'
           : assignmentStatus.get(`${r.enrollmentId}|${task.name}`) ?? 'undecided';
+      } else if (task.name === 'Blood Test') {
+        // A human decision (not_requested / cancelled) still wins over a test row.
+        const decided = assignmentStatus.get(`${r.enrollmentId}|${task.name}`);
+        status = decided === 'not_requested' || decided === 'cancelled'
+          ? decided
+          : bloodStatus.get(r.enrollmentId) ?? decided ?? 'undecided';
       } else {
         status = assignmentStatus.get(`${r.enrollmentId}|${task.name}`) ?? 'undecided';
       }

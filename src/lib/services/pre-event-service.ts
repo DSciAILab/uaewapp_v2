@@ -18,9 +18,100 @@ import {
 import { EntranceMusic } from '@/types/music';
 import { FighterStats } from '@/types/stats';
 import { CarPassenger } from '@/types/transport';
+import { createAssignments, updateAssignmentStatus, type AssignmentStatus } from './task-assignments';
+import { bloodTestToTaskStatus } from '@/lib/tasks-catalog';
 
 function getClient() {
   return createClient();
+}
+
+// ==================== BLOOD TEST → TASK ASSIGNMENT (UAE-88) ====================
+// (see syncBloodTestAssignment below; syncEventBloodTestAssignments seeds a whole event)
+// The "Blood Test" task on the operations board is AUTO: its per-fighter
+// assignment follows the Pre-Event blood test row instead of being set by hand.
+// Done in app code after each write (no DB trigger, by design): the latest test
+// for the enrolment decides, and a failure here never fails the blood test write.
+
+// One mapper for board and assignment (tasks-catalog); only the vocabulary differs.
+function bloodTestToAssignmentStatus(status: string | null | undefined): AssignmentStatus {
+  const s = bloodTestToTaskStatus(status);
+  return s === 'done' ? 'completed' : s === 'in_progress' ? 'in_progress' : 'pending';
+}
+
+export async function syncBloodTestAssignment(eventId: string, enrolledId: string): Promise<void> {
+  try {
+    const supabase = getClient();
+    const { data: task } = await supabase
+      .from('mma_event_tasks')
+      .select('id')
+      .eq('event_id', eventId)
+      .ilike('name', 'Blood Test')
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (!task) return; // No Blood Test task in this event yet — nothing to mirror into.
+
+    const [{ data: latest }, { data: assignment }] = await Promise.all([
+      supabase
+        .from('mma_blood_tests')
+        .select('status')
+        .eq('event_id', eventId)
+        .eq('enrolled_id', enrolledId)
+        .order('created_at', { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle(),
+      supabase
+        .from('mma_task_assignments')
+        .select('id, status')
+        .eq('task_id', task.id)
+        .eq('enrollment_id', enrolledId)
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const next = bloodTestToAssignmentStatus(latest?.status);
+    if (!assignment) {
+      if (!latest) return; // Nothing to mirror and no row to create it from.
+      await createAssignments(task.id, [enrolledId]);
+      if (next !== 'pending') {
+        const { data: created } = await supabase
+          .from('mma_task_assignments')
+          .select('id')
+          .eq('task_id', task.id)
+          .eq('enrollment_id', enrolledId)
+          .limit(1)
+          .maybeSingle();
+        if (created) await updateAssignmentStatus(created.id, next);
+      }
+      return;
+    }
+    // Human decisions win: cancelled = the athlete left the event (UAE-26),
+    // exempt = "never needed it". The blood test record must not overturn either.
+    if (assignment.status === 'cancelled' || assignment.status === 'exempt' || assignment.status === next) return;
+    await updateAssignmentStatus(assignment.id, next);
+  } catch (error) {
+    console.error('Blood test → task assignment sync failed:', error);
+  }
+}
+
+/**
+ * Mirrors every existing blood test of an event into the Blood Test task, one
+ * enrolment at a time (no unique constraint on assignments, so never parallel).
+ * Used when the task is created after tests already exist (UAEW74: 24 tests first).
+ */
+export async function syncEventBloodTestAssignments(eventId: string): Promise<number> {
+  try {
+    const { data } = await getClient()
+      .from('mma_blood_tests')
+      .select('enrolled_id')
+      .eq('event_id', eventId);
+    const ids = Array.from(new Set((data || []).map((r) => r.enrolled_id as string)));
+    for (const id of ids) await syncBloodTestAssignment(eventId, id);
+    return ids.length;
+  } catch (error) {
+    console.error('Event blood test sync failed:', error);
+    return 0;
+  }
 }
 
 // ==================== ROW NARROWING ====================
@@ -251,6 +342,7 @@ export async function createBloodTest(eventId: string, formData: BloodTestFormDa
 
   // Update clearance status
   await updateClearanceStatus(eventId, formData.enrolled_id);
+  await syncBloodTestAssignment(eventId, formData.enrolled_id);
 
   return narrowBloodTest(data);
 }
@@ -270,6 +362,7 @@ export async function updateBloodTest(testId: string, formData: Partial<BloodTes
   const test = await getBloodTestById(testId);
   if (test) {
     await updateClearanceStatus(test.event_id, test.enrolled_id);
+    await syncBloodTestAssignment(test.event_id, test.enrolled_id);
   }
 
   return narrowBloodTest(data);
@@ -289,6 +382,7 @@ export async function deleteBloodTest(testId: string): Promise<void> {
   // Update clearance status
   if (test) {
     await updateClearanceStatus(test.event_id, test.enrolled_id);
+    await syncBloodTestAssignment(test.event_id, test.enrolled_id);
   }
 }
 
@@ -316,6 +410,7 @@ export async function updateBloodTestResult(
   const test = await getBloodTestById(testId);
   if (test) {
     await updateClearanceStatus(test.event_id, test.enrolled_id);
+    await syncBloodTestAssignment(test.event_id, test.enrolled_id);
   }
 
   return narrowBloodTest(data);

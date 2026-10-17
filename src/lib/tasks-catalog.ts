@@ -6,12 +6,20 @@
  * assignment for a task is "undecided" — shown in a distinct colour so a
  * forgotten athlete is visible, never a silent gap.
  *
- * Two tasks are AUTO — their status is derived from their own collection
+ * Three tasks are AUTO — their status is derived from their own collection
  * screen, not set by hand:
  *   - Walkout Music: songs submitted → done; some collected → in_progress.
  *   - Stats: measurements confirmed → done.
- * The other four are set directly in the Tasks tab.
+ *   - Blood Test (UAE-88): the Pre-Event blood test row drives the assignment
+ *     (completed → done; collected/processing → in_progress; else pending).
+ * The other three are set directly in the Tasks tab.
+ *
+ * UAE-88: this catalog is also the single source for the "Pre Event Tasks"
+ * sidebar group. `slug` is the deep-link key (`/tasks?task=<slug>`) for manual
+ * tasks; `href` points auto tasks at their own collection screen.
  */
+
+import type { TaskCategory } from '@/types/task';
 
 export type TaskStatus = 'undecided' | 'pending' | 'in_progress' | 'done' | 'not_requested' | 'cancelled';
 
@@ -21,16 +29,35 @@ export interface TaskDef {
   short: string;
   /** 'auto' derives status from a collection screen; 'manual' is set in Tasks. */
   mode: 'auto' | 'manual';
+  /** URL-safe key used by the sidebar deep link (`/tasks?task=<slug>`). */
+  slug: string;
+  /** Collection screen of an auto task (event-scoped path, e.g. '/music'). */
+  href?: string;
+  /** Sidebar label when it differs from the canonical name. */
+  label?: string;
+  /** Category pre-filled when the task is created from the sidebar. */
+  category?: TaskCategory;
 }
 
 export const TASK_CATALOG: TaskDef[] = [
-  { name: 'Blood Test', short: 'Blood', mode: 'manual' },
-  { name: 'Photoshoot', short: 'Photo', mode: 'manual' },
-  { name: 'Black Screen Video', short: 'BSV', mode: 'manual' },
-  { name: 'Video Shooting', short: 'Video', mode: 'manual' },
-  { name: 'Walkout Music', short: 'Music', mode: 'auto' },
-  { name: 'Stats', short: 'Stats', mode: 'auto' },
+  { name: 'Blood Test', short: 'Blood', mode: 'auto', slug: 'blood-test', category: 'medical' },
+  { name: 'Photoshoot', short: 'Photo', mode: 'manual', slug: 'photoshoot', category: 'media' },
+  { name: 'Black Screen Video', short: 'BSV', mode: 'manual', slug: 'black-screen-video', category: 'media' },
+  { name: 'Video Shooting', short: 'Video', mode: 'manual', slug: 'video-shooting', category: 'media' },
+  { name: 'Walkout Music', short: 'Music', mode: 'auto', slug: 'walkout-music', href: '/music', label: 'Walk-out Songs' },
+  { name: 'Stats', short: 'Stats', mode: 'auto', slug: 'stats', href: '/stats', label: 'Fighter Stats' },
 ];
+
+/** Catalog entry for a sidebar deep-link slug, or null when the slug is unknown. */
+export function findTaskBySlug(slug: string | null | undefined): TaskDef | null {
+  if (!slug) return null;
+  return TASK_CATALOG.find((t) => t.slug === slug) ?? null;
+}
+
+/** Case-insensitive match of a stored task name against the catalog name. */
+export function isCatalogTask(def: TaskDef, storedName: string | null | undefined): boolean {
+  return (storedName || '').trim().toLowerCase() === def.name.toLowerCase();
+}
 
 /** Maps the assignment's stored status to the dashboard's status vocabulary. */
 export function normalizeAssignmentStatus(raw: string | null | undefined): TaskStatus {
@@ -47,6 +74,22 @@ export function normalizeAssignmentStatus(raw: string | null | undefined): TaskS
       return 'cancelled';
     case 'pending':
       return 'pending';
+    default:
+      return 'pending';
+  }
+}
+
+/**
+ * Maps a Pre-Event blood test status to the dashboard's status vocabulary
+ * (UAE-88). An expired test needs redoing, so it reads as pending again.
+ */
+export function bloodTestToTaskStatus(raw: string | null | undefined): TaskStatus {
+  switch ((raw || '').toLowerCase()) {
+    case 'completed':
+      return 'done';
+    case 'collected':
+    case 'processing':
+      return 'in_progress';
     default:
       return 'pending';
   }

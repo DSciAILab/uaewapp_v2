@@ -16,6 +16,15 @@ export interface ChangelogEntry {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-17',
+    version: '2026.10.17',
+    changes: [
+      'New "Pre Event Tasks" menu: Blood Test, Photoshoot, Black Screen Video, Video Shooting, Walk-out Songs, Fighter Stats and Medical Clearance, one click each.',
+      'Clicking a task opens the list of athletes who still have to do it; if the event has no such task yet, it is created with every fighter enrolled.',
+      'Blood Test is now automatic on the Operations Board: the Pre-Event blood test record sets the status (collected or processing = in progress, completed = done).',
+    ],
+  },
+  {
     date: '2026-07-17',
     version: '2026.07.17',
     changes: [

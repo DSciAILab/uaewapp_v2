@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useEffect, useState } from 'react'
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -20,6 +20,10 @@ import {
   Layers,
   ClipboardList,
   Stethoscope,
+  Droplet,
+  Camera,
+  Clapperboard,
+  Video,
   ShieldAlert,
   History,
   ScrollText,
@@ -41,6 +45,7 @@ import { useUser } from '@/hooks/use-user'
 import { usePermissions } from '@/hooks/use-permissions'
 import { createClient } from '@/lib/supabase/client'
 import { CURRENT_VERSION } from '@/lib/changelog'
+import { TASK_CATALOG, findTaskBySlug } from '@/lib/tasks-catalog'
 import { FightCardDialog } from '@/components/fight-card/fight-card-dialog'
 
 const icons = {
@@ -59,6 +64,10 @@ const icons = {
   Layers,
   ClipboardList,
   Stethoscope,
+  Droplet,
+  Camera,
+  Clapperboard,
+  Video,
   Luggage,
   ShieldAlert,
   History,
@@ -84,6 +93,34 @@ type NavEntry = NavLeaf | NavGroup
 
 const isGroup = (entry: NavEntry): entry is NavGroup => 'children' in entry
 
+/** Path part of a nav href ('/events/x/tasks?task=photoshoot' → '/events/x/tasks'). */
+const hrefPath = (href: string) => href.split('?')[0]
+/** The `task` slug of a deep-link href, or null for an ordinary leaf. */
+const hrefTask = (href: string) => {
+  const q = href.split('?')[1]
+  return q ? new URLSearchParams(q).get('task') : null
+}
+
+// UAE-88: one sidebar entry per catalog task, so the menu and the operations
+// board can never disagree on which tasks exist. Manual tasks deep-link into the
+// event's Tasks page (`?task=<slug>` opens that task's people, or creates it);
+// auto tasks open their own collection screen.
+const TASK_ICONS: Record<string, string> = {
+  'blood-test': 'Droplet',
+  photoshoot: 'Camera',
+  'black-screen-video': 'Clapperboard',
+  'video-shooting': 'Video',
+  'walkout-music': 'Music',
+  stats: 'BarChart3',
+}
+
+const preEventTaskLeaves: NavLeaf[] = TASK_CATALOG.map((t) => ({
+  label: t.label ?? t.name,
+  href: t.href ?? `/tasks?task=${t.slug}`,
+  icon: TASK_ICONS[t.slug] ?? 'Activity',
+  area: 'operations',
+}))
+
 const navItems: NavEntry[] = [
   { label: 'Dashboard', href: '/dashboard', icon: 'LayoutDashboard' },
   { label: 'Operations Board', href: '/operations-board', icon: 'LayoutGrid' },
@@ -99,12 +136,14 @@ const navItems: NavEntry[] = [
       { label: 'Transport', href: '/transport', icon: 'Car', area: 'transport' },
     ],
   },
-  { label: 'Fighter Stats', href: '/stats', icon: 'BarChart3', area: 'operations' },
-  { label: 'Walk-out Songs', href: '/music', icon: 'Music', area: 'operations' },
   { label: 'Tasks', href: '/tasks', icon: 'Activity', area: 'operations' },
+  {
+    label: 'Pre Event Tasks',
+    icon: 'ClipboardList',
+    children: [...preEventTaskLeaves, { label: 'Medical Clearance', href: '/medical', icon: 'Stethoscope', area: 'pre_event' }],
+  },
   { label: 'Pre-Event', href: '/pre-event', icon: 'ShieldCheck', area: 'pre_event' },
   { label: 'Pre-Departure Check', href: '/staging', icon: 'ClipboardList', area: 'pre_event' },
-  { label: 'Medical', href: '/medical', icon: 'Stethoscope', area: 'pre_event' },
   { label: 'Batches', href: '/batches', icon: 'Layers', area: 'operations' },
   { label: 'War Room', href: '/war-room', icon: 'Activity', area: 'operations' },
   {
@@ -122,8 +161,19 @@ interface SidebarProps {
   onCommandPalette?: () => void
 }
 
-export function Sidebar({ onCommandPalette }: SidebarProps) {
+// useSearchParams needs a Suspense boundary above it, or statically prerendered
+// pages fail the build; the boundary lives here so no layout has to know.
+export function Sidebar(props: SidebarProps) {
+  return (
+    <Suspense fallback={null}>
+      <SidebarContent {...props} />
+    </Suspense>
+  )
+}
+
+function SidebarContent({ onCommandPalette }: SidebarProps) {
   const pathname = usePathname()
+  const activeTask = useSearchParams().get('task')
   const { user } = useUser()
   const { canView, isAdmin, loading: permissionsLoading } = usePermissions()
   const router = useRouter()
@@ -145,10 +195,17 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
   useEffect(() => {
     const active = navItems
       .filter(isGroup)
-      .filter((g) => g.children.some((c) => pathname.includes(c.href)))
+      .filter((g) =>
+        g.children.some((c) => {
+          const task = hrefTask(c.href)
+          // A `?task=` leaf opens its group only for its own task, so the plain
+          // Tasks page does not unfold "Pre Event Tasks" every time.
+          return task ? activeTask === task && pathname.includes(hrefPath(c.href)) : pathname.includes(c.href)
+        })
+      )
       .map((g) => g.label)
     if (active.length) setOpenGroups((prev) => Array.from(new Set([...prev, ...active])))
-  }, [pathname])
+  }, [pathname, activeTask])
 
   const handleLogout = async () => {
     try {
@@ -190,8 +247,15 @@ export function Sidebar({ onCommandPalette }: SidebarProps) {
     )
     .filter((entry) => (isGroup(entry) ? entry.children.length > 0 : canSee(entry)))
 
-  const isLeafActive = (item: NavLeaf) =>
-    pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href))
+  // A `?task=` leaf (UAE-88) is active only for its own task, and the plain
+  // Tasks leaf steps aside while one of them is — otherwise two rows light up.
+  const isLeafActive = (item: NavLeaf) => {
+    const path = hrefPath(item.href)
+    const task = hrefTask(item.href)
+    if (task) return pathname === path && activeTask === task
+    if (pathname === path) return !(findTaskBySlug(activeTask) && path.endsWith('/tasks'))
+    return item.href !== '/dashboard' && pathname.startsWith(path)
+  }
 
   const navContent = (variant: 'desktop' | 'mobile') => {
     const isMobile = variant === 'mobile'

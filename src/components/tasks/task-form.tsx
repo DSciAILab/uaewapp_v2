@@ -40,9 +40,16 @@ interface TaskFormProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: () => void;
+  /**
+   * Pre-filled fields for a NEW task (UAE-88 sidebar deep link). Keep the
+   * object identity stable (state or memo): it resets the form when it changes.
+   */
+  defaults?: Partial<EventTaskFormData> | null;
+  /** Called with the created row after a successful create (not on edit). */
+  onCreated?: (task: EventTask) => void;
 }
 
-export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskFormProps) {
+export function TaskForm({ eventId, task, open, onOpenChange, onSuccess, defaults, onCreated }: TaskFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [newChecklistItem, setNewChecklistItem] = useState('');
   const { user } = useUser();
@@ -98,9 +105,10 @@ export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskF
         due_time: '',
         checklist_items: [],
         notes: '',
+        ...(defaults ?? {}),
       });
     }
-  }, [task, form]);
+  }, [task, form, defaults]);
 
   const addChecklistItem = () => {
     if (newChecklistItem.trim()) {
@@ -122,8 +130,9 @@ export function TaskForm({ eventId, task, open, onOpenChange, onSuccess }: TaskF
         await updateEventTask(task.id, data);
         toast.success('Task updated');
       } else {
-        await createEventTask(eventId, data, user.id);
+        const created = await createEventTask(eventId, data, user.id);
         toast.success('Task created');
+        onCreated?.(created);
       }
       onSuccess();
       onOpenChange(false);

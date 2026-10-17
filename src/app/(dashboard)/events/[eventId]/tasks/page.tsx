@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -10,14 +10,30 @@ import { Plus, ListTodo, Clock, Play, CheckCircle, AlertTriangle, Search, Settin
 import { Badge } from '@/components/ui/badge';
 import { TaskTable } from '@/components/tasks/task-table';
 import { TaskForm } from '@/components/tasks/task-form';
+import { TaskAssignmentsSheet } from '@/components/tasks/task-assignments-sheet';
 import { TaskTemplateForm } from '@/components/tasks/task-template-form';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { EventTask, TaskTemplate, TaskFilters, TaskStatus, TaskPriority, TaskCategory, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_CATEGORY_LABELS } from '@/types/task';
+import { EventTask, TaskTemplate, TaskFilters, TaskStatus, TaskPriority, TaskCategory, EventTaskFormData, TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_CATEGORY_LABELS } from '@/types/task';
 import { getEventTasks, getTaskStats, getTaskTemplates } from '@/lib/services/task-service';
+import { enrollAllFighters } from '@/lib/services/task-assignments';
+import { syncEventBloodTestAssignments } from '@/lib/services/pre-event-service';
+import { findTaskBySlug, isCatalogTask } from '@/lib/tasks-catalog';
+import { toast } from 'sonner';
 
+// useSearchParams must sit under a Suspense boundary (static prerender).
 export default function TasksPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-8">Loading...</div>}>
+      <TasksPageContent />
+    </Suspense>
+  );
+}
+
+function TasksPageContent() {
   const params = useParams();
   const eventId = params.eventId as string;
+  const router = useRouter();
+  const taskSlug = useSearchParams().get('task');
 
   const [activeTab, setActiveTab] = useState('tasks');
   const [tasks, setTasks] = useState<EventTask[]>([]);
@@ -29,6 +45,12 @@ export default function TasksPage() {
   const [filters, setFilters] = useState<TaskFilters>({});
   const [isLoading, setIsLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, pending: 0, in_progress: 0, completed: 0, overdue: 0, by_category: {} as Record<string, number> });
+
+  // UAE-88 sidebar deep link (`?task=<slug>`): the task's people sheet when the
+  // task exists in this event, otherwise the form pre-filled to create it.
+  const [linkedTask, setLinkedTask] = useState<EventTask | null>(null);
+  const [formDefaults, setFormDefaults] = useState<Partial<EventTaskFormData> | null>(null);
+  const handledSlug = useRef<string | null>(null);
 
   const loadData = useCallback(async () => {
     setIsLoading(true);
@@ -52,6 +74,75 @@ export default function TasksPage() {
     loadData();
   }, [loadData]);
 
+  useEffect(() => {
+    if (!taskSlug) {
+      handledSlug.current = null;
+      return;
+    }
+    const key = `${eventId}|${taskSlug}`;
+    if (handledSlug.current === key) return;
+    handledSlug.current = key;
+
+    const def = findTaskBySlug(taskSlug);
+    if (!def) {
+      toast.error(`Unknown task "${taskSlug}"`);
+      return;
+    }
+    // Look the task up UNFILTERED: the page's own list honours the status /
+    // search filters, and a hidden match would mean creating a duplicate.
+    let cancelled = false;
+    getEventTasks(eventId)
+      .then((all) => {
+        if (cancelled) return;
+        const existing = all.find((t) => isCatalogTask(def, t.name));
+        if (existing) {
+          setLinkedTask(existing);
+        } else {
+          setFormDefaults({ name: def.name, category: def.category ?? 'other' });
+          setEditingTask(null);
+          setIsFormOpen(true);
+        }
+      })
+      .catch((error) => {
+        console.error('Task deep link lookup failed:', error);
+        toast.error('Could not open the task');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [taskSlug, eventId]);
+
+  // Drop the `?task=` once its sheet/form closes, so the same sidebar link
+  // works again on the next click (a Link to the current URL is a no-op).
+  const clearTaskParam = () => {
+    if (taskSlug) router.replace(`/events/${eventId}/tasks`);
+  };
+
+  const handleLinkedTaskClose = () => {
+    setLinkedTask(null);
+    clearTaskParam();
+  };
+
+  // A task created from the sidebar enrols every fighter straight away (UAE-88):
+  // the point of the link is "who still needs to do this", never an empty list.
+  const handleCreated = async (task: EventTask) => {
+    if (!formDefaults) return;
+    try {
+      const n = await enrollAllFighters(eventId, task.id);
+      // Blood Test is AUTO: tests recorded before the task existed must show
+      // their real status in the sheet, not a blanket "Requested".
+      const bloodTest = findTaskBySlug('blood-test');
+      if (bloodTest && isCatalogTask(bloodTest, task.name)) {
+        await syncEventBloodTestAssignments(eventId);
+      }
+      toast.success(n > 0 ? `${n} fighters enrolled in ${task.name}` : 'No fighters to enrol');
+    } catch (error) {
+      console.error('Enrol all fighters failed:', error);
+      toast.error('Task created, but enrolling fighters failed');
+    }
+    setLinkedTask(task);
+  };
+
   const handleEdit = (task: EventTask) => {
     setEditingTask(task);
     setIsFormOpen(true);
@@ -65,6 +156,10 @@ export default function TasksPage() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingTask(null);
+    if (formDefaults) {
+      setFormDefaults(null);
+      clearTaskParam();
+    }
   };
 
   const handleTemplateFormClose = () => {
@@ -271,6 +366,15 @@ export default function TasksPage() {
         open={isFormOpen}
         onOpenChange={handleFormClose}
         onSuccess={loadData}
+        defaults={formDefaults}
+        onCreated={handleCreated}
+      />
+
+      <TaskAssignmentsSheet
+        task={linkedTask}
+        open={!!linkedTask}
+        onOpenChange={(open) => !open && handleLinkedTaskClose()}
+        eventId={eventId}
       />
 
       <TaskTemplateForm
