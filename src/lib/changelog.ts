@@ -22,6 +22,8 @@ export const CHANGELOG: ChangelogEntry[] = [
       'New "Pre Event Tasks" menu: Blood Test, Photoshoot, Black Screen Video, Video Shooting, Walk-out Songs, Fighter Stats and Medical Clearance, one click each.',
       'Every event now starts with its fixed tasks already created and every fighter on them; a fighter added later joins all of them automatically. Clicking a task opens the list of athletes who still have to do it.',
       'Blood Test is now automatic on the Operations Board: the Pre-Event blood test record sets the status (collected or processing = in progress, completed = done).',
+      'Task athletes can be shown as a list or as cards (toggle in the sheet header): phones and tablets open in cards, desktops in the list, and your choice is remembered on that device.',
+      'Fixed: opening a second Pre Event Task while one was open only closed the first; and the links now open the task from any page, not only from inside the event.',
     ],
   },
   {

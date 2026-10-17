@@ -5,11 +5,24 @@ import { Activity } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
-export default async function TasksIndexPage() {
+export default async function TasksIndexPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ task?: string | string[] }>;
+}) {
   const activeEventId = await getActiveEventId();
+  const { task } = await searchParams;
 
   if (activeEventId) {
-    redirect(`/events/${activeEventId}/tasks`);
+    // Keep the sidebar deep link (`?task=<slug>`, UAE-88): the Pre Event Tasks
+    // links point here from any page without an event in its path, and
+    // dropping the slug landed every one of them on the plain list (UAE-93).
+    const slug = Array.isArray(task) ? task[0] : task;
+    redirect(
+      slug
+        ? `/events/${activeEventId}/tasks?task=${encodeURIComponent(slug)}`
+        : `/events/${activeEventId}/tasks`
+    );
   }
 
   return (

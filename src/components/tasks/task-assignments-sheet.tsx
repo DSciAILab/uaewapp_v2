@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Search, Plus, Trash2, Users, Printer, Loader2, Tags, PanelRight, Square, Maximize2 } from 'lucide-react';
+import { Search, Plus, Trash2, Users, Printer, Loader2, Tags, PanelRight, Square, Maximize2, List, LayoutGrid } from 'lucide-react';
 import { EventTask } from '@/types/task';
 import {
   TaskAssignment,
@@ -58,6 +58,17 @@ type SheetLayout = 'side' | 'center' | 'full';
 
 const LAYOUT_STORAGE_KEY = 'uaew-task-sheet-layout';
 
+type SheetView = 'list' | 'card';
+
+const VIEW_STORAGE_KEY = 'uaew-task-sheet-view';
+
+/**
+ * Phones and tablets open in cards, desktops in the table (UAE-93). Width
+ * alone would call a narrow desktop window a phone, and a tablet in landscape
+ * a desktop — the pointer settles both: a finger wants cards.
+ */
+const CARD_DEVICE_QUERY = '(max-width: 639px), (pointer: coarse)';
+
 /**
  * Blood Test is the only task that pairs a printed tube label with a name, so
  * it is the only one that offers the 4cm sheet (Fernando, 2026-07-20). Matched
@@ -96,6 +107,16 @@ const LAYOUTS: { key: SheetLayout; Icon: typeof PanelRight; title: string }[] = 
   { key: 'center', Icon: Square, title: 'Centred' },
   { key: 'full', Icon: Maximize2, title: 'Full screen' },
 ];
+
+const VIEWS: { key: SheetView; Icon: typeof List; title: string }[] = [
+  { key: 'list', Icon: List, title: 'List view' },
+  { key: 'card', Icon: LayoutGrid, title: 'Card view' },
+];
+
+const CORNER_BADGE_CLASS: Record<'RED' | 'BLUE', string> = {
+  RED: 'border-red-500/60 text-red-600 dark:text-red-400',
+  BLUE: 'border-blue-500/60 text-blue-600 dark:text-blue-400',
+};
 
 /** Same colour language as the operations dashboard, so the two agree. */
 const ASSIGNMENT_STATUS_TONE: Record<AssignmentStatus, string> = {
@@ -154,6 +175,32 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
       // Not being able to remember the choice must not stop making it.
     }
   };
+
+  // List or cards: a saved choice wins, otherwise the device decides. Same
+  // after-mount read as the layout above, for the same hydration reason.
+  const [view, setView] = useState<SheetView>('list');
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(VIEW_STORAGE_KEY);
+      if (saved === 'list' || saved === 'card') {
+        setView(saved);
+        return;
+      }
+    } catch {
+      // Fall through to the device default.
+    }
+    if (window.matchMedia(CARD_DEVICE_QUERY).matches) setView('card');
+  }, []);
+
+  const changeView = (next: SheetView) => {
+    setView(next);
+    try {
+      localStorage.setItem(VIEW_STORAGE_KEY, next);
+    } catch {
+      // Same as the layout: forgetting the choice is not a reason to refuse it.
+    }
+  };
   // Second line of the identity block is the EVENT — person.event_name is the
   // athlete's ring name, which is a different thing despite the column name.
   const [eventName, setEventName] = useState<string | null>(null);
@@ -185,11 +232,50 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     }
   }, [task, eventId]);
 
+  // Swapping the task in place (sidebar click while open) is now the common
+  // path, so the previous task's filters, selection and rows must not bleed
+  // into the next one.
+  const taskId = task?.id ?? null;
   useEffect(() => {
-    if (open && task) {
-      loadAssignments();
-    }
-  }, [open, task, loadAssignments]);
+    setAssignments([]);
+    setPositions(new Map());
+    setSelectedEnrollments([]);
+    setStatusFilter('all');
+    setCornerFilter('all');
+    setSearchQuery('');
+  }, [taskId]);
+
+  useEffect(() => {
+    if (!open || !task) return;
+    // A slow response for the previous task must not land on top of this one.
+    let stale = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const data = await getTaskAssignments(task.id);
+        const people = data
+          .filter((a) => a.enrollment)
+          .map((a) => ({
+            enrollmentId: a.enrollment_id,
+            fullName: a.enrollment!.person.compiled_name || '',
+            ringName: a.enrollment!.person.event_name,
+          }));
+        const resolved = await getFightCardPositions(eventId, people);
+        if (stale) return;
+        setAssignments(data);
+        setPositions(resolved);
+      } catch (error) {
+        if (stale) return;
+        console.error('Failed to load assignments:', error);
+        toast.error('Failed to load assignments');
+      } finally {
+        if (!stale) setLoading(false);
+      }
+    })();
+    return () => {
+      stale = true;
+    };
+  }, [open, task, eventId]);
 
   useEffect(() => {
     if (!open || !eventId) return;
@@ -538,9 +624,83 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
   const allCandidatesSelected =
     assignCandidates.length > 0 && assignCandidates.every((e) => selectedEnrollments.includes(e.id));
 
+  /*
+    Four states, not a Done toggle: 'Not required' is how the staff records a
+    deliberate exception, and without it an exempt athlete stays "Requested"
+    forever and reads as a pending job nobody is doing. Shared by the table
+    row and the card so the two views can never disagree on the choices.
+  */
+  const renderStatusSelect = (assignment: TaskAssignment, triggerClass: string) => (
+    <Select
+      value={assignment.status}
+      onValueChange={(v) => handleStatusUpdate(assignment, v as AssignmentStatus)}
+    >
+      <SelectTrigger className={cn('h-8 text-xs', triggerClass, ASSIGNMENT_STATUS_TONE[assignment.status])}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {(Object.keys(ASSIGNMENT_STATUS_LABELS) as AssignmentStatus[]).map((s) => (
+          <SelectItem key={s} value={s} className={ASSIGNMENT_STATUS_TONE[s]}>
+            {ASSIGNMENT_STATUS_LABELS[s]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+
+  const renderNotesInput = (assignment: TaskAssignment) => (
+    <Input
+      className="h-8 text-xs"
+      placeholder="Add note..."
+      defaultValue={assignment.notes || ''}
+      onBlur={(e) => {
+        if (e.target.value !== assignment.notes) {
+          handleNotesUpdate(assignment, e.target.value);
+        }
+      }}
+    />
+  );
+
+  const renderDeleteButton = (assignment: TaskAssignment) => (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+      title="Remove from task"
+      aria-label="Remove from task"
+      onClick={() => handleDelete(assignment.id)}
+    >
+      <Trash2 className="h-4 w-4" />
+    </Button>
+  );
+
+  const completedLabel = (assignment: TaskAssignment) =>
+    assignment.completed_at ? format(new Date(assignment.completed_at), 'MMM dd, HH:mm') : '-';
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className={cn('flex flex-col bg-background', LAYOUT_CLASS[layout])} side="right">
+    /*
+      Non-modal so the sidebar stays clickable while a task is open (UAE-93):
+      the modal overlay sat over the page, and the click on the next task only
+      closed this sheet. Clicking outside still dismisses — except on another
+      task link, where the sheet stays and the page swaps the task in place.
+    */
+    <Sheet open={open} onOpenChange={onOpenChange} modal={false}>
+      <SheetContent
+        className={cn('flex flex-col bg-background', LAYOUT_CLASS[layout])}
+        side="right"
+        onInteractOutside={(event) => {
+          const target = event.detail.originalEvent.target;
+          if (target instanceof Element && target.closest('a[href*="?task="]')) event.preventDefault();
+        }}
+      >
+        {/*
+          Non-modal means no Radix overlay. The centred framing needs the page
+          dimmed behind it to read as a dialog, so it gets a backdrop that
+          dims but does not catch clicks.
+        */}
+        {layout === 'center' && (
+          <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 bg-black/50" />
+        )}
         <SheetHeader className="mb-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:justify-between sm:items-start mr-8">
             <div>
@@ -556,7 +716,23 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                 behind it. Remembered per browser so the choice survives closing
                 the task.
               */}
-              <div className="flex rounded-md border p-0.5">
+              <div className="flex rounded-md border p-0.5" role="group" aria-label="Athlete view">
+                {VIEWS.map(({ key, Icon, title }) => (
+                  <Button
+                    key={key}
+                    variant={view === key ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    title={title}
+                    aria-label={title}
+                    aria-pressed={view === key}
+                    onClick={() => changeView(key)}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </Button>
+                ))}
+              </div>
+              <div className="flex rounded-md border p-0.5" role="group" aria-label="Sheet layout">
                 {LAYOUTS.map(({ key, Icon, title }) => (
                   <Button
                     key={key}
@@ -631,6 +807,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           </Button>
         </div>
 
+        {view === 'list' && (
         <div className="flex-1 overflow-auto border rounded-md">
           <Table>
             <TableHeader>
@@ -682,49 +859,10 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
                     <TableCell>
                       <Badge variant="secondary" className="font-normal">{assignment.enrollment?.role.name}</Badge>
                     </TableCell>
-                    <TableCell>
-                      {/*
-                        Four states, not a Done toggle: 'Not required' is how the
-                        staff records a deliberate exception, and without it an
-                        exempt athlete stays "Requested" forever and reads as a
-                        pending job nobody is doing.
-                      */}
-                      <Select
-                        value={assignment.status}
-                        onValueChange={(v) => handleStatusUpdate(assignment, v as AssignmentStatus)}
-                      >
-                        <SelectTrigger className={`h-8 w-[150px] text-xs ${ASSIGNMENT_STATUS_TONE[assignment.status] || ''}`}>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {(Object.keys(ASSIGNMENT_STATUS_LABELS) as AssignmentStatus[]).map((s) => (
-                            <SelectItem key={s} value={s} className={ASSIGNMENT_STATUS_TONE[s]}>
-                              {ASSIGNMENT_STATUS_LABELS[s]}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {assignment.completed_at ? format(new Date(assignment.completed_at), 'MMM dd, HH:mm') : '-'}
-                    </TableCell>
-                    <TableCell>
-                        <Input 
-                            className="h-8 text-xs" 
-                            placeholder="Add note..." 
-                            defaultValue={assignment.notes || ''}
-                            onBlur={(e) => {
-                                if (e.target.value !== assignment.notes) {
-                                    handleNotesUpdate(assignment, e.target.value);
-                                }
-                            }}
-                        />
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDelete(assignment.id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
+                    <TableCell>{renderStatusSelect(assignment, 'w-[150px]')}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{completedLabel(assignment)}</TableCell>
+                    <TableCell>{renderNotesInput(assignment)}</TableCell>
+                    <TableCell>{renderDeleteButton(assignment)}</TableCell>
                   </TableRow>
                   );
                 })
@@ -732,6 +870,69 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
             </TableBody>
           </Table>
         </div>
+        )}
+
+        {view === 'card' && (
+        /*
+          One card per athlete, in the list's current order and filters.
+          Columns follow the PANEL width (container query), not the window:
+          the side panel is 800px on a wide desktop and gets two columns, the
+          full-screen framing three, a phone one.
+        */
+        <div className="flex-1 overflow-auto @container">
+          {loading ? (
+            <p className="py-8 text-center text-sm">Loading...</p>
+          ) : filteredAssignments.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No assignments found</p>
+          ) : (
+            <div className="grid gap-2 @lg:grid-cols-2 @4xl:grid-cols-3">
+              {filteredAssignments.map((assignment) => {
+                const person = assignment.enrollment?.person;
+                const position = positionOf(assignment);
+                const name = person?.compiled_name || '';
+                return (
+                  <div key={assignment.id} className="flex flex-col gap-3 rounded-md border p-3">
+                    <div className="flex items-start gap-3">
+                      <FighterAvatar
+                        name={name}
+                        photoUrl={getFighterPhotoUrl(person?.appadmin_fighter_id)}
+                        corner={position.corner}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <FighterIdentity
+                          name={name}
+                          fighterId={person?.appadmin_fighter_id ? String(person.appadmin_fighter_id) : null}
+                          eventName={eventName}
+                          compact
+                          subtitle={
+                            <div className="flex flex-wrap items-center gap-1">
+                              <Badge variant="secondary" className="font-normal">{assignment.enrollment?.role.name}</Badge>
+                              {position.corner && (
+                                <Badge variant="outline" className={cn('font-mono text-[10px] px-1 py-0 h-4', CORNER_BADGE_CLASS[position.corner])}>
+                                  {position.corner}
+                                </Badge>
+                              )}
+                            </div>
+                          }
+                        />
+                      </div>
+                      <div className={cn('shrink-0 rounded-md px-2', FIGHT_ORDER_CELL_CLASS)} title="Fight number">
+                        <FightOrderCell order={position.fightOrder} />
+                      </div>
+                      {renderDeleteButton(assignment)}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {renderStatusSelect(assignment, 'min-w-[140px] flex-1')}
+                      <span className="text-xs text-muted-foreground">{completedLabel(assignment)}</span>
+                    </div>
+                    {renderNotesInput(assignment)}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        )}
 
         {/* Assign Dialog */}
         <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>

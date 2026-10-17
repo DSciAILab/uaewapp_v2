@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   SortableHead,
@@ -19,7 +19,7 @@ import { deleteEventTask, updateTaskStatus } from '@/lib/services/task-service';
 import { toast } from 'sonner';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { TaskAssignmentsSheet } from './task-assignments-sheet';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 
 interface TaskTableProps {
   tasks: EventTask[];
@@ -68,6 +68,13 @@ export function TaskTable({ tasks, onEdit, onRefresh }: TaskTableProps) {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [assignmentTask, setAssignmentTask] = useState<EventTask | null>(null);
+
+  // The page opens its own sheet for a sidebar deep link (?task=); with the
+  // sheets non-modal, ours would otherwise stay up underneath it.
+  const linkedSlug = useSearchParams().get('task');
+  useEffect(() => {
+    if (linkedSlug) setAssignmentTask(null);
+  }, [linkedSlug]);
   const [sort, setSort] = useState<SortState<SortKey>>({ key: 'due', dir: 'asc' });
   const params = useParams();
   const eventId = params.eventId as string;
