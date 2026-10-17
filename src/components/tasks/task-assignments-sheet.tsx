@@ -78,14 +78,16 @@ function offersLabelSheet(task: EventTask | null): boolean {
  * the panel instead of centring it.
  */
 const LAYOUT_CLASS: Record<SheetLayout, string> = {
-  side: 'inset-y-0 right-0 left-auto h-full w-3/4 sm:max-w-[800px] border-l',
+  // Phones (< 640px): every framing takes the whole screen — a 3/4 panel on
+  // 390px left the header and the filter bar cut off on the right (UAE-88).
+  side: 'inset-y-0 right-0 left-auto h-full w-full sm:w-3/4 sm:max-w-[800px] border-l',
   // `inset-0` + `m-auto` with a fixed size centres on both axes without any
   // top/left/translate arithmetic, so nothing here has to out-order the base
   // `inset-y-0 right-0`. Every layout restates sm:max-w — a responsive variant
   // is a separate property to tailwind-merge, so the base `sm:max-w-sm` sails
   // through an unprefixed `max-w-none` and would have capped both of these at
   // 384px on any desktop.
-  center: 'inset-0 m-auto h-[92vh] w-[94vw] max-w-[1400px] sm:max-w-[1400px] rounded-lg border',
+  center: 'inset-0 m-auto h-full w-full sm:h-[92vh] sm:w-[94vw] max-w-[1400px] sm:max-w-[1400px] sm:rounded-lg border-0 sm:border',
   full: 'inset-0 h-full w-full max-w-none sm:max-w-none rounded-none border-0',
 };
 
@@ -540,12 +542,12 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className={cn('flex flex-col bg-background', LAYOUT_CLASS[layout])} side="right">
         <SheetHeader className="mb-4">
-          <div className="flex justify-between items-start mr-8">
+          <div className="flex flex-col gap-2 sm:flex-row sm:gap-0 sm:justify-between sm:items-start mr-8">
             <div>
               <SheetTitle>Task Assignments: {task?.name}</SheetTitle>
               <SheetDescription>{task?.description || 'Manage people assigned to this task'}</SheetDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
               <Badge variant="outline">{stats.completed}/{stats.total} Completed</Badge>
               {/*
                 How the sheet is framed is a per-person habit, not a property of
@@ -574,8 +576,8 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
           </div>
         </SheetHeader>
 
-        <div className="flex items-center gap-2 mb-4">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 mb-4">
+          <div className="relative basis-full sm:basis-0 sm:flex-1">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input 
               placeholder="Search people..." 
@@ -585,7 +587,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
             />
           </div>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[140px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -596,7 +598,7 @@ export function TaskAssignmentsSheet({ task, open, onOpenChange, eventId }: Task
             </SelectContent>
           </Select>
           <Select value={cornerFilter} onValueChange={(v) => setCornerFilter(v as typeof cornerFilter)}>
-            <SelectTrigger className="w-[140px]">
+            <SelectTrigger className="flex-1 sm:flex-none sm:w-[140px]">
               <SelectValue placeholder="Corner" />
             </SelectTrigger>
             <SelectContent>
