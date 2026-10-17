@@ -295,7 +295,7 @@ export async function getTaskById(taskId: string): Promise<EventTask | null> {
   });
 }
 
-export async function createEventTask(eventId: string, formData: EventTaskFormData, userId: string): Promise<EventTask> {
+export async function createEventTask(eventId: string, formData: EventTaskFormData, userId?: string | null): Promise<EventTask> {
   const checklistItems: TaskChecklistItem[] = formData.checklist_items.map(text => ({
     id: crypto.randomUUID(),
     text,
@@ -316,7 +316,7 @@ export async function createEventTask(eventId: string, formData: EventTaskFormDa
       priority: formData.priority,
       status: formData.status,
       assigned_to: formData.assigned_to || null,
-      assigned_by: formData.assigned_to ? userId : null,
+      assigned_by: formData.assigned_to && userId ? userId : null,
       start_date: formData.start_date || null,
       due_date: formData.due_date || null,
       due_time: formData.due_time || null,

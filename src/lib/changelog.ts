@@ -20,7 +20,7 @@ export const CHANGELOG: ChangelogEntry[] = [
     version: '2026.10.17',
     changes: [
       'New "Pre Event Tasks" menu: Blood Test, Photoshoot, Black Screen Video, Video Shooting, Walk-out Songs, Fighter Stats and Medical Clearance, one click each.',
-      'Clicking a task opens the list of athletes who still have to do it; if the event has no such task yet, it is created with every fighter enrolled.',
+      'Every event now starts with its fixed tasks already created and every fighter on them; a fighter added later joins all of them automatically. Clicking a task opens the list of athletes who still have to do it.',
       'Blood Test is now automatic on the Operations Board: the Pre-Event blood test record sets the status (collected or processing = in progress, completed = done).',
     ],
   },

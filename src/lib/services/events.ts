@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Event, EventStatus } from '@/types/database'
+import { seedCatalogTasks } from './event-task-seed'
 
 function getClient() {
   return createClient();
@@ -73,11 +74,20 @@ export async function createEvent(formData: EventFormData): Promise<Event> {
     .single()
 
   if (error) throw error
+  // UAE-88: the fixed tasks exist from day one, not on the first sidebar click.
+  await seedCatalogTasks((data as Event).id)
   return data as Event
 }
 
 export async function updateEvent(id: string, formData: Partial<EventFormData>): Promise<Event> {
   const supabase = getClient();
+  // Seed only on the planning -> active transition, never on a plain save of an
+  // active event: a re-seed would bring back tasks or fighters staff removed.
+  let activating = false
+  if (formData.status === 'active') {
+    const { data: before } = await supabase.from('mma_events').select('status').eq('id', id).maybeSingle()
+    activating = !!before && before.status !== 'active'
+  }
   const { data, error } = await supabase
     .from('mma_events')
     .update(formData)
@@ -86,6 +96,7 @@ export async function updateEvent(id: string, formData: Partial<EventFormData>):
     .single()
 
   if (error) throw error
+  if (activating) await seedCatalogTasks(id)
   return data as Event
 }
 

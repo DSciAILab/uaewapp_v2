@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/client'
 import type { Enrollment, Role, Person, TransportNeed, FlightType } from '@/types/database'
 import type { Database } from '@/types/supabase'
+import { enrollInCatalogTasks } from './event-task-seed'
 
 function getClient() {
   return createClient();
@@ -100,6 +101,7 @@ export async function createEnrollment(formData: EnrollmentFormData): Promise<En
   // Sincronizar módulos relacionados e aguardar para garantir consistência antes do reload da UI
   if (data) {
      await syncRelatedModules(data as unknown as Enrollment)
+     await enrollFighterInCatalogTasks(data as unknown as Enrollment)
   }
 
   return data as unknown as Enrollment
@@ -249,6 +251,19 @@ async function syncRelatedModules(enrollment: Enrollment) {
       }
     }
   }
+}
+
+/**
+ * UAE-88: a fighter joins every catalog task of the event as Requested the
+ * moment they are enrolled. Runs on enrolment only, never on an edit, so a
+ * fighter staff removed from a task is not put back by a corner change.
+ * Coaches and staff are put on tasks deliberately, never in bulk.
+ */
+async function enrollFighterInCatalogTasks(enrollment: Enrollment): Promise<void> {
+  const role = (enrollment as { role?: Role }).role
+  if (enrollment.status !== 'active' || role?.code !== 'F') return
+  const added = await enrollInCatalogTasks(enrollment.event_id, enrollment.id)
+  if (added > 0) console.log('Enrolled in catalog tasks:', { enrollment: enrollment.id, added })
 }
 
 export async function cancelEnrollment(id: string, reason?: string): Promise<void> {
@@ -441,6 +456,7 @@ export async function bulkCreateEnrollments(
       if (error) throw error;
       if (data) {
         await syncRelatedModules(data as unknown as Enrollment);
+        await enrollFighterInCatalogTasks(data as unknown as Enrollment);
         successCount++;
       }
     } catch (err) {
