@@ -204,11 +204,12 @@ export async function getDashboardMatrix(
           ? 'done'
           : assignmentStatus.get(`${r.enrollmentId}|${task.name}`) ?? 'undecided';
       } else if (task.name === 'Blood Test') {
-        // A human decision (not_requested / cancelled) still wins over a test row.
-        const decided = assignmentStatus.get(`${r.enrollmentId}|${task.name}`);
-        status = decided === 'not_requested' || decided === 'cancelled'
-          ? decided
-          : bloodStatus.get(r.enrollmentId) ?? decided ?? 'undecided';
+        // What the team sets in Tasks wins (it was the only source before UAE-88,
+        // and syncBloodTestAssignment keeps the assignment in step with the test
+        // rows). The test row only fills in when no assignment exists yet.
+        status = assignmentStatus.get(`${r.enrollmentId}|${task.name}`)
+          ?? bloodStatus.get(r.enrollmentId)
+          ?? 'undecided';
       } else {
         status = assignmentStatus.get(`${r.enrollmentId}|${task.name}`) ?? 'undecided';
       }
